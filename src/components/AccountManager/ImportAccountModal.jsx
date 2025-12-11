@@ -1,8 +1,7 @@
 import { useState, useRef } from 'react'
 import { X, Upload, FileJson, AlertCircle, CheckCircle, Loader2, Key, FileCode } from 'lucide-react'
 import { invoke } from '@tauri-apps/api/core'
-import { useTheme } from '../../contexts/ThemeContext'
-import { useI18n } from '../../i18n.jsx'
+import { useApp } from '../../hooks/useApp'
 
 // 校验单条账号数据（兼容导出格式和手动输入格式）
 function validateAccount(item, index) {
@@ -56,8 +55,7 @@ function validateAccount(item, index) {
 
 
 function ImportAccountModal({ onClose, onSuccess }) {
-  const { theme, colors } = useTheme()
-  const { t } = useI18n()
+  const { t, theme, colors } = useApp()
   const isDark = theme === 'dark'
   const fileInputRef = useRef(null)
   
@@ -205,7 +203,7 @@ function ImportAccountModal({ onClose, onSuccess }) {
         if (result.success) {
           success.push({ index: i + 1, email: result.email })
         } else {
-          failed.push({ index: i + 1, error: result.error || '未知错误' })
+          failed.push({ index: i + 1, error: result.error || t('common.unknown') })
         }
       } catch (e) {
         failed.push({ index: i + 1, error: String(e).slice(0, 80) })
@@ -384,7 +382,7 @@ function ImportAccountModal({ onClose, onSuccess }) {
                   className={`flex items-center gap-2 px-3 py-2 ${isDark ? 'bg-blue-500/20 hover:bg-blue-500/30 text-blue-300' : 'bg-blue-50 hover:bg-blue-100 text-blue-600'} rounded-xl transition-colors text-sm`}
                 >
                   <FileCode size={16} />
-                  Social 模板
+                  {t('import.socialTemplate')}
                 </button>
                 <button
                   onClick={() => {
@@ -400,7 +398,7 @@ function ImportAccountModal({ onClose, onSuccess }) {
                   className={`flex items-center gap-2 px-3 py-2 ${isDark ? 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-300' : 'bg-purple-50 hover:bg-purple-100 text-purple-600'} rounded-xl transition-colors text-sm`}
                 >
                   <FileCode size={16} />
-                  IdC 模板
+                  {t('import.idcTemplate')}
                 </button>
               </div>
 

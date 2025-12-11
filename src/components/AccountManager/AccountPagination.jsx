@@ -1,6 +1,5 @@
 import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react'
-import { useTheme } from '../../contexts/ThemeContext'
-import { useI18n } from '../../i18n'
+import { useApp } from '../../hooks/useApp'
 
 function AccountPagination({
   totalCount,
@@ -10,8 +9,7 @@ function AccountPagination({
   onPageSizeChange,
   onPageChange,
 }) {
-  const { theme, colors } = useTheme()
-  const { t } = useI18n()
+  const { t, theme, colors } = useApp()
   const isDark = theme === 'dark'
 
   if (totalCount === 0) return null

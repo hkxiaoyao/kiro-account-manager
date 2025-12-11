@@ -31,7 +31,7 @@ const getSubPlan = (a) => a.usageData?.subscriptionInfo?.subscriptionTitle ?? a.
 
 export function calcAccountStats(accounts) {
   const total = accounts.length
-  const active = accounts.filter(a => a.status === '正常' || a.status === '有效').length
+  const active = accounts.filter(a => a.status === 'active' || a.status === '正常' || a.status === '有效').length
   // 使用 Math.round 避免浮点数精度问题
   const totalQuota = Math.round(accounts.reduce((sum, a) => sum + getQuota(a), 0))
   const totalUsed = Math.round(accounts.reduce((sum, a) => sum + getUsed(a), 0))

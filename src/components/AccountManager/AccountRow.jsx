@@ -1,6 +1,5 @@
 import { RefreshCw, Edit2, Trash2, Copy, Check, Clock, Repeat } from 'lucide-react'
-import { useTheme } from '../../contexts/ThemeContext'
-import { useI18n } from '../../i18n'
+import { useApp } from '../../hooks/useApp'
 import { getUsagePercent, getProgressBarColor } from './hooks/useAccountStats'
 import { getQuota, getUsed, getSubType, getSubPlan } from '../../utils/accountStats'
 
@@ -18,8 +17,7 @@ function AccountRow({
   switchingId,
   index = 0,
 }) {
-  const { theme, colors } = useTheme()
-  const { t } = useI18n()
+  const { t, theme, colors } = useApp()
   const isDark = theme === 'dark'
   
   // 从 usageData 读取配额信息
@@ -101,10 +99,10 @@ function AccountRow({
       </td>
       <td className="px-4 py-3">
         <span className={`inline-flex px-2 py-1 rounded-lg text-xs font-medium transition-transform hover:scale-105 ${
-          account.status === '正常' || account.status === '有效'
+          account.status === 'active' || account.status === '正常' || account.status === '有效'
             ? (isDark ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-700')
             : (isDark ? 'bg-red-500/20 text-red-400' : 'bg-red-100 text-red-600')
-        }`}>{account.status}</span>
+        }`}>{(account.status === 'active' || account.status === '正常' || account.status === '有效') ? t('accounts.active') : (account.status === 'banned' || account.status === '封禁' || account.status === '已封禁') ? t('accounts.banned') : account.status}</span>
       </td>
       <td className="px-4 py-3">
         {account.expiresAt ? (

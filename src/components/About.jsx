@@ -3,14 +3,12 @@ import { Github, Heart, Coffee, ExternalLink, Sparkles, Code2, Palette, Cpu, Ref
 import { getVersion } from '@tauri-apps/api/app'
 import { check } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
-import { useTheme } from '../contexts/ThemeContext'
-import { useI18n } from '../i18n.jsx'
+import { useApp } from '../hooks/useApp'
 import alipayQR from '../assets/donate/alipay.jpg'
 import wechatQR from '../assets/donate/wechat.jpg'
 
 function About() {
-  const { theme, colors } = useTheme()
-  const { t } = useI18n()
+  const { t, theme, colors } = useApp()
   const isDark = theme === 'dark'
   const [version, setVersion] = useState('')
   const [checking, setChecking] = useState(false)
@@ -33,14 +31,14 @@ function About() {
       const update = await check()
       if (update) {
         setUpdateInfo(update)
-        setUpdateStatus({ type: 'update', message: `发现新版本 ${update.version}`, update })
+        setUpdateStatus({ type: 'update', message: t('about.newVersion', { version: update.version }), update })
       } else {
-        setUpdateStatus({ type: 'latest', message: '已是最新版本' })
+        setUpdateStatus({ type: 'latest', message: t('about.upToDate') })
       }
     } catch (e) {
-      console.error('检查更新失败:', e)
+      console.error('Check update failed:', e)
       // 网络错误等情况，静默处理，显示为已是最新版本
-      setUpdateStatus({ type: 'latest', message: '已是最新版本' })
+      setUpdateStatus({ type: 'latest', message: t('about.upToDate') })
     } finally {
       setChecking(false)
     }
@@ -69,8 +67,8 @@ function About() {
       })
       await relaunch()
     } catch (e) {
-      console.error('更新失败:', e)
-      setUpdateStatus({ type: 'error', message: '更新失败: ' + e })
+      console.error('Update failed:', e)
+      setUpdateStatus({ type: 'error', message: t('about.updateFailed') + ': ' + e })
       setDownloading(false)
     }
   }
@@ -177,7 +175,7 @@ function About() {
                 className={`flex items-center gap-3 ${isDark ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-900 hover:bg-gray-800'} rounded-xl p-3 transition-colors group`}
               >
                 <Github size={18} className="text-white" />
-                <span className="text-white text-sm font-medium">GitHub</span>
+                <span className="text-white text-sm font-medium">GitHub: @hj01857655</span>
                 <ExternalLink size={14} className="text-white/50 ml-auto group-hover:text-white" />
               </a>
               <a 
@@ -190,6 +188,18 @@ function About() {
                   <path d="M12.003 2c-2.265 0-6.29 1.364-6.29 7.325v1.195S3.55 14.96 3.55 17.474c0 .665.17 1.025.281 1.025.114 0 .902-.484 1.748-2.072 0 0-.18 2.197 1.904 3.967 0 0-1.77.495-1.77 1.182 0 .686 4.078.43 6.29.43 2.213 0 6.29.256 6.29-.43 0-.687-1.77-1.182-1.77-1.182 2.085-1.77 1.905-3.967 1.905-3.967.845 1.588 1.634 2.072 1.746 2.072.111 0 .283-.36.283-1.025 0-2.514-2.166-6.954-2.166-6.954V9.325C18.29 3.364 14.268 2 12.003 2z"/>
                 </svg>
                 <span className="text-white text-sm font-medium">{t('about.qqGroup')}: 1020204332</span>
+                <ExternalLink size={14} className="text-white/50 ml-auto group-hover:text-white" />
+              </a>
+              <a 
+                href="https://t.me/kiro520" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className={`flex items-center gap-3 ${isDark ? 'bg-sky-600 hover:bg-sky-500' : 'bg-sky-500 hover:bg-sky-600'} rounded-xl p-3 transition-colors group`}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+                  <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+                </svg>
+                <span className="text-white text-sm font-medium">{t('about.telegram')}: @kiro520</span>
                 <ExternalLink size={14} className="text-white/50 ml-auto group-hover:text-white" />
               </a>
             </div>

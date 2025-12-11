@@ -1,15 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import { useTheme } from '../../contexts/ThemeContext'
+import { useApp } from '../../hooks/useApp'
 import { useDialog } from '../../contexts/DialogContext'
-import { useI18n } from '../../i18n.jsx'
 import { Server, Plus, Edit2, Trash2, Terminal } from 'lucide-react'
 import AddMCPModal from '../MCPManager/AddMCPModal'
 import EditMCPModal from '../MCPManager/EditMCPModal'
 
 function MCPPanel() {
-  const { theme, colors } = useTheme()
-  const { t } = useI18n()
+  const { t, theme, colors } = useApp()
   const isDark = theme === 'dark'
   const { showConfirm } = useDialog()
   const [servers, setServers] = useState({})

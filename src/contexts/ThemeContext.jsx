@@ -5,7 +5,7 @@ const ThemeContext = createContext()
 
 export const themes = {
   light: {
-    name: '浅色',
+    nameKey: 'theme.light',
     sidebar: 'bg-gradient-to-b from-[#4361ee] to-[#3651de]',
     sidebarText: 'text-white',
     sidebarHover: 'hover:bg-white/10',
@@ -25,7 +25,7 @@ export const themes = {
     iconColor: '#1a1a1a',
   },
   dark: {
-    name: '深色',
+    nameKey: 'theme.dark',
     sidebar: 'bg-gradient-to-b from-[#1a1a2e] to-[#16162a]',
     sidebarText: 'text-white',
     sidebarHover: 'hover:bg-white/10',
@@ -45,7 +45,7 @@ export const themes = {
     iconColor: 'white',
   },
   purple: {
-    name: '紫色',
+    nameKey: 'theme.purple',
     sidebar: 'bg-gradient-to-b from-[#7c3aed] to-[#6d28d9]',
     sidebarText: 'text-white',
     sidebarHover: 'hover:bg-white/10',
@@ -67,7 +67,7 @@ export const themes = {
     loginBtnIcon: '#6d28d9',
   },
   green: {
-    name: '绿色',
+    nameKey: 'theme.green',
     sidebar: 'bg-gradient-to-b from-[#059669] to-[#047857]',
     sidebarText: 'text-white',
     sidebarHover: 'hover:bg-white/10',

@@ -4,11 +4,11 @@ import { check } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { Download, RefreshCw, X, Sparkles, CheckCircle2 } from 'lucide-react'
 import { useDialog } from '../contexts/DialogContext'
-import { useI18n } from '../i18n.jsx'
+import { useApp } from '../hooks/useApp'
 
 function UpdateChecker() {
   const { showError } = useDialog()
-  const { t } = useI18n()
+  const { t } = useApp()
   const [updateInfo, setUpdateInfo] = useState(null)
   const [installing, setInstalling] = useState(false)
   const [downloadComplete, setDownloadComplete] = useState(false)

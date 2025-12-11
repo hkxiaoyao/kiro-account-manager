@@ -1,8 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import { useTheme } from '../../contexts/ThemeContext'
+import { useApp } from '../../hooks/useApp'
 import { useDialog } from '../../contexts/DialogContext'
-import { useI18n } from '../../i18n'
 import { useAccounts } from './hooks/useAccounts'
 import AccountHeader from './AccountHeader'
 import AccountTable from './AccountTable'
@@ -15,9 +14,8 @@ import EditAccountModal from './EditAccountModal'
 import ConfirmDialog from './ConfirmDialog'
 
 function AccountManager() {
-  const { colors } = useTheme()
+  const { t, colors } = useApp()
   const { showConfirm } = useDialog()
-  const { t } = useI18n()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedIds, setSelectedIds] = useState([])
   const [pageSize, setPageSize] = useState(20)
@@ -117,9 +115,9 @@ function AccountManager() {
     try {
       // 读取设置，判断是否自动更换机器码
       const appSettings = await invoke('get_app_settings').catch(() => ({}))
-      const autoChangeMachineId = appSettings.autoChangeMachineId ?? false
-      const bindMachineIdToAccount = appSettings.bindMachineIdToAccount ?? false
-      const useBoundMachineId = appSettings.useBoundMachineId ?? true
+      const autoChangeMachineId = appSettings.autoChangeMachineId === true
+      const bindMachineIdToAccount = appSettings.bindMachineIdToAccount === true
+      const useBoundMachineId = appSettings.useBoundMachineId !== false
       
       // 处理账号绑定机器码逻辑
       if (autoChangeMachineId && bindMachineIdToAccount) {

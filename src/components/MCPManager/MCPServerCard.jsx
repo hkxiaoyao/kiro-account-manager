@@ -1,10 +1,8 @@
 import { Server, Edit2, Trash2, Terminal } from 'lucide-react'
-import { useTheme } from '../../contexts/ThemeContext'
-import { useI18n } from '../../i18n'
+import { useApp } from '../../hooks/useApp'
 
 function MCPServerCard({ name, config, onToggle, onEdit, onDelete }) {
-  const { theme, colors } = useTheme()
-  const { t } = useI18n()
+  const { t, theme, colors } = useApp()
   const isDark = theme === 'dark'
   const isDisabled = config.disabled
 

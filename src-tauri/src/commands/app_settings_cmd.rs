@@ -3,10 +3,11 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
     pub theme: Option<String>,
+    pub locale: Option<String>,  // 界面语言
     pub lock_model: Option<bool>,
     pub locked_model: Option<String>,
     pub auto_refresh: Option<bool>,
@@ -17,6 +18,24 @@ pub struct AppSettings {
     pub bind_machine_id_to_account: Option<bool>,  // 是否启用账户绑定机器码
     pub use_bound_machine_id: Option<bool>,        // 切换时使用绑定的机器码（否则随机生成）
     pub account_machine_ids: Option<std::collections::HashMap<String, String>>,  // 账户ID -> 机器码映射
+}
+
+impl Default for AppSettings {
+    fn default() -> Self {
+        Self {
+            theme: Some("dark".to_string()),
+            locale: Some("zh-CN".to_string()),
+            lock_model: Some(true),
+            locked_model: Some("claude-opus-4.5".to_string()),
+            auto_refresh: Some(true),
+            auto_refresh_interval: Some(50),
+            auto_change_machine_id: Some(true),
+            browser_path: None,
+            bind_machine_id_to_account: Some(true),
+            use_bound_machine_id: Some(true),
+            account_machine_ids: None,
+        }
+    }
 }
 
 fn get_app_settings_path() -> PathBuf {
@@ -54,6 +73,7 @@ fn save_app_settings_inner(updates: AppSettings) -> Result<(), String> {
     
     // 只更新传入的非 None 字段
     if updates.theme.is_some() { current.theme = updates.theme; }
+    if updates.locale.is_some() { current.locale = updates.locale; }
     if updates.lock_model.is_some() { current.lock_model = updates.lock_model; }
     if updates.locked_model.is_some() { current.locked_model = updates.locked_model; }
     if updates.auto_refresh.is_some() { current.auto_refresh = updates.auto_refresh; }

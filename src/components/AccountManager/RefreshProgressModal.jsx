@@ -1,10 +1,8 @@
 import { RefreshCw } from 'lucide-react'
-import { useTheme } from '../../contexts/ThemeContext'
-import { useI18n } from '../../i18n.jsx'
+import { useApp } from '../../hooks/useApp'
 
 function RefreshProgressModal({ refreshProgress }) {
-  const { theme, colors } = useTheme()
-  const { t } = useI18n()
+  const { t, theme, colors } = useApp()
   const isDark = theme === 'dark'
 
   if (!refreshProgress || refreshProgress.total === 0) return null

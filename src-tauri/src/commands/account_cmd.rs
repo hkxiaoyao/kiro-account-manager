@@ -118,7 +118,7 @@ pub async fn sync_account(state: State<'_, AppState>, id: String) -> Result<Acco
         }
         a.expires_at = Some(expires_at_str);
         a.usage_data = Some(usage_data);
-        a.status = if is_banned { "已封禁".to_string() } else { "正常".to_string() };
+        a.status = if is_banned { "banned".to_string() } else { "active".to_string() };
         
         let result = a.clone();
         store.save_to_file();
@@ -316,7 +316,7 @@ pub async fn add_account_by_social(
         existing.refresh_token = Some(new_refresh_token);
         existing.user_id = user_id;
         existing.usage_data = Some(usage_data);
-        existing.status = if is_banned { "已封禁".to_string() } else { "正常".to_string() };
+        existing.status = if is_banned { "banned".to_string() } else { "active".to_string() };
         existing.clone()
     } else {
         let mut account = Account::new(email.clone(), format!("Kiro {} 账号", idp));
@@ -325,7 +325,7 @@ pub async fn add_account_by_social(
         account.provider = Some(idp.clone());
         account.user_id = user_id;
         account.usage_data = Some(usage_data);
-        account.status = if is_banned { "已封禁".to_string() } else { "正常".to_string() };
+        account.status = if is_banned { "banned".to_string() } else { "active".to_string() };
         store.accounts.insert(0, account.clone());
         account
     };
@@ -469,7 +469,7 @@ pub async fn add_account_by_idc(
         existing.id_token = auth_result.id_token;
         existing.sso_session_id = auth_result.sso_session_id;
         existing.usage_data = Some(usage_data);
-        existing.status = if is_banned { "已封禁".to_string() } else { "正常".to_string() };
+        existing.status = if is_banned { "banned".to_string() } else { "active".to_string() };
         existing.clone()
     } else {
         let mut account = Account::new(email.clone(), "Kiro BuilderId 账号".to_string());
@@ -485,7 +485,7 @@ pub async fn add_account_by_idc(
         account.id_token = auth_result.id_token;
         account.sso_session_id = auth_result.sso_session_id;
         account.usage_data = Some(usage_data);
-        account.status = if is_banned { "已封禁".to_string() } else { "正常".to_string() };
+        account.status = if is_banned { "banned".to_string() } else { "active".to_string() };
         store.accounts.insert(0, account.clone());
         account
     };

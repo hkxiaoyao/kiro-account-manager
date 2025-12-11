@@ -91,20 +91,31 @@ pub async fn web_oauth_complete(
         .ok_or("No csrf_token from ExchangeToken")?;
 
     let portal_client = crate::providers::web_oauth::KiroWebPortalClient::new();
-    let user_info = portal_client.get_user_info(
-        &auth_result.access_token,
-        &init_result.idp,
-    ).await?;
-
-    let provider = &init_result.provider_id;
-    let email = user_info.email.clone()
-        .ok_or("No email in GetUserInfo response")?;
-    let user_id = user_info.user_id.clone();
-
+    
+    // 获取配额数据（包含 userInfo）
     let usage = portal_client.get_user_usage_and_limits(
         &auth_result.access_token,
         &init_result.idp,
     ).await?;
+    
+    // 从 usage.user_info 获取 email 和 user_id
+    let provider = &init_result.provider_id;
+    let email = usage.user_info.as_ref()
+        .and_then(|u| u.email.clone())
+        .ok_or("No email in GetUserUsageAndLimits response")?;
+    let user_id = usage.user_info.as_ref()
+        .and_then(|u| u.user_id.clone());
+    
+    // 检测账号状态（仅用于封禁检测，不保存）
+    if let Ok(user_info) = portal_client.get_user_info(
+        &auth_result.access_token,
+        &init_result.idp,
+    ).await {
+        if user_info.status.as_deref() == Some("Suspended") {
+            return Err("账号已被封禁".to_string());
+        }
+    }
+    
     let usage_data = serde_json::to_value(&usage).unwrap_or(serde_json::Value::Null);
 
     let mut store = state.store.lock().unwrap();
@@ -126,7 +137,7 @@ pub async fn web_oauth_complete(
         existing.profile_arn = auth_result.profile_arn.clone();
         existing.csrf_token = auth_result.csrf_token.clone();
         existing.usage_data = Some(usage_data);
-        existing.status = "正常".to_string();
+        existing.status = "active".to_string();
         existing.clone()
     } else {
         // 新建账号
@@ -215,7 +226,7 @@ pub async fn web_oauth_refresh(
         a.csrf_token = auth_result.csrf_token;
         a.expires_at = Some(auth_result.expires_at);
         a.usage_data = Some(usage_data);
-        a.status = "正常".to_string();
+        a.status = "active".to_string();
         if auth_result.profile_arn.is_some() {
             a.profile_arn = auth_result.profile_arn;
         }

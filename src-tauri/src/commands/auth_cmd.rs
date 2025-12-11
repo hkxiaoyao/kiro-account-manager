@@ -73,7 +73,7 @@ async fn login_social(
         existing.label = format!("Kiro {} 账号", provider_id);
         // 不覆盖 csrfToken，保留 Web OAuth 的
         existing.usage_data = Some(usage_data);
-        existing.status = "正常".to_string();
+        existing.status = "active".to_string();
         existing.clone()
     } else {
         // 新建账号
@@ -145,7 +145,7 @@ async fn login_idc(
         existing.id_token = auth_result.id_token;
         existing.profile_arn = auth_result.profile_arn;
         existing.usage_data = Some(usage_data);
-        existing.status = if is_banned { "已封禁".to_string() } else { "正常".to_string() };
+        existing.status = if is_banned { "banned".to_string() } else { "active".to_string() };
         existing.clone()
     } else {
         let mut account = Account::new(email.clone(), format!("Kiro {} 账号", provider_id));
@@ -162,7 +162,7 @@ async fn login_idc(
         account.id_token = auth_result.id_token;
         account.profile_arn = auth_result.profile_arn;
         account.usage_data = Some(usage_data);
-        account.status = if is_banned { "已封禁".to_string() } else { "正常".to_string() };
+        account.status = if is_banned { "banned".to_string() } else { "active".to_string() };
         store.accounts.insert(0, account.clone());
         account
     };
@@ -231,7 +231,7 @@ pub async fn handle_kiro_social_callback(
         existing.provider = Some(pending.provider.clone());
         existing.user_id = user_id;
         existing.usage_data = Some(usage_data);
-        existing.status = "正常".to_string();
+        existing.status = "active".to_string();
         existing.clone()
     } else {
         let mut account = Account::new(email.clone(), format!("Kiro {} 账号", pending.provider));
@@ -304,7 +304,7 @@ pub async fn add_kiro_account(
         existing.user_id = user_id;
         existing.csrf_token = Some(csrf_token);
         existing.usage_data = Some(usage_data);
-        existing.status = "正常".to_string();
+        existing.status = "active".to_string();
         existing.clone()
     } else {
         let mut account = Account::new(final_email.clone(), format!("Kiro {} 账号", idp));

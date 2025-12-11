@@ -1,14 +1,12 @@
 import { useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { X, Key, Copy, Check, Shield, ChevronDown, ChevronUp, Clock } from 'lucide-react'
-import { useTheme } from '../../contexts/ThemeContext'
+import { useApp } from '../../hooks/useApp'
 import { useDialog } from '../../contexts/DialogContext'
-import { useI18n } from '../../i18n.jsx'
 
 function EditAccountModal({ account, onClose, onSuccess }) {
-  const { theme, colors } = useTheme()
+  const { t, theme, colors } = useApp()
   const { showError } = useDialog()
-  const { t } = useI18n()
   const isDark = theme === 'dark'
   
   const [form, setForm] = useState({

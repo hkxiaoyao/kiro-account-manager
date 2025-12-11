@@ -1,6 +1,5 @@
 import { Users, Plus } from 'lucide-react'
-import { useTheme } from '../../contexts/ThemeContext'
-import { useI18n } from '../../i18n.jsx'
+import { useApp } from '../../hooks/useApp'
 import AccountCard from './AccountCard'
 
 function AccountTable({
@@ -21,8 +20,7 @@ function AccountTable({
   switchingId,
   localToken,
 }) {
-  const { theme, colors } = useTheme()
-  const { t } = useI18n()
+  const { t, theme, colors } = useApp()
   const isDark = theme === 'dark'
 
   return (

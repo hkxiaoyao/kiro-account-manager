@@ -8,6 +8,7 @@ use std::path::PathBuf;
 pub struct KiroSettings {
     pub http_proxy: Option<String>,
     pub model_selection: Option<String>,
+    pub enable_codebase_indexing: Option<bool>,
 }
 
 fn get_kiro_settings_path() -> Option<PathBuf> {
@@ -51,6 +52,7 @@ fn get_kiro_settings_inner() -> Result<KiroSettings, String> {
     Ok(KiroSettings {
         http_proxy: json.get("http.proxy").and_then(|v| v.as_str()).map(|s| s.to_string()),
         model_selection: json.get("kiroAgent.modelSelection").and_then(|v| v.as_str()).map(|s| s.to_string()),
+        enable_codebase_indexing: json.get("kiroAgent.enableCodebaseIndexing").and_then(|v| v.as_bool()),
     })
 }
 
@@ -127,6 +129,38 @@ pub async fn set_kiro_proxy(proxy: String) -> Result<(), String> {
 #[tauri::command]
 pub async fn set_kiro_model(model: String) -> Result<(), String> {
     tokio::task::spawn_blocking(move || set_kiro_model_inner(model))
+        .await
+        .map_err(|e| format!("Task failed: {}", e))?
+}
+
+fn set_kiro_codebase_indexing_inner(enabled: bool) -> Result<(), String> {
+    let path = get_kiro_settings_path()
+        .ok_or("无法获取 Kiro 设置路径")?;
+    
+    let mut settings: serde_json::Value = if path.exists() {
+        let content = std::fs::read_to_string(&path)
+            .map_err(|e| format!("读取设置文件失败: {}", e))?;
+        serde_json::from_str(&content).unwrap_or(serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+    
+    if let Some(obj) = settings.as_object_mut() {
+        obj.insert("kiroAgent.enableCodebaseIndexing".to_string(), serde_json::Value::Bool(enabled));
+    }
+    
+    let content = serde_json::to_string_pretty(&settings)
+        .map_err(|e| format!("序列化设置失败: {}", e))?;
+    
+    std::fs::write(&path, content)
+        .map_err(|e| format!("写入设置文件失败: {}", e))?;
+    
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn set_kiro_codebase_indexing(enabled: bool) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || set_kiro_codebase_indexing_inner(enabled))
         .await
         .map_err(|e| format!("Task failed: {}", e))?
 }

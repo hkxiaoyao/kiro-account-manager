@@ -1,14 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import { useTheme } from '../../contexts/ThemeContext'
+import { useApp } from '../../hooks/useApp'
 import { useDialog } from '../../contexts/DialogContext'
-import { useI18n } from '../../i18n.jsx'
 import { Package, Tag, Calendar, User, Download, Trash2, RefreshCw, Check } from 'lucide-react'
 
 function PowersPanel() {
-  const { theme, colors } = useTheme()
+  const { t, theme, colors } = useApp()
   const { showConfirm, showError, showSuccess } = useDialog()
-  const { t } = useI18n()
   const isDark = theme === 'dark'
   const [allPowers, setAllPowers] = useState([])
   const [loading, setLoading] = useState(true)

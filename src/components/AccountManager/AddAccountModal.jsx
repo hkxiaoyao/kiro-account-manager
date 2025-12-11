@@ -1,12 +1,10 @@
 import { useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { X, Download, Key, Shield, ChevronDown } from 'lucide-react'
-import { useTheme } from '../../contexts/ThemeContext'
-import { useI18n } from '../../i18n.jsx'
+import { useApp } from '../../hooks/useApp'
 
 function AddAccountModal({ onClose, onSuccess }) {
-  const { theme, colors } = useTheme()
-  const { t } = useI18n()
+  const { t, theme, colors } = useApp()
   const isDark = theme === 'dark'
   const [addLoading, setAddLoading] = useState(false)
   const [addError, setAddError] = useState('')

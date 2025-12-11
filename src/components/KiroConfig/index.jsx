@@ -1,14 +1,12 @@
 import { useState } from 'react'
-import { useTheme } from '../../contexts/ThemeContext'
-import { useI18n } from '../../i18n.jsx'
+import { useApp } from '../../hooks/useApp'
 import { Server, Sparkles, Settings2, FileText } from 'lucide-react'
 import MCPPanel from './MCPPanel'
 import PowersPanel from './PowersPanel'
 import SteeringPanel from './SteeringPanel'
 
 function KiroConfig() {
-  const { theme, colors } = useTheme()
-  const { t } = useI18n()
+  const { t, theme, colors } = useApp()
   const isDark = theme === 'dark'
   const [activeTab, setActiveTab] = useState('mcp')
 

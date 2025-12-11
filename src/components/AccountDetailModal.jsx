@@ -1,14 +1,12 @@
 import { useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { X, Copy, Check, RefreshCw, User, CreditCard, Key, Clock, ChevronDown, ChevronUp, Shield } from 'lucide-react'
-import { useTheme } from '../contexts/ThemeContext'
+import { useApp } from '../hooks/useApp'
 import { useDialog } from '../contexts/DialogContext'
-import { useI18n } from '../i18n'
 
 function AccountDetailModal({ account, onClose }) {
-  const { theme, colors } = useTheme()
+  const { t, theme, colors } = useApp()
   const { showError } = useDialog()
-  const { t } = useI18n()
   const isDark = theme === 'dark'
   const initQuota = account.usageData?.usageBreakdownList?.[0]?.usageLimit ?? account.quota ?? 50
   const initUsed = account.usageData?.usageBreakdownList?.[0]?.currentUsage ?? account.used ?? 0
@@ -348,9 +346,9 @@ function AccountDetailModal({ account, onClose }) {
           {/* Footer */}
           <div className={`flex justify-between items-center px-6 py-4 ${colors.card} border-t ${colors.cardBorder}`}>
             <div className={`text-xs ${colors.textMuted}`}>
-              {account.status === '正常' || account.status === '有效' 
+              {account.status === 'active' || account.status === '正常' || account.status === '有效' 
                 ? <span className="flex items-center gap-1 text-green-500"><Shield size={12} />{t('detail.accountNormal')}</span> 
-                : account.status === '封禁' || account.status === '已封禁'
+                : account.status === 'banned' || account.status === '封禁' || account.status === '已封禁'
                   ? <span className="flex items-center gap-1 text-red-500"><Shield size={12} />{t('detail.accountBanned')}</span>
                   : <span className="flex items-center gap-1 text-orange-500"><Shield size={12} />{account.status}</span>}
             </div>

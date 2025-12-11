@@ -2,22 +2,20 @@ import { useState, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { emit } from '@tauri-apps/api/event'
 import { Lock, Copy, Sun, Moon, Palette, Check, RefreshCw, Settings as SettingsIcon, Clock, Globe, Search, Shield, Download, Upload, Shuffle, AlertTriangle } from 'lucide-react'
-import { useTheme } from '../contexts/ThemeContext'
+import { useApp } from '../hooks/useApp'
 import { useDialog } from '../contexts/DialogContext'
-import { useI18n } from '../i18n.jsx'
 
 function Settings() {
-  const { theme, setTheme, colors } = useTheme()
+  const { t, theme, colors, setTheme } = useApp()
   const { showConfirm, showError, showSuccess } = useDialog()
-  const { t } = useI18n()
   const isDark = theme === 'dark'
   
   const [aiModel, setAiModel] = useState('claude-sonnet-4.5')
   const [lockModel, setLockModel] = useState(true)
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [autoRefreshInterval, setAutoRefreshInterval] = useState(50) // 分钟
-  const [autoChangeMachineId, setAutoChangeMachineId] = useState(false)
-  const [bindMachineIdToAccount, setBindMachineIdToAccount] = useState(false)
+  const [autoChangeMachineId, setAutoChangeMachineId] = useState(true)
+  const [machineIdMode, setMachineIdMode] = useState('bind') // 'random' | 'bind'
   const [httpProxy, setHttpProxy] = useState('')
   const [originalProxy, setOriginalProxy] = useState('') // 原始代理值，用于判断是否修改
   const [savingProxy, setSavingProxy] = useState(false)
@@ -28,6 +26,7 @@ function Settings() {
   const [detectedBrowsers, setDetectedBrowsers] = useState([])
   const [showBrowserList, setShowBrowserList] = useState(false)
   const [detectingProxy, setDetectingProxy] = useState(false)
+  const [enableCodebaseIndexing, setEnableCodebaseIndexing] = useState(true)
   
   // Kiro IDE 状态
   const [loading, setLoading] = useState(false)
@@ -60,14 +59,15 @@ function Settings() {
         setHttpProxy(proxy)
         setOriginalProxy(proxy)
         setAiModel(kiroSettings.modelSelection || 'claude-sonnet-4.5')
+        setEnableCodebaseIndexing(kiroSettings.enableCodebaseIndexing ?? true)
       }
       // 从应用设置读取
       if (appSettings) {
         setLockModel(appSettings.lockModel ?? true)
         setAutoRefresh(appSettings.autoRefresh ?? true)
         setAutoRefreshInterval(appSettings.autoRefreshInterval ?? 50)
-        setAutoChangeMachineId(appSettings.autoChangeMachineId ?? false)
-        setBindMachineIdToAccount(appSettings.bindMachineIdToAccount ?? false)
+        setAutoChangeMachineId(appSettings.autoChangeMachineId ?? true)
+        setMachineIdMode(appSettings.bindMachineIdToAccount ?? true ? 'bind' : 'random')
         const browser = appSettings.browserPath || ''
         setBrowserPath(browser)
         setOriginalBrowserPath(browser)
@@ -154,9 +154,18 @@ function Settings() {
     await saveAppSettings({ autoChangeMachineId: checked })
   }
 
-  const handleBindMachineIdChange = async (checked) => {
-    setBindMachineIdToAccount(checked)
-    await saveAppSettings({ bindMachineIdToAccount: checked })
+  const handleMachineIdModeChange = async (mode) => {
+    setMachineIdMode(mode)
+    await saveAppSettings({ bindMachineIdToAccount: mode === 'bind' })
+  }
+
+  const handleCodebaseIndexingChange = async (checked) => {
+    setEnableCodebaseIndexing(checked)
+    try {
+      await invoke('set_kiro_codebase_indexing', { enabled: checked })
+    } catch (err) {
+      await showError(t('settings.saveFailed'), t('settings.saveFailed') + ': ' + err)
+    }
   }
 
   const handleApplyBrowser = async () => {
@@ -416,24 +425,139 @@ function Settings() {
           </div>
         </section>
 
-        {/* 模型设置 */}
+        {/* Kiro IDE 设置（模型、代理、代码库索引） */}
         <section className={`card-glow ${colors.card} rounded-2xl p-6 shadow-sm border ${colors.cardBorder} mb-6 animate-slide-in-left delay-200`}>
-          <h2 className={`text-lg font-semibold ${colors.text} mb-1`}>{t('settings.model')}</h2>
-          <p className={`text-sm ${colors.textMuted} mb-5`}>{t('settings.modelDesc')}</p>
+          <h2 className={`text-lg font-semibold ${colors.text} mb-1`}>{t('settings.kiroSettings')}</h2>
+          <p className={`text-sm ${colors.textMuted} mb-5`}>{t('settings.kiroSettingsDesc')}</p>
           
+          {/* AI 模型 + 锁定开关 */}
           <div className="mb-5">
             <label className={`block text-sm ${colors.textMuted} mb-2`}>{t('settings.aiModel')} {savingModel && <span className="text-blue-500 text-xs ml-2">{t('settings.saving')}</span>}</label>
-            <div className="relative">
-              <select
-                value={aiModel}
-                onChange={(e) => handleApplyModel(e.target.value)}
-                disabled={savingModel}
-                className={`w-full px-4 py-3 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 appearance-none cursor-pointer disabled:opacity-50 transition-all`}
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1">
+                {lockModel && (
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none z-10">
+                    <Lock size={14} className="text-blue-500" />
+                  </div>
+                )}
+                <select
+                  value={aiModel}
+                  onChange={(e) => handleApplyModel(e.target.value)}
+                  disabled={savingModel || lockModel}
+                  className={`w-full ${lockModel ? 'pl-10' : 'pl-4'} pr-10 py-3 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 appearance-none ${lockModel ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'} disabled:opacity-70 transition-all`}
+                >
+                  <option value="claude-sonnet-4.5">Claude Sonnet 4.5 - 1.3x (⭐ {t('common.recommended')})</option>
+                  <option value="claude-sonnet-4">Claude Sonnet 4 - 1.3x</option>
+                  <option value="claude-haiku-4.5">Claude Haiku 4.5 - 0.4x</option>
+                  <option value="claude-opus-4.5">Claude Opus 4.5 - 2.2x</option>
+                </select>
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path d="M2.5 4.5L6 8L9.5 4.5" stroke={isDark ? '#888' : '#666'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+              </div>
+              <label className={`flex items-center gap-2 cursor-pointer px-4 py-3 rounded-xl border transition-all ${
+                lockModel 
+                  ? 'bg-blue-500/20 border-blue-500/50 text-blue-500' 
+                  : `${isDark ? 'border-gray-700 hover:bg-white/5' : 'border-gray-200 hover:bg-gray-50'} ${colors.text}`
+              }`} title={t('settings.lockModelDesc')}>
+                <input
+                  type="checkbox"
+                  checked={lockModel}
+                  onChange={(e) => handleLockModelChange(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                />
+                <Lock size={16} />
+                <span className="text-sm font-medium whitespace-nowrap">{t('settings.lockModel')}</span>
+              </label>
+            </div>
+          </div>
+
+          {/* 代码库索引 */}
+          <label className={`flex items-start gap-3 cursor-pointer ${isDark ? 'bg-white/5 hover:bg-white/10' : 'bg-gray-50 hover:bg-gray-100'} rounded-xl p-4 transition-all hover:scale-[1.01] mb-3`}>
+            <input
+              type="checkbox"
+              checked={enableCodebaseIndexing}
+              onChange={(e) => handleCodebaseIndexingChange(e.target.checked)}
+              className="mt-0.5 w-4 h-4 rounded-lg border-gray-300 text-blue-500 focus:ring-blue-500"
+            />
+            <Search size={16} className={`${colors.textMuted} mt-0.5 flex-shrink-0`} />
+            <div>
+              <span className={`text-sm font-medium ${colors.text}`}>{t('settings.enableCodebaseIndexing')}</span>
+              <p className={`text-xs ${colors.textMuted} mt-0.5`}>{t('settings.enableCodebaseIndexingDesc')}</p>
+            </div>
+          </label>
+
+          {/* HTTP 代理 */}
+          <div className="mt-5 pt-5 border-t border-dashed" style={{ borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }}>
+            <label className={`block text-sm ${colors.textMuted} mb-2`}>{t('settings.httpProxy')}</label>
+            <div className="flex gap-3">
+              <input
+                type="text"
+                value={httpProxy}
+                onChange={(e) => setHttpProxy(e.target.value)}
+                placeholder="http://127.0.0.1:7897"
+                className={`flex-1 px-4 py-3 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 transition-all`}
+              />
+              <button
+                onClick={handleDetectProxy}
+                disabled={detectingProxy}
+                className={`btn-icon px-4 py-3 border rounded-xl ${isDark ? 'border-gray-700 hover:bg-white/5' : 'border-gray-200 hover:bg-gray-50'} ${colors.text} transition-all flex items-center gap-2`}
+                title={t('settings.detectProxyTitle')}
               >
-                <option value="claude-sonnet-4.5">Claude Sonnet 4.5 - 1.3x (⭐ {t('common.recommended')})</option>
-                <option value="claude-sonnet-4">Claude Sonnet 4 - 1.3x</option>
-                <option value="claude-haiku-4.5">Claude Haiku 4.5 - 0.4x</option>
-                <option value="claude-opus-4.5">Claude Opus 4.5 - 2.2x</option>
+                {detectingProxy ? <RefreshCw size={16} className="animate-spin" /> : <Search size={16} />}
+                {t('settings.detect')}
+              </button>
+              <button
+                onClick={handleApplyProxy}
+                disabled={savingProxy || !proxyChanged}
+                className={`btn-icon px-5 py-3 rounded-xl flex items-center gap-2 font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all ${
+                  proxyChanged 
+                    ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                    : `${isDark ? 'bg-white/10 text-white/50' : 'bg-gray-200 text-gray-400'}`
+                }`}
+              >
+                {savingProxy ? <RefreshCw size={16} className="animate-spin" /> : <Check size={16} />}
+                {savingProxy ? t('settings.saving') : t('settings.apply')}
+              </button>
+            </div>
+            <p className={`text-xs ${colors.textMuted} mt-2`}>{t('settings.proxyTip')}</p>
+          </div>
+        </section>
+
+        {/* 账号设置 */}
+        <section className={`card-glow ${colors.card} rounded-2xl p-6 shadow-sm border ${colors.cardBorder} mb-6 animate-slide-in-left delay-300`}>
+          <h2 className={`text-lg font-semibold ${colors.text} mb-1`}>{t('settings.account')}</h2>
+          <p className={`text-sm ${colors.textMuted} mb-5`}>{t('settings.accountDesc')}</p>
+          
+          {/* 自动刷新 Token + 刷新间隔 */}
+          <div className="flex items-center gap-3 mb-4">
+            <label className={`flex items-center gap-2 cursor-pointer px-4 py-3 rounded-xl border transition-all flex-shrink-0 ${
+              autoRefresh 
+                ? 'bg-blue-500/20 border-blue-500/50 text-blue-500' 
+                : `${isDark ? 'border-gray-700 hover:bg-white/5' : 'border-gray-200 hover:bg-gray-50'} ${colors.text}`
+            }`} title={t('settings.autoRefreshDesc')}>
+              <input
+                type="checkbox"
+                checked={autoRefresh}
+                onChange={(e) => handleAutoRefreshChange(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+              />
+              <Clock size={16} />
+              <span className="text-sm font-medium whitespace-nowrap">{t('settings.autoRefresh')}</span>
+            </label>
+            <div className="relative flex-1">
+              <select
+                value={autoRefreshInterval}
+                onChange={(e) => handleAutoRefreshIntervalChange(e.target.value)}
+                disabled={!autoRefresh}
+                className={`w-full px-4 py-3 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 appearance-none ${!autoRefresh ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} transition-all`}
+              >
+                <option value="30">30 {t('common.minutes')}</option>
+                <option value="50">50 {t('common.minutes')} ({t('common.recommended')})</option>
+                <option value="60">60 {t('common.minutes')}</option>
+                <option value="120">2 {t('common.hours')}</option>
               </select>
               <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -443,85 +567,39 @@ function Settings() {
             </div>
           </div>
 
-          <label className={`flex items-start gap-3 cursor-pointer ${isDark ? 'bg-white/5 hover:bg-white/10' : 'bg-gray-50 hover:bg-gray-100'} rounded-xl p-4 transition-all hover:scale-[1.01]`}>
-            <input
-              type="checkbox"
-              checked={lockModel}
-              onChange={(e) => handleLockModelChange(e.target.checked)}
-              className="mt-0.5 w-4 h-4 rounded-lg border-gray-300 text-blue-500 focus:ring-blue-500"
-            />
-            <Lock size={16} className={`${colors.textMuted} mt-0.5 flex-shrink-0`} />
-            <div>
-              <span className={`text-sm font-medium ${colors.text}`}>{t('settings.lockModel')}</span>
-              <p className={`text-xs ${colors.textMuted} mt-0.5`}>{t('settings.lockModelDesc')}</p>
-            </div>
-          </label>
-        </section>
-
-        {/* 账号设置 */}
-        <section className={`card-glow ${colors.card} rounded-2xl p-6 shadow-sm border ${colors.cardBorder} mb-6 animate-slide-in-left delay-300`}>
-          <h2 className={`text-lg font-semibold ${colors.text} mb-1`}>{t('settings.account')}</h2>
-          <p className={`text-sm ${colors.textMuted} mb-5`}>{t('settings.accountDesc')}</p>
-          
-          <label className={`flex items-start gap-3 cursor-pointer ${isDark ? 'bg-white/5 hover:bg-white/10' : 'bg-gray-50 hover:bg-gray-100'} rounded-xl p-4 transition-all hover:scale-[1.01] mb-3`}>
-            <input
-              type="checkbox"
-              checked={autoRefresh}
-              onChange={(e) => handleAutoRefreshChange(e.target.checked)}
-              className="mt-0.5 w-4 h-4 rounded-lg border-gray-300 text-blue-500 focus:ring-blue-500"
-            />
-            <Clock size={16} className={`${colors.textMuted} mt-0.5 flex-shrink-0`} />
-            <div className="flex-1">
-              <span className={`text-sm font-medium ${colors.text}`}>{t('settings.autoRefresh')}</span>
-              <p className={`text-xs ${colors.textMuted} mt-0.5`}>{t('settings.autoRefreshDesc')}</p>
-            </div>
-          </label>
-
-          {autoRefresh && (
-            <div className={`ml-7 mb-3 p-4 rounded-xl ${isDark ? 'bg-white/5' : 'bg-gray-50'}`}>
-              <label className={`block text-sm ${colors.textMuted} mb-2`}>{t('settings.refreshInterval')}</label>
-              <select
-                value={autoRefreshInterval}
-                onChange={(e) => handleAutoRefreshIntervalChange(e.target.value)}
-                className={`w-full px-4 py-2 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 appearance-none cursor-pointer transition-all`}
-              >
-                <option value="30">30 {t('common.minutes')}</option>
-                <option value="50">50 {t('common.minutes')} ({t('common.recommended')})</option>
-                <option value="60">60 {t('common.minutes')}</option>
-                <option value="120">2 {t('common.hours')}</option>
-              </select>
-            </div>
-          )}
-
-          <label className={`flex items-start gap-3 cursor-pointer ${isDark ? 'bg-white/5 hover:bg-white/10' : 'bg-gray-50 hover:bg-gray-100'} rounded-xl p-4 transition-all hover:scale-[1.01] mb-3`}>
-            <input
-              type="checkbox"
-              checked={autoChangeMachineId}
-              onChange={(e) => handleAutoChangeMachineIdChange(e.target.checked)}
-              className="mt-0.5 w-4 h-4 rounded-lg border-gray-300 text-blue-500 focus:ring-blue-500"
-            />
-            <Shuffle size={16} className={`${colors.textMuted} mt-0.5 flex-shrink-0`} />
-            <div>
-              <span className={`text-sm font-medium ${colors.text}`}>{t('settings.autoChangeMachineId')}</span>
-              <p className={`text-xs ${colors.textMuted} mt-0.5`}>{t('settings.autoChangeMachineIdDesc')}</p>
-            </div>
-          </label>
-
-          {autoChangeMachineId && (
-            <label className={`flex items-start gap-3 cursor-pointer ${isDark ? 'bg-white/5 hover:bg-white/10' : 'bg-gray-50 hover:bg-gray-100'} rounded-xl p-4 transition-all hover:scale-[1.01] ml-7`}>
+          {/* 机器码设置 - 勾选框 + 二选一下拉框 */}
+          <div className="flex items-center gap-3">
+            <label className={`flex items-center gap-2 cursor-pointer px-4 py-3 rounded-xl border transition-all flex-shrink-0 ${
+              autoChangeMachineId 
+                ? 'bg-blue-500/20 border-blue-500/50 text-blue-500' 
+                : `${isDark ? 'border-gray-700 hover:bg-white/5' : 'border-gray-200 hover:bg-gray-50'} ${colors.text}`
+            }`} title={t('settings.autoChangeMachineIdDesc')}>
               <input
                 type="checkbox"
-                checked={bindMachineIdToAccount}
-                onChange={(e) => handleBindMachineIdChange(e.target.checked)}
-                className="mt-0.5 w-4 h-4 rounded-lg border-gray-300 text-blue-500 focus:ring-blue-500"
+                checked={autoChangeMachineId}
+                onChange={(e) => handleAutoChangeMachineIdChange(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
               />
-              <Lock size={16} className={`${colors.textMuted} mt-0.5 flex-shrink-0`} />
-              <div>
-                <span className={`text-sm font-medium ${colors.text}`}>{t('settings.bindMachineId')}</span>
-                <p className={`text-xs ${colors.textMuted} mt-0.5`}>{t('settings.bindMachineIdDesc')}</p>
-              </div>
+              <Shuffle size={16} />
+              <span className="text-sm font-medium whitespace-nowrap">{t('settings.autoChangeMachineId')}</span>
             </label>
-          )}
+            <div className="relative flex-1">
+              <select
+                value={machineIdMode}
+                onChange={(e) => handleMachineIdModeChange(e.target.value)}
+                disabled={!autoChangeMachineId}
+                className={`w-full px-4 py-3 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 appearance-none ${!autoChangeMachineId ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} transition-all`}
+              >
+                <option value="random">{t('settings.machineIdRandom')}</option>
+                <option value="bind">{t('settings.machineIdBind')} ({t('common.recommended')})</option>
+              </select>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <path d="M2.5 4.5L6 8L9.5 4.5" stroke={isDark ? '#888' : '#666'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* 浏览器设置 */}
@@ -610,57 +688,6 @@ function Settings() {
 
           <p className={`text-xs ${colors.textMuted} mt-3`}>
             {t('settings.browserTip')}
-          </p>
-        </section>
-
-        {/* 代理设置 */}
-        <section className={`card-glow ${colors.card} rounded-2xl p-6 shadow-sm border ${colors.cardBorder} mb-6 animate-slide-in-left delay-400`}>
-          <h2 className={`text-lg font-semibold ${colors.text} mb-1`}>{t('settings.proxy')}</h2>
-          <p className={`text-sm ${colors.textMuted} mb-5`}>
-            {t('settings.proxyDesc')}
-          </p>
-          
-          <div className="mb-3">
-            <label className={`block text-sm ${colors.textMuted} mb-2`}>{t('settings.httpProxy')}</label>
-            <div className="flex gap-3">
-              <input
-                type="text"
-                value={httpProxy}
-                onChange={(e) => setHttpProxy(e.target.value)}
-                placeholder="http://127.0.0.1:7897"
-                className={`flex-1 px-4 py-3 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 transition-all`}
-              />
-              <button
-                onClick={handleDetectProxy}
-                disabled={detectingProxy}
-                className={`btn-icon px-4 py-3 border rounded-xl ${isDark ? 'border-gray-700 hover:bg-white/5' : 'border-gray-200 hover:bg-gray-50'} ${colors.text} transition-all flex items-center gap-2`}
-                title={t('settings.detectProxyTitle')}
-              >
-                {detectingProxy ? <RefreshCw size={16} className="animate-spin" /> : <Search size={16} />}
-                {t('settings.detect')}
-              </button>
-              <button
-                onClick={handleApplyProxy}
-                disabled={savingProxy || !proxyChanged}
-                className={`btn-icon px-5 py-3 rounded-xl flex items-center gap-2 font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all ${
-                  proxyChanged 
-                    ? 'bg-blue-500 text-white hover:bg-blue-600' 
-                    : `${isDark ? 'bg-white/10 text-white/50' : 'bg-gray-200 text-gray-400'}`
-                }`}
-              >
-                {savingProxy ? <RefreshCw size={16} className="animate-spin" /> : <Check size={16} />}
-                {savingProxy ? t('settings.saving') : t('settings.apply')}
-              </button>
-              <button 
-                onClick={loadSettings}
-                className={`btn-icon px-4 py-3 border rounded-xl ${isDark ? 'border-gray-700 hover:bg-white/5' : 'border-gray-200 hover:bg-gray-50'} ${colors.textMuted} transition-all`}
-              >
-                ↻
-              </button>
-            </div>
-          </div>
-          <p className={`text-xs ${colors.textMuted}`}>
-            {t('settings.proxyTip')}
           </p>
         </section>
 

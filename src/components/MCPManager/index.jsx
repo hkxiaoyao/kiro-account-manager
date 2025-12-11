@@ -1,17 +1,15 @@
 import { useState, useEffect, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import { useTheme } from '../../contexts/ThemeContext'
+import { useApp } from '../../hooks/useApp'
 import { useDialog } from '../../contexts/DialogContext'
-import { useI18n } from '../../i18n'
 import { Server, Plus, Sparkles } from 'lucide-react'
 import MCPServerCard from './MCPServerCard'
 import AddMCPModal from './AddMCPModal'
 import EditMCPModal from './EditMCPModal'
 
 function MCPManager() {
-  const { colors } = useTheme()
+  const { t, colors } = useApp()
   const { showConfirm } = useDialog()
-  const { t } = useI18n()
   const [servers, setServers] = useState({})
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)

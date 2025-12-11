@@ -118,6 +118,7 @@ fn main() {
             get_kiro_settings,
             set_kiro_proxy,
             set_kiro_model,
+            set_kiro_codebase_indexing,
             // 应用设置命令
             get_app_settings,
             save_app_settings,

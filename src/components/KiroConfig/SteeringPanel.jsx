@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import { useTheme } from '../../contexts/ThemeContext'
+import { useApp } from '../../hooks/useApp'
 import { useDialog } from '../../contexts/DialogContext'
 import { FileText, RefreshCw, Trash2, Save, Plus, X } from 'lucide-react'
 
 function SteeringPanel() {
-  const { theme, colors } = useTheme()
+  const { t, theme, colors } = useApp()
   const { showConfirm, showError } = useDialog()
   const isDark = theme === 'dark'
   const [files, setFiles] = useState([])
@@ -39,7 +39,7 @@ function SteeringPanel() {
 
   const handleSelect = async (file) => {
     if (hasChanges) {
-      const confirmed = await showConfirm('未保存的更改', '有未保存的更改，确定切换？')
+      const confirmed = await showConfirm(t('steering.unsavedChanges'), t('steering.confirmSwitch'))
       if (!confirmed) return
     }
     setSelectedFile(file)
@@ -81,15 +81,15 @@ function SteeringPanel() {
       setSelectedFile({ ...selectedFile, content: fullContent })
       setHasChanges(false)
     } catch (e) {
-      console.error('保存失败:', e)
-      showError('保存失败', String(e))
+      console.error('Save failed:', e)
+      showError(t('steering.saveFailed'), String(e))
     } finally {
       setSaving(false)
     }
   }
 
   const handleDelete = async (fileName) => {
-    const confirmed = await showConfirm('确认删除', `确定删除 "${fileName}"？`)
+    const confirmed = await showConfirm(t('steering.confirmDelete'), t('steering.confirmDeleteFile', { fileName }))
     if (!confirmed) return
     try {
       await invoke('delete_steering_file', { fileName })
@@ -127,7 +127,7 @@ function SteeringPanel() {
       setShowCreateModal(false)
       handleSelect(newFile)
     } catch (e) {
-      showError('创建失败', String(e))
+      showError(t('steering.createFailed'), String(e))
     }
   }
 
@@ -165,9 +165,9 @@ function SteeringPanel() {
   }
 
   const inclusionOptions = [
-    { value: 'always', label: '始终包含', desc: '每次对话都会加载' },
-    { value: 'fileMatch', label: '文件匹配', desc: '当匹配的文件被读取时加载' },
-    { value: 'manual', label: '手动引用', desc: '通过 # 手动引用时加载' },
+    { value: 'always', label: t('steering.inclusionAlways'), desc: t('steering.inclusionAlwaysDesc') },
+    { value: 'fileMatch', label: t('steering.inclusionFileMatch'), desc: t('steering.inclusionFileMatchDesc') },
+    { value: 'manual', label: t('steering.inclusionManual'), desc: t('steering.inclusionManualDesc') },
   ]
 
   if (loading) {
@@ -197,7 +197,7 @@ function SteeringPanel() {
           {files.length === 0 ? (
             <div className={`text-center py-8 ${colors.textMuted}`}>
               <FileText size={32} className="mx-auto mb-2 opacity-50" />
-              <p className="text-sm">暂无 Steering 文件</p>
+              <p className="text-sm">{t('steering.noFiles')}</p>
             </div>
           ) : (
             files.map(file => (
@@ -220,7 +220,7 @@ function SteeringPanel() {
                   </button>
                 </div>
                 <div className={`text-xs ${colors.textMuted} mt-1`}>
-                  {formatSize(file.size)} · {file.modifiedAt || '未知时间'}
+                  {formatSize(file.size)} · {file.modifiedAt || t('steering.unknownTime')}
                 </div>
               </div>
             ))
@@ -247,13 +247,13 @@ function SteeringPanel() {
                 } disabled:opacity-50`}
               >
                 <Save size={14} />
-                {saving ? '保存中...' : '保存'}
+                {saving ? t('steering.saving') : t('steering.save')}
               </button>
             </div>
             {/* 配置区域 */}
             <div className={`px-4 py-3 border-b ${colors.cardBorder} flex items-center gap-4`}>
               <div className="flex items-center gap-2">
-                <span className={`text-xs ${colors.textMuted}`}>包含模式:</span>
+                <span className={`text-xs ${colors.textMuted}`}>{t('steering.inclusionMode')}:</span>
                 <select
                   value={editInclusion}
                   onChange={(e) => handleInclusionChange(e.target.value)}
@@ -266,7 +266,7 @@ function SteeringPanel() {
               </div>
               {editInclusion === 'fileMatch' && (
                 <div className="flex items-center gap-2">
-                  <span className={`text-xs ${colors.textMuted}`}>匹配模式:</span>
+                  <span className={`text-xs ${colors.textMuted}`}>{t('steering.filePattern')}:</span>
                   <input
                     type="text"
                     value={editFilePattern}
@@ -283,7 +283,7 @@ function SteeringPanel() {
                 value={editContent}
                 onChange={handleContentChange}
                 className={`w-full h-full p-4 rounded-xl border ${colors.cardBorder} ${isDark ? 'bg-white/5' : 'bg-gray-50'} ${colors.text} text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/30`}
-                placeholder="输入 Markdown 内容..."
+                placeholder={t('steering.contentPlaceholder')}
               />
             </div>
           </>
@@ -291,7 +291,7 @@ function SteeringPanel() {
           <div className={`flex-1 flex items-center justify-center ${colors.textMuted}`}>
             <div className="text-center">
               <FileText size={48} className="mx-auto mb-2 opacity-30" />
-              <p>选择一个文件进行编辑</p>
+              <p>{t('steering.selectToEdit')}</p>
             </div>
           </div>
         )}
@@ -311,7 +311,7 @@ function SteeringPanel() {
                 <div className={`w-10 h-10 rounded-xl ${isDark ? 'bg-blue-500/15' : 'bg-blue-50'} flex items-center justify-center`}>
                   <FileText size={20} className="text-blue-500" />
                 </div>
-                <h2 className={`text-base font-semibold ${colors.text}`}>新建 Steering</h2>
+                <h2 className={`text-base font-semibold ${colors.text}`}>{t('steering.newSteering')}</h2>
               </div>
               <button onClick={() => setShowCreateModal(false)} className={`p-1.5 rounded-lg transition-colors ${isDark ? 'hover:bg-white/10' : 'hover:bg-black/5'}`}>
                 <X size={18} className={colors.textMuted} />
@@ -321,20 +321,20 @@ function SteeringPanel() {
             <div className="p-5 space-y-4">
               {/* 文件名 */}
               <div>
-                <label className={`block text-xs font-medium ${colors.textMuted} mb-1.5`}>文件名</label>
+                <label className={`block text-xs font-medium ${colors.textMuted} mb-1.5`}>{t('steering.fileName')}</label>
                 <input
                   type="text"
-                  placeholder="例如: my-rules"
+                  placeholder={t('steering.fileNamePlaceholder')}
                   value={newFileName}
                   onChange={(e) => setNewFileName(e.target.value)}
                   className={`w-full px-4 py-3 border rounded-xl text-sm ${colors.text} ${isDark ? 'bg-white/5 border-white/10' : 'bg-white border-gray-200'} focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all`}
                 />
-                <p className={`text-xs ${colors.textMuted} mt-1`}>自动添加 .md 后缀</p>
+                <p className={`text-xs ${colors.textMuted} mt-1`}>{t('steering.fileNameHint')}</p>
               </div>
 
               {/* Inclusion 模式 */}
               <div>
-                <label className={`block text-xs font-medium ${colors.textMuted} mb-1.5`}>包含模式</label>
+                <label className={`block text-xs font-medium ${colors.textMuted} mb-1.5`}>{t('steering.inclusionMode')}</label>
                 <select
                   value={newInclusion}
                   onChange={(e) => setNewInclusion(e.target.value)}
@@ -349,10 +349,10 @@ function SteeringPanel() {
               {/* fileMatch 模式的 pattern 输入 */}
               {newInclusion === 'fileMatch' && (
                 <div>
-                  <label className={`block text-xs font-medium ${colors.textMuted} mb-1.5`}>匹配模式</label>
+                  <label className={`block text-xs font-medium ${colors.textMuted} mb-1.5`}>{t('steering.filePattern')}</label>
                   <input
                     type="text"
-                    placeholder="例如: **/*.jsx"
+                    placeholder={t('steering.filePatternPlaceholder')}
                     value={newFilePattern}
                     onChange={(e) => setNewFilePattern(e.target.value)}
                     className={`w-full px-4 py-3 border rounded-xl text-sm ${colors.text} ${isDark ? 'bg-white/5 border-white/10' : 'bg-white border-gray-200'} focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all`}
@@ -366,7 +366,7 @@ function SteeringPanel() {
                 disabled={!newFileName.trim()}
                 className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl text-sm font-medium shadow-lg shadow-blue-500/25 hover:from-blue-600 hover:to-purple-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
               >
-                创建
+                {t('common.add')}
               </button>
             </div>
           </div>

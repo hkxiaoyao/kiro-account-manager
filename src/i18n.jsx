@@ -1,6 +1,7 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import i18n from 'i18next'
 import { initReactI18next, I18nextProvider, useTranslation } from 'react-i18next'
+import { invoke } from '@tauri-apps/api/core'
 
 // 从 JSON 文件导入翻译
 import zhCN from '../locales/zh-CN.json'
@@ -14,14 +15,14 @@ export const locales = {
   'ru-RU': 'Русский',
 }
 
+// 初始化 i18n（默认中文，后续从设置加载）
 i18n
   .use(initReactI18next)
   .init({
-    lng: localStorage.getItem('locale') || 'zh-CN',
+    lng: 'zh-CN',
     fallbackLng: 'zh-CN',
     supportedLngs: ['zh-CN', 'en-US', 'ru-RU'],
     
-    // 从 JSON 文件加载翻译
     resources: {
       'zh-CN': { translation: zhCN },
       'en-US': { translation: enUS },
@@ -37,23 +38,38 @@ i18n
     },
   })
 
-// 切换语言
+// 从 app-settings.json 加载语言设置
+export const loadLocaleFromSettings = async () => {
+  try {
+    const settings = await invoke('get_app_settings')
+    if (settings?.locale && locales[settings.locale]) {
+      await i18n.changeLanguage(settings.locale)
+    }
+  } catch (e) {
+    console.error('[i18n] Failed to load locale from settings:', e)
+  }
+}
+
+// 切换语言（保存到 app-settings.json）
 export const changeLanguage = async (lng) => {
-  localStorage.setItem('locale', lng)
   await i18n.changeLanguage(lng)
+  try {
+    await invoke('save_app_settings', { settings: { locale: lng } })
+  } catch (e) {
+    console.error('[i18n] Failed to save locale:', e)
+  }
 }
 
 // 兼容旧的 useI18n hook
 export function useI18n() {
   const { t, i18n: i18nInstance } = useTranslation()
-  const [loading, setLoading] = React.useState(false)
+  const [loading, setLoading] = useState(false)
   const [, forceUpdate] = React.useReducer(x => x + 1, 0)
   
   const setLocale = async (lng) => {
     setLoading(true)
     try {
-      await i18nInstance.changeLanguage(lng)
-      localStorage.setItem('locale', lng)
+      await changeLanguage(lng)
       forceUpdate()
     } finally {
       setLoading(false)
@@ -70,6 +86,15 @@ export function useI18n() {
 
 // I18nProvider 组件
 export function I18nProvider({ children }) {
+  const [loaded, setLoaded] = useState(false)
+  
+  useEffect(() => {
+    loadLocaleFromSettings().finally(() => setLoaded(true))
+  }, [])
+  
+  // 等待语言加载完成再渲染
+  if (!loaded) return null
+  
   return <I18nextProvider i18n={i18n}>{children}</I18nextProvider>
 }
 

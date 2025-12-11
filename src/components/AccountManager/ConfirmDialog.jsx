@@ -1,6 +1,5 @@
 import { AlertTriangle, CheckCircle, XCircle, Info, X } from 'lucide-react'
-import { useTheme } from '../../contexts/ThemeContext'
-import { useI18n } from '../../i18n'
+import { useApp } from '../../hooks/useApp'
 
 /**
  * 通用确认/提示对话框
@@ -22,8 +21,7 @@ function ConfirmDialog({
   cancelText,
   loading = false,
 }) {
-  const { theme, colors } = useTheme()
-  const { t } = useI18n()
+  const { t, theme, colors } = useApp()
   const isDark = theme === 'dark'
   
   // Use i18n defaults if not provided

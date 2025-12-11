@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { RefreshCw, Users, Zap, Shield, Clock, TrendingUp, Sparkles } from 'lucide-react'
-import { useTheme } from '../contexts/ThemeContext'
+import { useApp } from '../hooks/useApp'
 import { useDialog } from '../contexts/DialogContext'
-import { useI18n } from '../i18n.jsx'
 import { calcAccountStats, getQuota, getUsed } from '../utils/accountStats'
 
 // 骨架屏组件
@@ -103,9 +102,8 @@ function StatCard({ icon: Icon, iconBg, value, label, delay, isDark }) {
 }
 
 function Home() {
-  const { theme, colors } = useTheme()
+  const { t, theme, colors } = useApp()
   const { showError } = useDialog()
-  const { t } = useI18n()
   const [tokens, setTokens] = useState([])
   const [localToken, setLocalToken] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -125,7 +123,7 @@ function Home() {
       setLocalToken(localData)
     } catch (e) { 
       console.error('Failed to load data:', e)
-      showError('加载失败', '加载数据失败: ' + e)
+      showError(t('home.loadFailed'), t('home.loadDataFailed') + ': ' + e)
     }
     setLoading(false)
   }
@@ -144,8 +142,8 @@ function Home() {
       await invoke('sync_account', { id: currentAccount.id })
       await loadData()
     } catch (e) {
-      console.error('刷新账号失败:', e)
-      showError('刷新失败', String(e))
+      console.error('Refresh account failed:', e)
+      showError(t('common.refreshFailed'), String(e))
     } finally {
       setRefreshingAccount(false)
     }
@@ -153,12 +151,12 @@ function Home() {
 
   const stats = calcAccountStats(tokens)
   
-  // 找到与当前登录账号匹配的账号（按优先级：refreshToken > accessToken > provider）
+  // 找到与当前登录账号匹配的账号（按优先级：refreshToken > accessToken）
+  // 注意：不能用 provider 匹配，因为可能有多个同 provider 的账号
   const currentAccount = localToken 
     ? tokens.find(t => 
         (localToken.refreshToken && t.refreshToken === localToken.refreshToken) ||
-        (localToken.accessToken && t.accessToken === localToken.accessToken) ||
-        (localToken.provider && t.provider === localToken.provider)
+        (localToken.accessToken && t.accessToken === localToken.accessToken)
       )
     : null
   const currentQuota = currentAccount ? getQuota(currentAccount) : 0
@@ -227,7 +225,7 @@ function Home() {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <span className={`font-semibold ${colors.text} text-lg`}>{localToken.provider || '未知'}</span>
+                        <span className={`font-semibold ${colors.text} text-lg`}>{localToken.provider || t('home.unknown')}</span>
                         <span className={`px-2.5 py-1 ${isDark ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-700'} rounded-full text-xs font-medium pulse-ring`}>{t('home.loggedIn')}</span>
                       </div>
                       <div className={`text-sm ${colors.textMuted} mt-1`}>{localToken.authMethod || 'social'}</div>
@@ -274,7 +272,7 @@ function Home() {
                       <span className={colors.textMuted}>{t('home.expiresAt')}</span>
                       <span className={`${colors.text} flex items-center gap-1`}>
                         <Clock size={12} />
-                        {localToken.expiresAt ? new Date(localToken.expiresAt).toLocaleString() : '未知'}
+                        {localToken.expiresAt ? new Date(localToken.expiresAt).toLocaleString() : t('home.unknown')}
                       </span>
                     </div>
                   </div>

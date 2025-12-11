@@ -41,7 +41,7 @@ impl Account {
             id: Uuid::new_v4().to_string(),
             email,
             label,
-            status: "正常".to_string(),
+            status: "active".to_string(),
             added_at: now.format("%Y/%m/%d %H:%M:%S").to_string(),
             access_token: None,
             refresh_token: None,

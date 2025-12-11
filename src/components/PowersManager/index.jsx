@@ -1,12 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import { useTheme } from '../../contexts/ThemeContext'
-import { useI18n } from '../../i18n'
+import { useApp } from '../../hooks/useApp'
 import { Sparkles, Package, Tag, Calendar, User, ExternalLink } from 'lucide-react'
 
 function PowersManager() {
-  const { theme, colors } = useTheme()
-  const { t } = useI18n()
+  const { t, theme, colors } = useApp()
   const isDark = theme === 'dark'
   const [powers, setPowers] = useState({})
   const [loading, setLoading] = useState(true)

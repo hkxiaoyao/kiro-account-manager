@@ -340,7 +340,7 @@ pub async fn import_from_sso_token(
         existing.region = Some(region);
         existing.expires_at = Some(expires_at.to_rfc3339());
         existing.usage_data = Some(usage_data);
-        existing.status = "正常".to_string();
+        existing.status = "active".to_string();
         existing.user_id = user_id;
     } else {
         let mut account = Account::new(email.clone(), email.clone());

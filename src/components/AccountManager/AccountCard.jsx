@@ -1,6 +1,5 @@
 import { RefreshCw, Eye, Trash2, Copy, Check, Clock, Repeat, Edit2 } from 'lucide-react'
-import { useTheme } from '../../contexts/ThemeContext'
-import { useI18n } from '../../i18n.jsx'
+import { useApp } from '../../hooks/useApp'
 import { getUsagePercent, getProgressBarColor } from './hooks/useAccountStats'
 import { getQuota, getUsed, getSubType, getSubPlan } from '../../utils/accountStats'
 
@@ -19,8 +18,7 @@ function AccountCard({
   switchingId,
   isCurrentAccount,
 }) {
-  const { theme, colors } = useTheme()
-  const { t } = useI18n()
+  const { t, theme, colors } = useApp()
   const isDark = theme === 'dark'
   
   const quota = getQuota(account)
@@ -30,8 +28,8 @@ function AccountCard({
   const breakdown = account.usageData?.usageBreakdownList?.[0]
   const percent = getUsagePercent(used, quota)
   const isExpired = account.expiresAt && new Date(account.expiresAt.replace(/\//g, '-')) < new Date()
-  const isBanned = account.status === '封禁' || account.status === '已封禁'
-  const isNormal = account.status === '正常' || account.status === '有效'
+  const isBanned = account.status === 'banned' || account.status === '封禁' || account.status === '已封禁'
+  const isNormal = account.status === 'active' || account.status === '正常' || account.status === '有效'
 
   // 状态光环颜色
   const glowColor = isCurrentAccount
@@ -67,12 +65,12 @@ function AccountCard({
       {/* 状态标签 */}
       <div className="absolute top-3 right-3 flex items-center gap-2">
         <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
-          account.status === '正常' || account.status === '有效'
+          account.status === 'active' || account.status === '正常' || account.status === '有效'
             ? (isDark ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-700')
-            : account.status === '封禁' || account.status === '已封禁'
+            : account.status === 'banned' || account.status === '封禁' || account.status === '已封禁'
               ? (isDark ? 'bg-red-500/20 text-red-400' : 'bg-red-100 text-red-600')
               : (isDark ? 'bg-orange-500/20 text-orange-400' : 'bg-orange-100 text-orange-600')
-        }`}>{account.status}</span>
+        }`}>{isNormal ? t('accounts.active') : isBanned ? t('accounts.banned') : account.status}</span>
       </div>
 
       <div className="p-4 pt-10 flex-1 flex flex-col">

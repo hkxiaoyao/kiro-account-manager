@@ -12,22 +12,19 @@ import WebOAuthLogin from './components/WebOAuthLogin'
 import AuthCallback from './components/AuthCallback'
 import UpdateChecker from './components/UpdateChecker'
 
-import { useTheme } from './contexts/ThemeContext'
-
-// 默认自动刷新间隔：50分钟
-const DEFAULT_REFRESH_INTERVAL = 50 * 60 * 1000
+import { useApp } from './hooks/useApp'
 
 function App() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [activeMenu, setActiveMenu] = useState('home')
-  const { colors } = useTheme()
+  const { colors } = useApp()
   const refreshTimerRef = useRef(null)
 
   // 判断账号是否需要刷新（已过期或5分钟内过期）
   const isExpiringSoon = (acc) => {
     // 跳过已封禁账号
-    if (acc.status === '已封禁' || acc.status === '封禁') {
+    if (acc.status === 'banned' || acc.status === '已封禁' || acc.status === '封禁') {
       console.log(`[AutoRefresh] 跳过封禁账号: ${acc.email}`)
       return false
     }

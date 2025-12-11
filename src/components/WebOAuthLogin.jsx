@@ -2,14 +2,12 @@ import { useState, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { Loader, ClipboardPaste, Globe, Sparkles, ArrowRight, ExternalLink, CheckCircle2 } from 'lucide-react'
-import { useTheme } from '../contexts/ThemeContext'
+import { useApp } from '../hooks/useApp'
 import { useDialog } from '../contexts/DialogContext'
-import { useI18n } from '../i18n.jsx'
 
 function WebOAuthLogin({ onLogin }) {
-  const { theme, colors } = useTheme()
+  const { t, theme, colors } = useApp()
   const { showError } = useDialog()
-  const { t } = useI18n()
   const isDark = theme === 'dark'
   const [step, setStep] = useState('idle') // idle, webview, completing
   const [loadingProvider, setLoadingProvider] = useState(null)
@@ -267,7 +265,7 @@ function WebOAuthLogin({ onLogin }) {
                     ${isDark ? 'bg-white/5 hover:bg-white/10 border-white/10' : 'bg-white hover:bg-gray-50 border-gray-200'}
                     border hover:border-purple-500
                   `}
-                  title="粘贴"
+                  title={t('common.paste')}
                 >
                   <ClipboardPaste size={16} className={colors.textMuted} />
                 </button>

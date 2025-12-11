@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { getVersion } from '@tauri-apps/api/app'
 import { Home, Key, Settings, Info, User, LogIn, Globe, Sun, Moon, Palette, Settings2, Languages } from 'lucide-react'
-import { useTheme, themes } from '../contexts/ThemeContext'
-import { useI18n, locales } from '../i18n.jsx'
+import { themes } from '../contexts/ThemeContext'
+import { locales } from '../i18n.jsx'
+import { useApp } from '../hooks/useApp'
 
 function useMenuItems() {
-  const { t } = useI18n()
+  const { t } = useApp()
   return [
     { id: 'home', label: t('nav.home'), icon: Home },
     { id: 'token', label: t('nav.accounts'), icon: Key },
@@ -23,8 +24,7 @@ function Sidebar({ activeMenu, onMenuChange }) {
   const [showThemeMenu, setShowThemeMenu] = useState(false)
   const [showLangMenu, setShowLangMenu] = useState(false)
   const [version, setVersion] = useState('')
-  const { theme, setTheme, colors } = useTheme()
-  const { locale, setLocale, loading: langLoading } = useI18n()
+  const { t, theme, colors, setTheme, locale, setLocale, langLoading } = useApp()
   const menuItems = useMenuItems()
 
   useEffect(() => {
@@ -86,7 +86,7 @@ function Sidebar({ activeMenu, onMenuChange }) {
         <div className={`mx-3 mb-3 ${colors.sidebarCard} rounded-xl p-3 animate-fade-in-up card-glow`} style={{ animationDelay: '0.5s' }}>
           <div className={`text-xs ${colors.sidebarMuted} mb-2 flex items-center gap-1.5`}>
             <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></div>
-            Kiro IDE 已连接
+            {t('nav.kiroConnected')}
           </div>
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center text-sm font-medium text-green-300 transition-transform hover:scale-110">
@@ -117,7 +117,7 @@ function Sidebar({ activeMenu, onMenuChange }) {
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowThemeMenu(false)} />
               <div className="absolute bottom-full left-0 mb-2 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 py-1 min-w-[100px] z-50 animate-scale-in">
-                {Object.entries(themes).map(([key, t]) => {
+                {Object.entries(themes).map(([key, themeConfig]) => {
                   const TIcon = themeIcons[key] || Sun
                   return (
                     <button
@@ -128,7 +128,7 @@ function Sidebar({ activeMenu, onMenuChange }) {
                       }`}
                     >
                       <TIcon size={14} />
-                      {t.name}
+                      {t(themeConfig.nameKey)}
                     </button>
                   )
                 })}
@@ -145,7 +145,7 @@ function Sidebar({ activeMenu, onMenuChange }) {
             className={`flex items-center gap-1.5 px-2 py-1.5 ${colors.sidebarCard} rounded-lg text-xs ${colors.sidebarMuted} hover:text-white transition-all hover:scale-105 disabled:opacity-50`}
           >
             <Languages size={14} />
-            <span>{locales[locale]?.substring(0, 2) || '中'}</span>
+            <span>{locales[locale]?.substring(0, 2) || 'ZH'}</span>
           </button>
           
           {showLangMenu && (
