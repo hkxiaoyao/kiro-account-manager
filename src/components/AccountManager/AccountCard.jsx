@@ -1,8 +1,52 @@
-import { memo } from 'react'
+import { memo, useState, useEffect, useCallback } from 'react'
 import { RefreshCw, Eye, Trash2, Copy, Check, Clock, Repeat, Edit2 } from 'lucide-react'
 import { useApp } from '../../hooks/useApp'
 import { getUsagePercent, getProgressBarColor } from './hooks/useAccountStats'
 import { getQuota, getUsed, getSubType, getSubPlan } from '../../utils/accountStats'
+
+// 右键菜单组件
+function ContextMenu({ x, y, onClose, items, isDark }) {
+  useEffect(() => {
+    const handleClick = () => onClose()
+    const handleScroll = () => onClose()
+    document.addEventListener('click', handleClick)
+    document.addEventListener('scroll', handleScroll, true)
+    return () => {
+      document.removeEventListener('click', handleClick)
+      document.removeEventListener('scroll', handleScroll, true)
+    }
+  }, [onClose])
+
+  return (
+    <div
+      className={`fixed z-50 min-w-[160px] py-1 rounded-lg shadow-xl border ${
+        isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+      }`}
+      style={{ left: x, top: y }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {items.map((item, idx) =>
+        item.divider ? (
+          <div key={idx} className={`my-1 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`} />
+        ) : (
+          <button
+            key={idx}
+            onClick={() => { item.onClick(); onClose() }}
+            disabled={item.disabled}
+            className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 transition-colors disabled:opacity-50 ${
+              item.danger
+                ? (isDark ? 'text-red-400 hover:bg-red-500/20' : 'text-red-600 hover:bg-red-50')
+                : (isDark ? 'text-gray-200 hover:bg-white/10' : 'text-gray-700 hover:bg-gray-100')
+            }`}
+          >
+            {item.icon && <item.icon size={14} />}
+            {item.label}
+          </button>
+        )
+      )}
+    </div>
+  )
+}
 
 const AccountCard = memo(function AccountCard({
   account,
@@ -21,7 +65,26 @@ const AccountCard = memo(function AccountCard({
 }) {
   const { t, theme, colors } = useApp()
   const isDark = theme === 'dark'
-  
+  const [contextMenu, setContextMenu] = useState(null)
+
+  // 右键菜单处理
+  const handleContextMenu = useCallback((e) => {
+    e.preventDefault()
+    setContextMenu({ x: e.clientX, y: e.clientY })
+  }, [])
+
+  // 右键菜单项
+  const menuItems = [
+    { icon: Repeat, label: t('accountCard.switchAccount'), onClick: () => onSwitch(account), disabled: switchingId === account.id },
+    { icon: RefreshCw, label: t('accountCard.refresh'), onClick: () => onRefresh(account.id), disabled: refreshingId === account.id },
+    { divider: true },
+    { icon: Eye, label: t('accountCard.viewDetails'), onClick: () => onEdit(account) },
+    { icon: Edit2, label: t('accountCard.editRemark'), onClick: () => onEditLabel(account) },
+    { icon: Copy, label: t('common.copy') + ' Email', onClick: () => onCopy(account.email, account.id) },
+    { divider: true },
+    { icon: Trash2, label: t('accountCard.delete'), onClick: () => onDelete(account.id), danger: true },
+  ]
+
   const quota = getQuota(account)
   const used = getUsed(account)
   const subType = getSubType(account)
@@ -43,7 +106,9 @@ const AccountCard = memo(function AccountCard({
         : 'shadow-orange-500/30 hover:shadow-orange-500/50'
 
   return (
-    <div className={`relative rounded-2xl border transition-all duration-200 hover:shadow-lg flex flex-col ${glowColor} ${
+    <div
+      onContextMenu={handleContextMenu}
+      className={`relative rounded-2xl border transition-all duration-200 hover:shadow-lg flex flex-col ${glowColor} ${
       isSelected 
         ? (isDark ? 'border-purple-500 bg-purple-500/10' : 'border-purple-400 bg-purple-50') 
         : isCurrentAccount
@@ -54,6 +119,16 @@ const AccountCard = memo(function AccountCard({
               ? (isDark ? 'border-orange-500/50 bg-orange-500/5' : 'border-orange-300 bg-orange-50/50')
               : (isDark ? 'border-gray-700 bg-gray-800/50 hover:border-gray-600' : 'border-gray-200 bg-white hover:border-gray-300')
     }`}>
+      {/* 右键菜单 */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          items={menuItems}
+          isDark={isDark}
+        />
+      )}
       {/* 选择框和当前使用标记 */}
       <div className="absolute top-3 left-3 flex items-center gap-2">
         <input 
