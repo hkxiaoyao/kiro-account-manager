@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { useApp } from '../../hooks/useApp'
 import { useDialog } from '../../contexts/DialogContext'
+import { useAppSettings } from '../../contexts/AppSettingsContext'
 import { useAccounts } from './hooks/useAccounts'
 import AccountHeader from './AccountHeader'
 import AccountTable from './AccountTable'
@@ -16,6 +17,7 @@ import ConfirmDialog from './ConfirmDialog'
 function AccountManager() {
   const { t, colors } = useApp()
   const { showConfirm } = useDialog()
+  const { settings: appSettings } = useAppSettings()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedIds, setSelectedIds] = useState([])
   const [pageSize, setPageSize] = useState(20)
@@ -113,10 +115,10 @@ function AccountManager() {
     setSwitchingId(account.id)
     
     try {
-      // 读取设置
-      const appSettings = await invoke('get_app_settings').catch(() => ({}))
-      const autoChangeMachineId = appSettings.autoChangeMachineId !== false // 默认 true
-      const bindMachineIdToAccount = appSettings.bindMachineIdToAccount !== false // 默认 true
+      // 使用缓存的设置，避免 IPC 调用
+      const settings = appSettings || {}
+      const autoChangeMachineId = settings.autoChangeMachineId !== false // 默认 true
+      const bindMachineIdToAccount = settings.bindMachineIdToAccount !== false // 默认 true
       
       // 处理 Windows MachineGuid
       if (autoChangeMachineId) {

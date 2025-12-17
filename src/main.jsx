@@ -4,6 +4,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import App from './App.jsx'
 import { ThemeProvider } from './contexts/ThemeContext.jsx'
 import { DialogProvider } from './contexts/DialogContext.jsx'
+import { AppSettingsProvider } from './contexts/AppSettingsContext.jsx'
 import { I18nProvider } from './i18n.jsx'
 import './index.css'
 
@@ -48,11 +49,13 @@ if (import.meta.env.PROD) {
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <I18nProvider>
-      <ThemeProvider>
-        <DialogProvider>
-          <App />
-        </DialogProvider>
-      </ThemeProvider>
+      <AppSettingsProvider>
+        <ThemeProvider>
+          <DialogProvider>
+            <App />
+          </DialogProvider>
+        </ThemeProvider>
+      </AppSettingsProvider>
     </I18nProvider>
   </React.StrictMode>,
 )

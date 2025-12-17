@@ -1,9 +1,10 @@
+import { memo } from 'react'
 import { RefreshCw, Eye, Trash2, Copy, Check, Clock, Repeat, Edit2 } from 'lucide-react'
 import { useApp } from '../../hooks/useApp'
 import { getUsagePercent, getProgressBarColor } from './hooks/useAccountStats'
 import { getQuota, getUsed, getSubType, getSubPlan } from '../../utils/accountStats'
 
-function AccountCard({
+const AccountCard = memo(function AccountCard({
   account,
   isSelected,
   onSelect,
@@ -197,6 +198,6 @@ function AccountCard({
       </div>
     </div>
   )
-}
+})
 
 export default AccountCard

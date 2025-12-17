@@ -23,6 +23,19 @@ pub struct VerifyAccountResponse {
     pub refresh_token: String,
 }
 
+/// verify_account 命令参数
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VerifyAccountParams {
+    pub access_token: String,
+    pub refresh_token: String,
+    pub csrf_token: Option<String>,
+    pub provider: String,
+    pub client_id: Option<String>,
+    pub client_secret: Option<String>,
+    pub region: Option<String>,
+}
+
 #[tauri::command]
 pub fn get_accounts(state: State<AppState>) -> Vec<Account> {
     state.store.lock().unwrap().get_all()
@@ -188,15 +201,25 @@ pub async fn refresh_account_token(state: State<'_, AppState>, id: String) -> Re
 #[tauri::command]
 pub async fn verify_account(
     state: State<'_, AppState>,
-    _access_token: String,
-    refresh_token: String,
-    _csrf_token: Option<String>,
-    provider: String,
-    // IdC 账号需要的额外参数
-    client_id: Option<String>,
-    client_secret: Option<String>,
-    region: Option<String>,
+    params: VerifyAccountParams,
 ) -> Result<VerifyAccountResponse, String> {
+    let VerifyAccountParams {
+        access_token,
+        refresh_token,
+        csrf_token,
+        provider,
+        client_id,
+        client_secret,
+        region,
+    } = params;
+    
+    #[cfg(debug_assertions)]
+    println!("[verify_account] provider={}, has_access_token={}, has_csrf_token={}", 
+        provider, !access_token.is_empty(), csrf_token.is_some());
+    
+    // 在 release 模式下避免 unused 警告
+    let _ = (&access_token, &csrf_token);
+    
     // 判断是否是 IdC 账号
     let is_idc = provider == "BuilderId" || provider == "Enterprise";
     

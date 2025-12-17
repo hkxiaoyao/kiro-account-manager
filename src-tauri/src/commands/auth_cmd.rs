@@ -8,6 +8,20 @@ use crate::auth_social;
 use crate::codewhisperer_client::CodeWhispererClient;
 use crate::providers::{AuthMethod, AuthProvider, get_provider_config, create_social_provider, create_idc_provider};
 use crate::commands::machine_guid_cmd::get_machine_id;
+use serde::Deserialize;
+
+/// add_kiro_account 命令参数
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AddKiroAccountParams {
+    pub email: String,
+    pub access_token: String,
+    pub refresh_token: String,
+    pub csrf_token: String,
+    pub idp: String,
+    pub quota: Option<i32>,
+    pub used: Option<i32>,
+}
 
 #[tauri::command]
 pub fn get_current_user(state: State<AppState>) -> Option<User> {
@@ -256,15 +270,19 @@ pub async fn handle_kiro_social_callback(
 #[tauri::command]
 pub async fn add_kiro_account(
     state: State<'_, AppState>,
-    email: String,
-    access_token: String,
-    refresh_token: String,
-    csrf_token: String,
-    idp: String,
-    _quota: Option<i32>,
-    _used: Option<i32>,
+    params: AddKiroAccountParams,
 ) -> Result<Account, String> {
-    println!("Adding Kiro account: email={}, idp={}", email, idp);
+    let AddKiroAccountParams {
+        email,
+        access_token,
+        refresh_token,
+        csrf_token,
+        idp,
+        quota,
+        used,
+    } = params;
+    
+    println!("Adding Kiro account: email={}, idp={}, quota={:?}, used={:?}", email, idp, quota, used);
     
     let usage = if !access_token.is_empty() {
         get_usage_limits_desktop(&access_token).await.ok()

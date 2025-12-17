@@ -14,13 +14,17 @@ import UpdateChecker from './components/UpdateChecker'
 import Watermark from './components/Watermark'
 
 import { useApp } from './hooks/useApp'
+import { useAppSettings } from './contexts/AppSettingsContext'
 
 function App() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [activeMenu, setActiveMenu] = useState('home')
   const { colors } = useApp()
+  const { settings: appSettings } = useAppSettings()
   const refreshTimerRef = useRef(null)
+  // 使用 ref 保持最新的设置引用，避免闭包捕获旧值
+  const appSettingsRef = useRef(appSettings)
 
   // 判断账号是否需要刷新（已过期或5分钟内过期）
   const isExpiringSoon = (acc) => {
@@ -56,8 +60,8 @@ function App() {
   // 启动时强制刷新，不检查 autoRefresh 设置
   const refreshExpiredTokensOnly = async () => {
     try {
-      const settings = await invoke('get_app_settings').catch(() => ({}))
-      // autoRefresh 默认为 true（null/undefined 视为 true）
+      // 使用 ref 获取最新设置，避免闭包捕获旧值
+      const settings = appSettingsRef.current || {}
       const autoRefreshEnabled = settings.autoRefresh !== false
       console.log('[AutoRefresh] 设置:', { autoRefresh: autoRefreshEnabled, interval: settings.autoRefreshInterval })
       
@@ -96,15 +100,16 @@ function App() {
   // 检查并恢复锁定的模型
   const checkAndRestoreLockedModel = async () => {
     try {
-      const appSettings = await invoke('get_app_settings').catch(() => ({}))
-      if (!appSettings.lockModel || !appSettings.lockedModel) return
+      // 使用 ref 获取最新设置，避免闭包捕获旧值
+      const settings = appSettingsRef.current || {}
+      if (!settings.lockModel || !settings.lockedModel) return
       
       const kiroSettings = await invoke('get_kiro_settings').catch(() => ({}))
       const currentModel = kiroSettings.modelSelection
       
-      if (currentModel && currentModel !== appSettings.lockedModel) {
-        console.log(`[ModelLock] 检测到模型被修改: ${currentModel} -> 恢复为: ${appSettings.lockedModel}`)
-        await invoke('set_kiro_model', { model: appSettings.lockedModel })
+      if (currentModel && currentModel !== settings.lockedModel) {
+        console.log(`[ModelLock] 检测到模型被修改: ${currentModel} -> 恢复为: ${settings.lockedModel}`)
+        await invoke('set_kiro_model', { model: settings.lockedModel })
         console.log('[ModelLock] 模型已恢复')
       }
     } catch (e) {
@@ -115,7 +120,8 @@ function App() {
   // 定时刷新：只刷新 token（复用 isExpiringSoon 判断）
   const checkAndRefreshExpiringTokens = async () => {
     try {
-      const settings = await invoke('get_app_settings').catch(() => ({}))
+      // 使用 ref 获取最新设置，避免闭包捕获旧值
+      const settings = appSettingsRef.current || {}
       // autoRefresh 默认为 true（null/undefined 视为 true）
       if (settings.autoRefresh === false) return
       
@@ -149,7 +155,7 @@ function App() {
   }
 
   // 启动自动刷新定时器
-  const startAutoRefreshTimer = async () => {
+  const startAutoRefreshTimer = () => {
     if (refreshTimerRef.current) {
       clearInterval(refreshTimerRef.current)
     }
@@ -157,8 +163,8 @@ function App() {
     // 启动时只刷新 token（快速启动）
     refreshExpiredTokensOnly()
     
-    // 从设置读取刷新间隔
-    const settings = await invoke('get_app_settings').catch(() => ({}))
+    // 使用 ref 获取最新设置读取刷新间隔
+    const settings = appSettingsRef.current || {}
     const intervalMs = (settings.autoRefreshInterval || 50) * 60 * 1000
     
     console.log(`[AutoRefresh] 定时器间隔: ${settings.autoRefreshInterval || 50} 分钟`)
@@ -167,6 +173,11 @@ function App() {
 
   // 模型锁定检查定时器
   const modelLockTimerRef = useRef(null)
+
+  // 同步 appSettings 到 ref
+  useEffect(() => {
+    appSettingsRef.current = appSettings
+  }, [appSettings])
   
   const startModelLockTimer = async () => {
     if (modelLockTimerRef.current) {

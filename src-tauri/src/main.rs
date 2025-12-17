@@ -11,7 +11,7 @@ mod deep_link_handler;
 mod kiro;
 mod kiro_auth_client;
 mod mcp;
-mod powers;
+
 mod process;
 mod providers;
 mod state;
@@ -36,7 +36,7 @@ use commands::auth_cmd::*;
 use commands::kiro_settings_cmd::*;
 use commands::machine_guid_cmd::*;
 use commands::mcp_cmd::*;
-use commands::powers_cmd::*;
+
 use commands::proxy_cmd::*;
 use commands::sso_import_cmd::*;
 use commands::update_cmd::*;
@@ -148,12 +148,7 @@ fn main() {
             save_mcp_server,
             delete_mcp_server,
             toggle_mcp_server,
-            // Powers 管理命令
-            get_powers_registry,
-            get_installed_powers,
-            get_all_powers,
-            install_power,
-            uninstall_power,
+
             // 代理检测命令
             detect_system_proxy,
             // SSO Token 导入命令

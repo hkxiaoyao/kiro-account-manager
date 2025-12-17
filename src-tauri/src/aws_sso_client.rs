@@ -1,5 +1,5 @@
-/// AWS SSO OIDC Client
-/// 实现 AWS SSO OIDC API 调用，用于 BuilderId 认证
+//! AWS SSO OIDC Client
+//! 实现 AWS SSO OIDC API 调用，用于 BuilderId 认证
 
 use reqwest::Client;
 use serde::{Deserialize, Serialize};

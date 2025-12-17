@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { useApp } from '../../hooks/useApp'
-import { Server, Sparkles, Settings2, FileText } from 'lucide-react'
+import { Server, Settings2, FileText } from 'lucide-react'
 import MCPPanel from './MCPPanel'
-import PowersPanel from './PowersPanel'
 import SteeringPanel from './SteeringPanel'
 
 function KiroConfig() {
@@ -12,7 +11,6 @@ function KiroConfig() {
 
   const TABS = [
     { id: 'mcp', label: t('kiroConfig.mcp'), icon: Server },
-    { id: 'powers', label: t('kiroConfig.powers'), icon: Sparkles },
     { id: 'steering', label: t('kiroConfig.steering'), icon: FileText },
   ]
 
@@ -58,7 +56,6 @@ function KiroConfig() {
       {/* 内容区 */}
       <div className="flex-1 overflow-hidden">
         {activeTab === 'mcp' && <MCPPanel />}
-        {activeTab === 'powers' && <PowersPanel />}
         {activeTab === 'steering' && <SteeringPanel />}
       </div>
     </div>

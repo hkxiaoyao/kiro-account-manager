@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback } from 'react'
 import ConfirmDialog from '../components/AccountManager/ConfirmDialog'
+import UpdateDialog from '../components/UpdateDialog'
 
 const DialogContext = createContext(null)
 
@@ -9,6 +10,8 @@ const DialogContext = createContext(null)
 export function DialogProvider({ children }) {
   const [dialog, setDialog] = useState(null)
   const [resolveRef, setResolveRef] = useState(null)
+  // 更新弹窗状态
+  const [updateDialog, setUpdateDialog] = useState(null)
 
   // 显示确认弹窗，返回 Promise<boolean>
   const showConfirm = useCallback((title, message, options = {}) => {
@@ -60,6 +63,16 @@ export function DialogProvider({ children }) {
     })
   }, [])
 
+  // 显示更新弹窗
+  const showUpdate = useCallback((updateInfo, update) => {
+    setUpdateDialog({ updateInfo, update })
+  }, [])
+
+  // 关闭更新弹窗
+  const closeUpdate = useCallback(() => {
+    setUpdateDialog(null)
+  }, [])
+
   const handleConfirm = useCallback(() => {
     if (resolveRef) resolveRef(true)
     setDialog(null)
@@ -73,7 +86,7 @@ export function DialogProvider({ children }) {
   }, [resolveRef])
 
   return (
-    <DialogContext.Provider value={{ showConfirm, showSuccess, showError, showInfo }}>
+    <DialogContext.Provider value={{ showConfirm, showSuccess, showError, showInfo, showUpdate, closeUpdate }}>
       {children}
       {dialog && (
         <ConfirmDialog
@@ -84,6 +97,13 @@ export function DialogProvider({ children }) {
           cancelText={dialog.cancelText}
           onConfirm={handleConfirm}
           onCancel={handleCancel}
+        />
+      )}
+      {updateDialog && (
+        <UpdateDialog
+          updateInfo={updateDialog.updateInfo}
+          update={updateDialog.update}
+          onClose={closeUpdate}
         />
       )}
     </DialogContext.Provider>

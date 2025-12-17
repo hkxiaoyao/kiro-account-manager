@@ -85,11 +85,11 @@ fn open_with_custom_browser(browser_path: &str, url: &str) -> Result<(), String>
         return Err("浏览器路径为空".to_string());
     }
 
-    let (exe_path, rest) = if browser_path.starts_with('"') {
+    let (exe_path, rest) = if let Some(stripped) = browser_path.strip_prefix('"') {
         // 路径被引号包裹: "C:\Program Files\...\chrome.exe" --incognito
-        if let Some(end_quote) = browser_path[1..].find('"') {
-            let path = &browser_path[1..=end_quote];
-            let remaining = browser_path[end_quote + 2..].trim();
+        if let Some(end_quote) = stripped.find('"') {
+            let path = &stripped[..end_quote];
+            let remaining = stripped[end_quote + 1..].trim();
             (path, remaining)
         } else {
             // 没有结束引号，整个当作路径

@@ -1,75 +1,52 @@
 import { useState, useEffect } from 'react'
-import { Github, Heart, Coffee, ExternalLink, Sparkles, Code2, Palette, Cpu, RefreshCw, X, Download } from 'lucide-react'
+import { Github, Heart, Coffee, ExternalLink, Sparkles, Code2, Palette, Cpu, RefreshCw, X } from 'lucide-react'
 import { getVersion } from '@tauri-apps/api/app'
+import { invoke } from '@tauri-apps/api/core'
 import { check } from '@tauri-apps/plugin-updater'
-import { relaunch } from '@tauri-apps/plugin-process'
 import { useApp } from '../hooks/useApp'
+import { useDialog } from '../contexts/DialogContext'
 import alipayQR from '../assets/donate/alipay.jpg'
 import wechatQR from '../assets/donate/wechat.jpg'
 
 function About() {
   const { t, theme, colors } = useApp()
+  const { showUpdate, showInfo } = useDialog()
   const isDark = theme === 'dark'
   const [version, setVersion] = useState('')
   const [checking, setChecking] = useState(false)
-  const [updateStatus, setUpdateStatus] = useState(null)
   const [previewImg, setPreviewImg] = useState(null)
 
   useEffect(() => {
     getVersion().then(setVersion)
   }, [])
 
-  const [updateInfo, setUpdateInfo] = useState(null)
-  const [downloading, setDownloading] = useState(false)
-  const [downloadProgress, setDownloadProgress] = useState(0)
-
   const checkUpdate = async () => {
     setChecking(true)
-    setUpdateStatus(null)
-    setUpdateInfo(null)
     try {
-      const update = await check()
-      if (update) {
-        setUpdateInfo(update)
-        setUpdateStatus({ type: 'update', message: t('about.newVersion', { version: update.version }), update })
+      // 先用自定义命令检查（支持代理）
+      const result = await invoke('check_update')
+      console.log('[Update] 检查结果:', result)
+
+      if (result.has_update && result.latest_version) {
+        // 有更新，再用 Tauri updater 获取完整的 update 对象
+        const updateResult = await check()
+        if (updateResult) {
+          // 显示更新弹窗
+          showUpdate(
+            { version: result.latest_version, body: result.notes },
+            updateResult
+          )
+        }
       } else {
-        setUpdateStatus({ type: 'latest', message: t('about.upToDate') })
+        // 已是最新版本
+        showInfo(t('about.checkUpdate'), t('about.upToDate'))
       }
     } catch (e) {
       console.error('Check update failed:', e)
-      // 网络错误等情况，静默处理，显示为已是最新版本
-      setUpdateStatus({ type: 'latest', message: t('about.upToDate') })
+      // 网络错误等情况，显示已是最新版本
+      showInfo(t('about.checkUpdate'), t('about.upToDate'))
     } finally {
       setChecking(false)
-    }
-  }
-
-  const doUpdate = async () => {
-    const update = updateInfo || updateStatus?.update
-    if (!update) return
-    setDownloading(true)
-    setDownloadProgress(0)
-    let downloaded = 0
-    let total = 0
-    try {
-      await update.downloadAndInstall((event) => {
-        if (event.event === 'Started') {
-          total = event.data.contentLength || 0
-          downloaded = 0
-        } else if (event.event === 'Progress') {
-          downloaded += event.data.chunkLength
-          if (total > 0) {
-            setDownloadProgress(Math.round((downloaded / total) * 100))
-          }
-        } else if (event.event === 'Finished') {
-          setDownloadProgress(100)
-        }
-      })
-      await relaunch()
-    } catch (e) {
-      console.error('Update failed:', e)
-      setUpdateStatus({ type: 'error', message: t('about.updateFailed') + ': ' + e })
-      setDownloading(false)
     }
   }
 
@@ -117,33 +94,6 @@ function About() {
               {checking ? t('about.checking') : t('about.checkUpdate')}
             </button>
           </div>
-
-          {updateStatus && (
-            <div className={`mb-4 px-4 py-2 rounded-lg text-sm ${
-              updateStatus.type === 'latest' ? (isDark ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-600') :
-              updateStatus.type === 'update' ? (isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-600') :
-              (isDark ? 'bg-red-500/20 text-red-400' : 'bg-red-100 text-red-600')
-            }`}>
-              {downloading ? (
-                <span>{t('about.downloading')} {downloadProgress}%</span>
-              ) : (
-                <>
-                  {updateStatus.type === 'latest' ? t('about.upToDate') : 
-                   updateStatus.type === 'update' ? t('about.newVersion', { version: updateInfo?.version || updateStatus.update?.version }) :
-                   t('about.updateFailed')}
-                  {updateStatus.type === 'update' && (updateInfo || updateStatus.update) && (
-                    <button 
-                      onClick={doUpdate} 
-                      className="ml-3 px-2 py-0.5 bg-blue-500 text-white rounded text-xs hover:bg-blue-600 transition-colors inline-flex items-center gap-1"
-                    >
-                      <Download size={12} />
-                      {t('about.download')}
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          )}
 
           <p className={`${colors.textMuted} text-sm`}>{t('about.appDesc')}</p>
         </div>

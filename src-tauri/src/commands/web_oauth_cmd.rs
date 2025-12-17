@@ -121,7 +121,7 @@ pub async fn web_oauth_complete(
     let mut store = state.store.lock().unwrap();
     
     // 按 email + provider 去重
-    let account = if let Some(existing) = store.accounts.iter_mut().find(|a| a.email == email && a.provider.as_deref() == Some(&provider)) {
+    let account = if let Some(existing) = store.accounts.iter_mut().find(|a| a.email == email && a.provider.as_deref() == Some(provider)) {
         // 更新现有账号
         existing.access_token = Some(auth_result.access_token.clone());
         // 根据 provider 存到不同字段
@@ -203,10 +203,7 @@ pub async fn web_oauth_refresh(
     let auth_result = web_provider.refresh_token_impl(access_token, csrf_token, token).await?;
     
     let portal_client = crate::providers::web_oauth::KiroWebPortalClient::new();
-    let idp = match provider.as_str() {
-        "Github" => "Github",
-        other => other,
-    };
+    let idp = provider.as_str();
     let usage = portal_client.get_user_usage_and_limits(
         &auth_result.access_token,
         idp,
@@ -290,10 +287,13 @@ pub async fn web_oauth_login(
     let app_handle_clone = app_handle.clone();
     let window_label_clone = window_label.clone();
     
+    let auth_url = init_result.authorize_url.parse()
+        .map_err(|e| format!("Invalid authorize URL: {}", e))?;
+    
     let _window = WebviewWindowBuilder::new(
         &app_handle,
         &window_label,
-        WebviewUrl::External(init_result.authorize_url.parse().unwrap())
+        WebviewUrl::External(auth_url)
     )
     .title(format!("Login with {}", provider))
     .inner_size(500.0, 700.0)

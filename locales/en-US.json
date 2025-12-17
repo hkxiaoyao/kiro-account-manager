@@ -348,6 +348,9 @@
 
   "update.newVersion": "New Version Found",
   "update.newVersionFound": "New Version Available",
+  "update.newVersionAvailable": "New Version Available",
+  "update.readyToInstall": "Ready to install",
+  "update.releaseNotes": "Release Notes",
   "update.later": "Later",
   "update.updateNow": "Update Now",
   "update.downloading": "Downloading update",
