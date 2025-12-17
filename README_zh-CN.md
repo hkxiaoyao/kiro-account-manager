@@ -120,6 +120,23 @@
 | Powers 注册表 | `~/.kiro/powers/registry.json` |
 | Steering 规则 | `~/.kiro/steering/*.md` |
 
+## 🔨 自行构建（Fork 用户）
+
+如果你想自己构建应用：
+
+1. **Fork** 本仓库到你的账号
+2. 进入 **Actions** 标签页，启用工作流
+3. 点击左侧 **"Build (Fork)"** 工作流
+4. 点击 **"Run workflow"** 按钮开始构建
+5. 等待约 15 分钟完成构建
+6. 从完成的工作流运行中下载构建产物
+
+> ⚠️ 自行构建的版本默认未签名，Windows 安装时会显示安全警告。
+>
+> 💡 如需启用代码签名，请在你的 fork 仓库添加 Secrets：`TAURI_SIGNING_PRIVATE_KEY` 和 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
+>
+> ⚠️ "Release" 工作流仅作者可用（需要私有仓库访问权限），Fork 用户请使用 "Build (Fork)" 工作流。
+
 ## ❓ 常见问题
 
 **Q: 登录失败怎么办？**
