@@ -35,7 +35,7 @@ export function AppSettingsProvider({ children }) {
   // 更新设置（同时更新缓存和后端）
   const updateSettings = async (updates) => {
     try {
-      await invoke('save_app_settings', { updates })
+      await invoke('save_app_settings', { settings: updates })
       setSettings(prev => ({ ...prev, ...updates }))
       return true
     } catch (err) {
