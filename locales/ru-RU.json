@@ -165,6 +165,8 @@
   "settings.kiroSettingsDesc": "Настройка функций Kiro IDE",
   "settings.enableCodebaseIndexing": "Включить индексацию кодовой базы",
   "settings.enableCodebaseIndexingDesc": "При включении Kiro автоматически индексирует кодовую базу для лучшего понимания и поиска кода",
+  "settings.invalidProxyFormat": "Неверный формат прокси. Используйте URL-адрес, начинающийся с http://, https:// или socks5://",
+  "settings.invalidBrowserPath": "Неверный путь браузера. Убедитесь, что введен путь к исполняемому файлу (.exe, .app и т. д.)",
 
   "accounts.title": "Управление аккаунтами",
   "accounts.subtitle": "Управление аккаунтами Kiro IDE",

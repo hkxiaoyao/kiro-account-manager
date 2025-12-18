@@ -125,6 +125,12 @@ function AccountManager() {
   const handleDelete = useCallback(async (id) => {
     const confirmed = await showConfirm(t('accounts.delete'), t('accounts.confirmDelete'))
     if (confirmed) {
+      // 删除账号前，清理绑定的机器码
+      try {
+        await invoke('unbind_machine_id_from_account', { accountId: id }).catch(() => {})
+      } catch (e) {
+        console.error('清理机器码绑定失败:', e)
+      }
       await invoke('delete_account', { id })
       loadAccounts()
     }
@@ -135,6 +141,14 @@ function AccountManager() {
     if (selectedIds.length === 0) return
     const confirmed = await showConfirm(t('accounts.batchDelete'), t('accounts.confirmDeleteMultiple', { count: selectedIds.length }))
     if (confirmed) {
+      // 删除账号前，清理所有绑定的机器码
+      try {
+        await Promise.all(
+          selectedIds.map(id => invoke('unbind_machine_id_from_account', { accountId: id }).catch(() => {}))
+        )
+      } catch (e) {
+        console.error('清理机器码绑定失败:', e)
+      }
       await invoke('delete_accounts', { ids: selectedIds })
       setSelectedIds([])
       loadAccounts()

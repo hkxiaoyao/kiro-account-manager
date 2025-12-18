@@ -165,6 +165,8 @@
   "settings.kiroSettingsDesc": "配置 Kiro IDE 的功能选项",
   "settings.enableCodebaseIndexing": "启用代码库索引",
   "settings.enableCodebaseIndexingDesc": "启用后，Kiro 会自动索引代码库以提供更好的代码理解和搜索功能",
+  "settings.invalidProxyFormat": "代理格式无效，请使用 http://、https:// 或 socks5:// 开头的 URL",
+  "settings.invalidBrowserPath": "浏览器路径无效，请确保输入的是可执行文件路径（.exe、.app 等）",
 
   "accounts.title": "账号管理",
   "accounts.subtitle": "管理你的 Kiro IDE 账号",

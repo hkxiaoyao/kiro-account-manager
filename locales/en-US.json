@@ -159,6 +159,8 @@
   "settings.kiroSettingsDesc": "Configure Kiro IDE features",
   "settings.enableCodebaseIndexing": "Enable Codebase Indexing",
   "settings.enableCodebaseIndexingDesc": "When enabled, Kiro will automatically index your codebase for better code understanding and search",
+  "settings.invalidProxyFormat": "Invalid proxy format. Use http://, https://, or socks5:// URL",
+  "settings.invalidBrowserPath": "Invalid browser path. Ensure you enter an executable file path (.exe, .app, etc.)",
 
   "accounts.title": "Account Manager",
   "accounts.subtitle": "Manage your Kiro IDE accounts",
