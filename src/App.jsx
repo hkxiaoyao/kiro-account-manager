@@ -140,18 +140,23 @@ function App() {
       
       console.log(`[AutoRefresh] 刷新 ${expiredAccounts.length} 个 token...`)
       
-      await Promise.allSettled(
+      const results = await Promise.allSettled(
         expiredAccounts.map(async (account) => {
           try {
-            await invoke('refresh_account_token', { id: account.id })
+            const updated = await invoke('refresh_account_token', { id: account.id })
             console.log(`[AutoRefresh] ${account.email} token 刷新成功`)
+            return { success: true, account: updated }
           } catch (e) {
             console.warn(`[AutoRefresh] ${account.email} token 刷新失败:`, e)
+            return { success: false }
           }
         })
       )
       
       console.log('[AutoRefresh] token 刷新完成')
+      // 重新加载账号列表确保前端数据是最新的
+      const updatedAccounts = await invoke('get_accounts')
+      console.log('[AutoRefresh] 账号列表已更新')
       // 通知 AccountContext 刷新缓存
       emit('accounts-updated')
     } catch (e) {
