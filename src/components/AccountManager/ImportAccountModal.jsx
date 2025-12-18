@@ -10,19 +10,19 @@ function validateAccount(item, index) {
   // 兼容导出格式：refreshToken 可能在 item.refreshToken
   const refreshToken = item.refreshToken
   if (!refreshToken) {
-    errors.push(`第${index + 1}条: 缺少 refreshToken`)
-    return { valid: false, errors, type: null }
-  }
-  
-  // 所有 refreshToken 都以 aor 开头（无论 Social 还是 IdC）
-  if (!refreshToken.startsWith('aor')) {
-    errors.push(`第${index + 1}条: refreshToken 格式无效（应以 aor 开头）`)
-    return { valid: false, errors, type: null }
-  }
-  
-  // 通过是否有 clientId/clientSecret 来判断账号类型
-  // IdC 账号（BuilderId/Enterprise）需要 clientId 和 clientSecret
-  // Social 账号（Google/GitHub）不需要这些字段
+     errors.push(`第${index + 1}条: 缺少 refreshToken`)
+     return { valid: false, errors, type: null }
+   }
+   
+   // 所有 refreshToken 都以 aor 开头（无论 Social 还是 IdC）
+   if (!refreshToken.startsWith('aor')) {
+     errors.push(`第${index + 1}条: refreshToken 格式无效（应以 aor 开头）`)
+     return { valid: false, errors, type: null }
+   }
+   
+   // 通过是否有 clientId/clientSecret 来判断账号类型
+   // IdC 账号（BuilderId/Enterprise）需要 clientId 和 clientSecret
+   // Social 账号（Google/Github）不需要这些字段
   const hasClientCredentials = item.clientId && item.clientSecret
   const isIdC = hasClientCredentials
   const isSocial = !hasClientCredentials
@@ -33,15 +33,15 @@ function validateAccount(item, index) {
     provider = isSocial ? 'Google' : 'BuilderId'
   }
   
-  const validProviders = ['Google', 'GitHub', 'BuilderId', 'Enterprise']
+  const validProviders = ['Google', 'Github', 'BuilderId', 'Enterprise']
   if (!validProviders.includes(provider)) {
     errors.push(`第${index + 1}条: provider 必须是 ${validProviders.join('/')}`)
     return { valid: false, errors, type: null }
   }
   
   // 校验 provider 与账号类型匹配
-  if (isSocial && !['Google', 'GitHub'].includes(provider)) {
-    errors.push(`第${index + 1}条: Social 账号（无 clientId/clientSecret）的 provider 应为 Google/GitHub`)
+  if (isSocial && !['Google', 'Github'].includes(provider)) {
+    errors.push(`第${index + 1}条: Social 账号（无 clientId/clientSecret）的 provider 应为 Google/Github`)
     return { valid: false, errors, type: null }
   }
   

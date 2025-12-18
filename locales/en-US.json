@@ -166,6 +166,7 @@
   "accounts.add": "Add Account",
   "accounts.import": "Import",
   "accounts.export": "Export",
+  "accounts.refreshList": "Refresh List",
   "accounts.refresh": "Refresh",
   "accounts.refreshAll": "Sync Data",
   "accounts.delete": "Delete",

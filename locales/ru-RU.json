@@ -172,6 +172,7 @@
   "accounts.add": "Добавить аккаунт",
   "accounts.import": "Импорт",
   "accounts.export": "Экспорт",
+  "accounts.refreshList": "Обновить список",
   "accounts.refresh": "Обновить",
   "accounts.refreshAll": "Синхронизировать",
   "accounts.delete": "Удалить",

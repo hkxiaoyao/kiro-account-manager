@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { emit } from '@tauri-apps/api/event'
 import { Lock, Copy, Sun, Moon, Palette, Check, RefreshCw, Settings as SettingsIcon, Clock, Globe, Search, Shield, Download, Upload, Shuffle, AlertTriangle } from 'lucide-react'
@@ -132,7 +132,7 @@ function Settings() {
       await invoke('set_kiro_model', { model })
       // 如果锁定模型，保存到应用设置
       if (lockModel) {
-        await saveAppSettings({ locked_model: model })
+        await saveAppSettings({ lockedModel: model })
         await emit('app-settings-changed')
       }
     } catch (err) {
@@ -144,7 +144,7 @@ function Settings() {
 
   const handleLockModelChange = async (checked) => {
     setLockModel(checked)
-    await saveAppSettings({ lock_model: checked, locked_model: checked ? aiModel : null })
+    await saveAppSettings({ lockModel: checked, lockedModel: checked ? aiModel : null })
     await emit('app-settings-changed')
   }
 
@@ -316,10 +316,24 @@ function Settings() {
 
   // 复制到剪贴板
   const [copiedField, setCopiedField] = useState(null)
+  const copiedTimerRef = useRef(null)
+
+  // 清理timer
+  useEffect(() => {
+    return () => {
+      if (copiedTimerRef.current) {
+        clearTimeout(copiedTimerRef.current)
+      }
+    }
+  }, [])
+
   const copyToClipboard = (text, field) => {
-    navigator.clipboard.writeText(text)
+    navigator.clipboard.writeText(text).catch(e => console.error('Copy failed:', e))
     setCopiedField(field)
-    setTimeout(() => setCopiedField(null), 1500)
+    if (copiedTimerRef.current) {
+      clearTimeout(copiedTimerRef.current)
+    }
+    copiedTimerRef.current = setTimeout(() => setCopiedField(null), 1500)
   }
 
   // 信息项组件

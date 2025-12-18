@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { X, Copy, Check, RefreshCw, User, CreditCard, Key, Clock, ChevronDown, ChevronUp, Shield } from 'lucide-react'
 import { useApp } from '../hooks/useApp'
@@ -23,8 +23,16 @@ function AccountDetailModal({ account, onClose }) {
   const [refreshing, setRefreshing] = useState(false)
   const [copied, setCopied] = useState(null)
   const [showTokens, setShowTokens] = useState(true)
+  const copiedTimerRef = useRef(null)
 
-
+  // 清理timer
+  useEffect(() => {
+    return () => {
+      if (copiedTimerRef.current) {
+        clearTimeout(copiedTimerRef.current)
+      }
+    }
+  }, [])
 
   const handleRefresh = async () => {
     setRefreshing(true)
@@ -41,9 +49,12 @@ function AccountDetailModal({ account, onClose }) {
   }
 
   const handleCopy = (text, field) => {
-    navigator.clipboard.writeText(text)
+    navigator.clipboard.writeText(text).catch(e => console.error('Copy failed:', e))
     setCopied(field)
-    setTimeout(() => setCopied(null), 1500)
+    if (copiedTimerRef.current) {
+      clearTimeout(copiedTimerRef.current)
+    }
+    copiedTimerRef.current = setTimeout(() => setCopied(null), 1500)
   }
 
   // 从 usageData 读取免费试用和奖励信息

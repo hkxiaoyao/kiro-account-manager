@@ -172,6 +172,7 @@
   "accounts.add": "添加账号",
   "accounts.import": "导入",
   "accounts.export": "导出",
+  "accounts.refreshList": "刷新列表",
   "accounts.refresh": "刷新",
   "accounts.refreshAll": "同步数据",
   "accounts.delete": "删除",

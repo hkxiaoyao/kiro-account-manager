@@ -127,10 +127,10 @@ function AccountHeader({
           <button 
             onClick={onRefresh} 
             className={`btn-icon px-3 py-2 ${colors.card} border ${colors.cardBorder} rounded-xl ${isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'} transition-all flex items-center gap-1.5`} 
-            title={t('common.refresh')}
+            title={t('accounts.refreshList')}
           >
             <RefreshCw size={16} className={colors.textMuted} />
-            <span className={`text-sm ${colors.textMuted}`}>{t('common.refresh')}</span>
+            <span className={`text-sm ${colors.textMuted}`}>{t('accounts.refreshList')}</span>
           </button>
           <button 
             onClick={onRefreshAll} 

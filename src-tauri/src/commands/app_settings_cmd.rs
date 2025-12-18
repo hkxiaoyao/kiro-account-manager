@@ -96,8 +96,8 @@ pub async fn get_app_settings() -> Result<AppSettings, String> {
 }
 
 #[tauri::command]
-pub async fn save_app_settings(#[serde(rename = "settings")] updates: AppSettings) -> Result<(), String> {
-    tokio::task::spawn_blocking(move || save_app_settings_inner(updates))
+pub async fn save_app_settings(settings: AppSettings) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || save_app_settings_inner(settings))
         .await
         .map_err(|e| format!("Task failed: {}", e))?
 }

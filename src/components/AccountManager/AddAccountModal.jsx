@@ -8,7 +8,7 @@ function AddAccountModal({ onClose, onSuccess }) {
   const isDark = theme === 'dark'
   const [addLoading, setAddLoading] = useState(false)
   const [addError, setAddError] = useState('')
-  const [addType, setAddType] = useState('social')
+  const [accountType, setAccountType] = useState('google') // 'google' | 'github' | 'idc'
   const [refreshToken, setRefreshToken] = useState('')
   const [clientId, setClientId] = useState('')
   const [clientSecret, setClientSecret] = useState('')
@@ -41,7 +41,7 @@ function AddAccountModal({ onClose, onSuccess }) {
     }
     
     // 校验 token 格式
-    // Social (Google/GitHub) 的 refreshToken 以 aor 开头
+    // Social (Google/Github) 的 refreshToken 以 aor 开头
     // BuilderId (IdC) 的 refreshToken 是 AWS SSO OIDC 返回的，格式不同
     if (addType === 'social' && !refreshToken.startsWith('aor')) {
       setAddError(t('addAccount.errorSocialFormat'))
@@ -51,7 +51,7 @@ function AddAccountModal({ onClose, onSuccess }) {
     setAddLoading(true)
     setAddError('')
     try {
-      if (addType === 'idc') {
+      if (accountType === 'idc') {
         if (!clientId || !clientSecret) {
           setAddError(t('addAccount.errorNoClientId'))
           setAddLoading(false)
@@ -59,7 +59,8 @@ function AddAccountModal({ onClose, onSuccess }) {
         }
         await invoke('add_account_by_idc', { refreshToken, clientId, clientSecret, region })
       } else {
-        await invoke('add_account_by_social', { refreshToken })
+        const provider = accountType === 'google' ? 'Google' : 'Github'
+        await invoke('add_account_by_social', { refreshToken, provider })
       }
       onSuccess()
       onClose()
@@ -113,23 +114,31 @@ function AddAccountModal({ onClose, onSuccess }) {
             <div className={`flex-1 h-px ${isDark ? 'bg-white/10' : 'bg-gray-200'}`}></div>
           </div>
 
-          {/* 类型切换 */}
-          <div className={`flex gap-1 p-1 rounded-xl ${isDark ? 'bg-white/5' : 'bg-gray-100'}`}>
+          {/* 账号类型选择 */}
+          <div className={`grid grid-cols-3 gap-1 p-1 rounded-xl ${isDark ? 'bg-white/5' : 'bg-gray-100'}`}>
             <button 
               type="button" 
-              onClick={() => setAddType('social')} 
-              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${addType === 'social' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25' : `${colors.text} hover:bg-white/10`}`}
+              onClick={() => setAccountType('google')} 
+              className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${accountType === 'google' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25' : `${colors.text} hover:bg-white/10`}`}
             >
               <Key size={14} />
-              Google/GitHub
+              <span className="hidden sm:inline">Google</span>
             </button>
             <button 
               type="button" 
-              onClick={() => setAddType('idc')} 
-              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${addType === 'idc' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25' : `${colors.text} hover:bg-white/10`}`}
+              onClick={() => setAccountType('github')} 
+              className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${accountType === 'github' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25' : `${colors.text} hover:bg-white/10`}`}
+            >
+              <Key size={14} />
+              <span className="hidden sm:inline">Github</span>
+            </button>
+            <button 
+              type="button" 
+              onClick={() => setAccountType('idc')} 
+              className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${accountType === 'idc' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25' : `${colors.text} hover:bg-white/10`}`}
             >
               <Shield size={14} />
-              BuilderId/Enterprise
+              <span className="hidden sm:inline">BuilderId</span>
             </button>
           </div>
 
@@ -139,14 +148,14 @@ function AddAccountModal({ onClose, onSuccess }) {
               <label className={`block text-xs font-medium ${colors.textMuted} mb-1.5`}>{t('addAccount.refreshToken')}</label>
               <input 
                 type="text" 
-                placeholder={addType === 'social' ? t('addAccount.socialPlaceholder') : t('addAccount.idcPlaceholder')} 
+                placeholder={accountType === 'idc' ? t('addAccount.idcPlaceholder') : t('addAccount.socialPlaceholder')}
                 value={refreshToken} 
                 onChange={(e) => setRefreshToken(e.target.value)} 
                 className={`w-full px-4 py-3 border rounded-xl text-sm ${colors.text} ${isDark ? 'bg-white/5 border-white/10' : 'bg-white border-gray-200'} focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all`} 
               />
             </div>
 
-            {addType === 'idc' && (
+            {accountType === 'idc' && (
               <>
                 <div>
                   <label className={`block text-xs font-medium ${colors.textMuted} mb-1.5`}>{t('addAccount.clientId')}</label>
