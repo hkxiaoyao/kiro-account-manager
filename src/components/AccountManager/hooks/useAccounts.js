@@ -143,7 +143,7 @@ export function useAccounts() {
           const data = typeof event.payload === 'string' ? JSON.parse(event.payload) : event.payload
           if (data?.accessToken && data?.refreshToken) {
             await invoke('add_kiro_account', {
-              email: data.email || 'unknown@kiro.dev',
+              email: data.email || `banned_${Math.floor(100000 + Math.random() * 900000)}@${(data.idp || 'google').toLowerCase()}.unknown`,
               accessToken: data.accessToken,
               refreshToken: data.refreshToken,
               csrfToken: data.csrfToken || '',
