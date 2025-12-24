@@ -10,6 +10,9 @@ use crate::commands::machine_guid_cmd::get_machine_id;
 use crate::commands::common::{refresh_token_by_provider, get_usage_by_provider, calc_expires_at};
 use serde::{Deserialize, Serialize};
 
+// 账号数量上限
+const MAX_ACCOUNT_COUNT: usize = 100;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VerifyAccountResponse {
     #[serde(rename = "usageLimit")]
@@ -245,6 +248,14 @@ pub async fn add_account_by_social(
     refresh_token: String,
     provider: Option<String>,
 ) -> Result<Account, String> {
+    // 检查账号数量上限
+    {
+        let store = state.store.lock().unwrap();
+        if store.accounts.len() >= MAX_ACCOUNT_COUNT {
+            return Err(format!("账号数量已达上限 ({})，无法继续添加", MAX_ACCOUNT_COUNT));
+        }
+    }
+    
     #[cfg(debug_assertions)]
     println!("[add_account] Adding account by refresh (desktop API)");
     
@@ -401,6 +412,14 @@ pub async fn add_account_by_idc(
     client_secret: String,
     region: Option<String>,
 ) -> Result<Account, String> {
+    // 检查账号数量上限
+    {
+        let store = state.store.lock().unwrap();
+        if store.accounts.len() >= MAX_ACCOUNT_COUNT {
+            return Err(format!("账号数量已达上限 ({})，无法继续添加", MAX_ACCOUNT_COUNT));
+        }
+    }
+    
     let region = region.unwrap_or_else(|| "us-east-1".to_string());
     let metadata = RefreshMetadata {
         client_id: Some(client_id.clone()),

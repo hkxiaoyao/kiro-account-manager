@@ -389,6 +389,7 @@
   "import.validRecords": "条有效记录",
   "import.validationError": "校验错误",
   "import.moreErrors": "...还有 {{count}} 个错误",
+  "import.exceedLimit": "超出数量限制：最多 {{max}} 条，当前 {{count}} 条",
   "import.successCount": "成功导入 {{count}} 个账号",
   "import.failedCount": "失败 {{count}} 个",
   "import.importing": "正在导入...",

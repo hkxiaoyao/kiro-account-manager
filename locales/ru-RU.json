@@ -389,6 +389,7 @@
   "import.validRecords": "валидных записей",
   "import.validationError": "Ошибка валидации",
   "import.moreErrors": "...ещё {{count}} ошибок",
+  "import.exceedLimit": "Превышен лимит: максимум {{max}}, получено {{count}}",
   "import.successCount": "Успешно импортировано {{count}} аккаунтов",
   "import.failedCount": "Ошибок {{count}}",
   "import.importing": "Импорт...",

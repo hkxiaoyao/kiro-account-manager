@@ -10,6 +10,8 @@ use crate::codewhisperer_client::CodeWhispererClient;
 
 const PORTAL_BASE: &str = "https://portal.sso.us-east-1.amazonaws.com";
 const START_URL: &str = "https://view.awsapps.com/start";
+// 账号数量上限
+const MAX_ACCOUNT_COUNT: usize = 100;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -73,6 +75,18 @@ pub async fn import_from_sso_token(
     region: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<SsoImportResult, String> {
+    // 检查账号数量上限
+    {
+        let store = state.store.lock().map_err(|e| format!("锁定存储失败: {}", e))?;
+        if store.accounts.len() >= MAX_ACCOUNT_COUNT {
+            return Ok(SsoImportResult {
+                success: false,
+                email: None,
+                error: Some(format!("账号数量已达上限 ({})，无法继续添加", MAX_ACCOUNT_COUNT)),
+            });
+        }
+    }
+    
     let region = region.unwrap_or_else(|| "us-east-1".to_string());
     let oidc_base = format!("https://oidc.{}.amazonaws.com", region);
     

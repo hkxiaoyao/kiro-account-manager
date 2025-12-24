@@ -76,6 +76,9 @@ function ImportAccountModal({ onClose, onSuccess }) {
   const [ssoProgress, setSsoProgress] = useState({ current: 0, total: 0 })
   const [ssoResult, setSsoResult] = useState(null)
 
+  // 最大导入数量限制
+  const MAX_IMPORT_COUNT = 100
+
   // 解析 JSON
   const parseJson = (text) => {
     if (!text.trim()) {
@@ -87,6 +90,16 @@ function ImportAccountModal({ onClose, onSuccess }) {
       let data = JSON.parse(text)
       if (!Array.isArray(data)) {
         data = [data]
+      }
+      
+      // 检查数量限制
+      if (data.length > MAX_IMPORT_COUNT) {
+        setParseResult({ 
+          valid: [], 
+          invalid: [], 
+          errors: [t('import.exceedLimit', { max: MAX_IMPORT_COUNT, count: data.length })] 
+        })
+        return
       }
       
       const valid = []
@@ -184,6 +197,15 @@ function ImportAccountModal({ onClose, onSuccess }) {
   const handleSsoImport = async () => {
     const tokens = ssoToken.split('\n').map(t => t.trim()).filter(t => t)
     if (tokens.length === 0) return
+    
+    // 检查数量限制
+    if (tokens.length > MAX_IMPORT_COUNT) {
+      setSsoResult({ 
+        success: [], 
+        failed: [{ index: 0, error: t('import.exceedLimit', { max: MAX_IMPORT_COUNT, count: tokens.length }) }] 
+      })
+      return
+    }
     
     setSsoImporting(true)
     setSsoProgress({ current: 0, total: tokens.length })

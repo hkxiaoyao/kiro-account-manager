@@ -383,6 +383,7 @@
   "import.validRecords": "valid records",
   "import.validationError": "Validation Error",
   "import.moreErrors": "...{{count}} more errors",
+  "import.exceedLimit": "Exceeds limit: max {{max}}, got {{count}}",
   "import.successCount": "Successfully imported {{count}} accounts",
   "import.failedCount": "Failed {{count}}",
   "import.importing": "Importing...",
