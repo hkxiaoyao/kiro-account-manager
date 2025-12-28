@@ -182,10 +182,8 @@ impl AuthProvider for IdcProvider {
                             if let Some(tx) = tx_clone.lock().unwrap().take() {
                                 let _ = tx.send(Ok((code.to_string(), state_clone.clone())));
                             }
-                        } else {
-                            if let Some(tx) = tx_clone.lock().unwrap().take() {
-                                let _ = tx.send(Err("未收到授权码".to_string()));
-                            }
+                        } else if let Some(tx) = tx_clone.lock().unwrap().take() {
+                            let _ = tx.send(Err("未收到授权码".to_string()));
                         }
                         break;
                     }
@@ -200,8 +198,7 @@ impl AuthProvider for IdcProvider {
         println!("[IdC] Waiting for authorization callback...");
         
         let (code, _) = rx.await
-            .map_err(|_| "等待授权回调失败".to_string())?
-            .map_err(|e| e)?;
+            .map_err(|_| "等待授权回调失败".to_string())??;
 
         #[cfg(debug_assertions)]
         println!("[IdC] Authorization code received");

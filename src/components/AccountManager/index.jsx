@@ -14,6 +14,7 @@ import ImportAccountModal from './ImportAccountModal'
 import RefreshProgressModal from './RefreshProgressModal'
 import AccountDetailModal from '../AccountDetailModal'
 import EditAccountModal from './EditAccountModal'
+import BatchTagModal from './BatchTagModal'
 import ConfirmDialog from './ConfirmDialog'
 import { AccountListSkeleton } from '../Skeleton'
 
@@ -26,6 +27,7 @@ function AccountManager() {
   const [editingLabelAccount, setEditingLabelAccount] = useState(null)
   const [showAddModal, setShowAddModal] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
+  const [showBatchTagModal, setShowBatchTagModal] = useState(false)
   const [copiedId, setCopiedId] = useState(null)
   const [selectedTag, setSelectedTag] = useState(null)
   const [selectedStatus, setSelectedStatus] = useState(null)
@@ -204,6 +206,7 @@ function AccountManager() {
         onSearchChange={handleSearchChange}
         selectedCount={selectedIds.length}
         onBatchDelete={onBatchDelete}
+        onBatchTag={() => setShowBatchTagModal(true)}
         onAdd={() => setShowAddModal(true)}
         onImport={() => setShowImportModal(true)}
         onExport={() => handleExport(selectedIds)}
@@ -275,6 +278,7 @@ function AccountManager() {
       {showAddModal && (<AddAccountModal onClose={() => setShowAddModal(false)} onSuccess={loadAccounts} />)}
       {editingLabelAccount && (<EditAccountModal account={editingLabelAccount} onClose={() => setEditingLabelAccount(null)} onSuccess={() => { loadAccounts(); loadTagDefinitions() }} />)}
       {showImportModal && (<ImportAccountModal onClose={() => setShowImportModal(false)} onSuccess={loadAccounts} />)}
+      {showBatchTagModal && (<BatchTagModal accountIds={selectedIds} onClose={() => setShowBatchTagModal(false)} onSuccess={() => { loadAccounts(); loadTagDefinitions(); setSelectedIds([]) }} />)}
       {autoRefreshing && (<RefreshProgressModal refreshProgress={refreshProgress} />)}
       
       {/* 切换账号弹窗 */}

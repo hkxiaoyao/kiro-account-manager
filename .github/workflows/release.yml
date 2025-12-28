@@ -64,3 +64,31 @@ jobs:
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.target && format('--target {0}', matrix.target) || '' }}
+
+  # 修正 latest.json，移除不支持在线更新的 deb 平台
+  fix-updater-json:
+    if: ${{ !endsWith(github.repository, '_dev') }}
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Wait for release assets
+        run: sleep 30
+
+      - name: Fix latest.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 下载 latest.json
+          gh release download ${{ github.ref_name }} -p "latest.json" -R ${{ github.repository }} -O latest.json || exit 0
+          
+          # 移除 linux-x86_64-deb 平台（deb 不支持在线更新）
+          if [ -f latest.json ]; then
+            jq 'del(.platforms["linux-x86_64-deb"])' latest.json > latest_fixed.json
+            mv latest_fixed.json latest.json
+            
+            # 上传修正后的文件
+            gh release upload ${{ github.ref_name }} latest.json --clobber -R ${{ github.repository }}
+            echo "✅ 已移除 linux-x86_64-deb 平台"
+          fi

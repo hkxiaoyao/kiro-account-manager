@@ -183,6 +183,9 @@
   "settings.trustAllCommandsDesc": "При включении Kiro будет выполнять любые команды без подтверждения (требуется перезапуск IDE)",
   "settings.invalidProxyFormat": "Неверный формат прокси. Используйте URL-адрес, начинающийся с http://, https:// или socks5://",
   "settings.invalidBrowserPath": "Неверный путь браузера. Убедитесь, что введен путь к исполняемому файлу (.exe, .app и т. д.)",
+  "settings.privacyMode": "Режим конфиденциальности",
+  "settings.privacyModeDesc": "При включении адреса электронной почты будут скрыты в интерфейсе",
+  "settings.privacyModeHint": "Скрыть email",
   "settings.tunModeDetected": "Обнаружен TUN режим",
   "settings.tunModeEnabled": "Система использует TUN режим прокси",
   "settings.tunInterface": "Интерфейс",
@@ -511,6 +514,7 @@
   "mcpManager.errorNoName": "Введите имя сервиса",
   "mcpManager.errorNoCommand": "Введите команду",
 
+  "common.details": "Подробности",
   "common.saving": "Сохранение...",
 
   "pagination.perPage": "На странице",
@@ -596,6 +600,9 @@
   "tags.deleteTag": "Удалить тег",
   "tags.confirmDelete": "Подтвердить удаление тега",
   "tags.duplicateName": "Имя тега уже существует",
+  "tags.batchSet": "Массовые теги",
+  "tags.selected": "Выбранные теги",
+  "tags.available": "Доступные теги",
 
   "filter.title": "Расширенный фильтр",
   "filter.clearAll": "Очистить все",

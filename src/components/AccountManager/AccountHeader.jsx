@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Search, Download, Upload, RefreshCw, Trash2, Plus, Sparkles, MoreHorizontal, ShoppingCart, LayoutGrid, List } from 'lucide-react'
+import { Search, Download, Upload, RefreshCw, Trash2, Plus, Sparkles, MoreHorizontal, ShoppingCart, LayoutGrid, List, Tag } from 'lucide-react'
 import { useApp } from '../../hooks/useApp'
 import FilterDropdown from './FilterDropdown'
 
@@ -8,6 +8,7 @@ function AccountHeader({
   onSearchChange,
   selectedCount,
   onBatchDelete,
+  onBatchTag,
   onAdd,
   onImport,
   onExport,
@@ -116,12 +117,18 @@ function AccountHeader({
             onFiltersChange={onAdvancedFiltersChange}
           />
 
-          {/* 批量删除 */}
+          {/* 批量操作 */}
           {selectedCount > 0 && (
-            <button onClick={onBatchDelete} className="px-3 py-2 bg-red-500 text-white rounded-xl text-sm hover:bg-red-600 flex items-center gap-1.5">
-              <Trash2 size={14} />
-              {t('accounts.batchDelete')} ({selectedCount})
-            </button>
+            <>
+              <button onClick={onBatchTag} className="px-3 py-2 bg-purple-500 text-white rounded-xl text-sm hover:bg-purple-600 flex items-center gap-1.5">
+                <Tag size={14} />
+                {t('tags.batchSet')} ({selectedCount})
+              </button>
+              <button onClick={onBatchDelete} className="px-3 py-2 bg-red-500 text-white rounded-xl text-sm hover:bg-red-600 flex items-center gap-1.5">
+                <Trash2 size={14} />
+                {t('accounts.batchDelete')} ({selectedCount})
+              </button>
+            </>
           )}
 
           {/* 购买按钮 */}

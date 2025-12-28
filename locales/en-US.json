@@ -185,6 +185,8 @@
   "settings.privacyModeHint": "Mask emails",
   "settings.autoChangeMachineId": "Change Machine ID on Switch",
   "settings.autoChangeMachineIdDesc": "Automatically reset Kiro IDE machine ID when switching accounts to avoid multi-account association",
+  "settings.machineIdMode": "Machine ID on Switch",
+  "settings.machineIdNone": "No Change",
   "settings.machineIdBind": "Bind Mode",
   "settings.machineIdRandom": "Random Mode",
 
@@ -511,6 +513,7 @@
   "mcpManager.errorNoName": "Please enter service name",
   "mcpManager.errorNoCommand": "Please enter command",
 
+  "common.details": "Details",
   "common.saving": "Saving...",
 
   "pagination.perPage": "Per page",
@@ -596,6 +599,9 @@
   "tags.deleteTag": "Delete Tag",
   "tags.confirmDelete": "Confirm delete tag",
   "tags.duplicateName": "Tag name already exists",
+  "tags.batchSet": "Batch Tags",
+  "tags.selected": "Selected Tags",
+  "tags.available": "Available Tags",
 
   "filter.title": "Advanced Filter",
   "filter.clearAll": "Clear All",

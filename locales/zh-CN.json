@@ -597,6 +597,9 @@
   "tags.deleteTag": "删除标签",
   "tags.confirmDelete": "确定删除标签",
   "tags.duplicateName": "标签名已存在",
+  "tags.batchSet": "批量标签",
+  "tags.selected": "已选标签",
+  "tags.available": "可选标签",
 
   "filter.title": "高级筛选",
   "filter.clearAll": "清除全部",
