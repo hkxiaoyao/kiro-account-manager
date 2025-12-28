@@ -30,7 +30,17 @@ fn get_kiro_settings_path() -> Option<PathBuf> {
                 .join("settings.json")
         })
     }
-    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    #[cfg(target_os = "linux")]
+    {
+        std::env::var("HOME").ok().map(|home| {
+            PathBuf::from(home)
+                .join(".config")
+                .join("Kiro")
+                .join("User")
+                .join("settings.json")
+        })
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     {
         None
     }
