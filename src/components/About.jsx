@@ -141,15 +141,15 @@ function About() {
                 <ExternalLink size={14} className="text-white/50 ml-auto group-hover:text-white" />
               </a>
               <a 
-                href="https://t.me/kiro520" 
+                href="https://pay.ldxp.cn/shop/U60F42WD" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className={`flex items-center gap-3 ${isDark ? 'bg-sky-600 hover:bg-sky-500' : 'bg-sky-500 hover:bg-sky-600'} rounded-xl p-3 transition-colors group`}
+                className={`flex items-center gap-3 ${isDark ? 'bg-amber-600 hover:bg-amber-500' : 'bg-amber-500 hover:bg-amber-600'} rounded-xl p-3 transition-colors group`}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
-                  <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+                  <path d="M19 6h-2c0-2.76-2.24-5-5-5S7 3.24 7 6H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-7-3c1.66 0 3 1.34 3 3H9c0-1.66 1.34-3 3-3zm7 17H5V8h14v12zm-7-8c-1.66 0-3-1.34-3-3H7c0 2.76 2.24 5 5 5s5-2.24 5-5h-2c0 1.66-1.34 3-3 3z"/>
                 </svg>
-                <span className="text-white text-sm font-medium">{t('about.telegram')}: @kiro520</span>
+                <span className="text-white text-sm font-medium">{t('about.shop')}</span>
                 <ExternalLink size={14} className="text-white/50 ml-auto group-hover:text-white" />
               </a>
             </div>

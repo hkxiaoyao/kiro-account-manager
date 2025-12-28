@@ -307,7 +307,7 @@ If this project helps you, consider buying me a coffee ☕
 ## 💬 Обратная связь
 
 - 🐛 [Создать Issue](https://github.com/hj01857655/kiro-account-manager/issues)
-- 💬 Telegram: [@kiro520](https://t.me/kiro520)
+- 🛒 [Магазин](https://pay.ldxp.cn/shop/U60F42WD)
 
 ## 🚫 Примечание об исходном коде
 
