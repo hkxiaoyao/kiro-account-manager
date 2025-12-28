@@ -11,6 +11,7 @@ import Login from './components/Login'
 import WebOAuthLogin from './components/WebOAuthLogin'
 import AuthCallback from './components/AuthCallback'
 import UpdateChecker from './components/UpdateChecker'
+import AnnouncementModal from './components/AnnouncementModal'
 
 
 import { useApp } from './hooks/useApp'
@@ -325,6 +326,7 @@ function App() {
         </main>
         
         <UpdateChecker />
+        <AnnouncementModal />
       </div>
     </AccountProvider>
   )

@@ -569,5 +569,13 @@
   "tags.manage": "Manage Tags",
   "tags.edit": "Edit Tags",
   "tags.selectTags": "Select Tags",
-  "tags.createNew": "Create New Tag"
+  "tags.createNew": "Create New Tag",
+
+  "announcement.title": "Important Notice",
+  "announcement.warning": "This software is completely FREE!",
+  "announcement.content1": "If anyone charges you for this software, you have been scammed! Please report immediately.",
+  "announcement.content2": "This project is licensed under GPL-3.0, free for everyone to use.",
+  "announcement.content3": "Please download from the official GitHub repository to avoid tampered versions.",
+  "announcement.official": "Official Download:",
+  "announcement.understand": "I Understand"
 }
