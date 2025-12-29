@@ -124,7 +124,8 @@ impl AuthProvider for SocialProvider {
     }
 
     async fn refresh_token(&self, refresh_token: &str, metadata: RefreshMetadata) -> Result<AuthResult, String> {
-        let machine_id = get_machine_id();
+        // 优先使用账号的 machineId，没有则用系统机器码
+        let machine_id = metadata.machine_id.unwrap_or_else(get_machine_id);
         let client = KiroAuthServiceClient::new(&machine_id);
         let token_response: SocialRefreshResponse = client.refresh_token(refresh_token).await?;
 

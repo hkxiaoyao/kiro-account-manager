@@ -52,6 +52,7 @@ pub async fn refresh_token_by_provider(
     } else {
         let metadata = RefreshMetadata {
             profile_arn: account.profile_arn.clone(),
+            machine_id: account.machine_id.clone(),
             ..Default::default()
         };
         let social_provider = SocialProvider::new(provider);

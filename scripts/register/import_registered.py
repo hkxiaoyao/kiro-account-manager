@@ -70,8 +70,10 @@ async def refresh_token_idc(client, refresh_token, client_id, client_secret, reg
     return resp.json(), None
 
 
-async def get_usage_limits(client, access_token, machine_id):
+async def get_usage_limits(client, access_token, machine_id=None):
     """调用 CodeWhisperer API 获取 usage，使用指定的 machine_id"""
+    if not machine_id:
+        machine_id = generate_machine_id()
     url = 'https://codewhisperer.us-east-1.amazonaws.com/getUsageLimits?isEmailRequired=true&origin=AI_EDITOR&resourceType=AGENTIC_REQUEST'
     
     kiro_version = '0.6.18'
@@ -112,6 +114,7 @@ async def process_account(client, account_data):
     region = account_data.get('region', 'us-east-1')
     email = account_data.get('email', 'unknown@kiro.dev')
     access_token = account_data.get('accessToken')
+    machine_id = account_data.get('machineId') or generate_machine_id()  # 解析或生成机器 ID
     
     if not all([refresh_token, client_id, client_secret]):
         return None, '缺少必要字段'
@@ -121,7 +124,7 @@ async def process_account(client, account_data):
     
     # 优先用现有 accessToken
     if access_token:
-        usage, status = await get_usage_limits(client, access_token)
+        usage, status = await get_usage_limits(client, access_token, machine_id)
         if status == 'expired':
             token_result, err = await refresh_token_idc(client, refresh_token, client_id, client_secret, region)
             if err:
@@ -129,7 +132,7 @@ async def process_account(client, account_data):
             access_token = token_result['accessToken']
             new_refresh_token = token_result['refreshToken']
             expires_in = token_result['expiresIn']
-            usage, status = await get_usage_limits(client, access_token)
+            usage, status = await get_usage_limits(client, access_token, machine_id)
     else:
         token_result, err = await refresh_token_idc(client, refresh_token, client_id, client_secret, region)
         if err:
@@ -137,7 +140,7 @@ async def process_account(client, account_data):
         access_token = token_result['accessToken']
         new_refresh_token = token_result['refreshToken']
         expires_in = token_result['expiresIn']
-        usage, status = await get_usage_limits(client, access_token)
+        usage, status = await get_usage_limits(client, access_token, machine_id)
     
     is_banned = status == 'banned'
     
@@ -170,6 +173,7 @@ async def process_account(client, account_data):
         'ssoSessionId': None,
         'idToken': None,
         'profileArn': None,
+        'machineId': machine_id,  # 保存机器 ID
         'usageData': usage
     }
     

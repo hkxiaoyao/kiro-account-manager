@@ -454,6 +454,7 @@ def register_single_account(account_num, total_accounts, reset_machine_id=True):
         total_accounts: 总账号数
         reset_machine_id: 是否重置系统机器 ID（需要管理员权限，默认 True）
     """
+    from machine_guid import get_machine_guid, set_machine_guid
     
     # 日志前缀
     tag = f"[W{account_num}]"
@@ -461,6 +462,7 @@ def register_single_account(account_num, total_accounts, reset_machine_id=True):
         print(f"{tag} {msg}")
     
     password_success = False  # 标记密码是否设置成功
+    original_machine_id = None  # 保存原始机器 ID，用于恢复
     
     # 生成本次注册使用的机器 ID
     current_machine_id = generate_machine_id()
@@ -472,6 +474,13 @@ def register_single_account(account_num, total_accounts, reset_machine_id=True):
     
     # 重置系统机器 ID
     if reset_machine_id:
+        # 先保存原始机器 ID
+        original_machine_id, err = get_machine_guid()
+        if original_machine_id:
+            log(f"📦 已保存原始机器 ID: {original_machine_id}")
+        else:
+            log(f"⚠️ 获取原始机器 ID 失败: {err}")
+        
         log(f"🔧 重置系统机器 ID: {current_machine_id}")
         success, err = reset_system_machine_guid(current_machine_id)
         if success:
@@ -972,6 +981,15 @@ def register_single_account(account_num, total_accounts, reset_machine_id=True):
                 log("✅ 浏览器已关闭")
             except:
                 pass
+        
+        # 恢复原始机器 ID
+        if original_machine_id and reset_machine_id:
+            log(f"🔄 恢复原始机器 ID: {original_machine_id}")
+            success, err = set_machine_guid(original_machine_id)
+            if success:
+                log(f"✅ 机器 ID 已恢复")
+            else:
+                log(f"⚠️ 恢复失败: {err}")
 
 
 

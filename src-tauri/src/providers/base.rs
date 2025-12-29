@@ -41,6 +41,7 @@ pub struct RefreshMetadata {
     pub region: Option<String>,
     pub client_id_hash: Option<String>,
     pub profile_arn: Option<String>,
+    pub machine_id: Option<String>,
 }
 
 /// 认证提供者接口
