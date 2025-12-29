@@ -191,19 +191,33 @@ pub async fn add_account_by_social(
     refresh_token: String,
     provider: Option<String>,
     machine_id: Option<String>,
+    access_token: Option<String>,
 ) -> Result<Account, String> {
     {
         let store = state.store.lock().unwrap();
         check_account_limit(store.accounts.len())?;
     }
     
-    let refresh_result = refresh_token_desktop(&refresh_token).await?;
-    let access_token = refresh_result.access_token;
-    let new_refresh_token = refresh_result.refresh_token;
-    
     let idp = provider.clone().unwrap_or_else(|| "Google".to_string());
     
-    let usage_result = get_usage_by_provider(&idp, &access_token).await;
+    // 先尝试用传入的 access_token 获取配额
+    let (final_access_token, final_refresh_token, usage_result) = if let Some(at) = access_token {
+        let usage_result = get_usage_by_provider(&idp, &at).await;
+        if usage_result.is_auth_error {
+            // 401 了，刷新 token
+            let refresh_result = refresh_token_desktop(&refresh_token).await?;
+            let new_usage = get_usage_by_provider(&idp, &refresh_result.access_token).await;
+            (refresh_result.access_token, refresh_result.refresh_token, new_usage)
+        } else {
+            (at, refresh_token.clone(), usage_result)
+        }
+    } else {
+        // 没有 access_token，直接刷新
+        let refresh_result = refresh_token_desktop(&refresh_token).await?;
+        let usage_result = get_usage_by_provider(&idp, &refresh_result.access_token).await;
+        (refresh_result.access_token, refresh_result.refresh_token, usage_result)
+    };
+    
     let usage: Option<crate::providers::web_oauth::GetUserUsageAndLimitsResponse> = 
         serde_json::from_value(usage_result.usage_data.clone()).ok();
     
@@ -221,8 +235,8 @@ pub async fn add_account_by_social(
     
     let account = if let Some(idx) = existing_idx {
         let existing = &mut store.accounts[idx];
-        existing.access_token = Some(access_token.clone());
-        existing.refresh_token = Some(new_refresh_token);
+        existing.access_token = Some(final_access_token.clone());
+        existing.refresh_token = Some(final_refresh_token.clone());
         existing.user_id = user_id;
         existing.usage_data = Some(usage_result.usage_data);
         existing.status = calc_status(usage_result.is_banned);
@@ -230,8 +244,8 @@ pub async fn add_account_by_social(
     } else {
         let final_email = new_email.unwrap_or_else(|| super::generate_random_email(&idp));
         let mut account = Account::new(final_email.clone(), format!("Kiro {} 账号", idp));
-        account.access_token = Some(access_token.clone());
-        account.refresh_token = Some(new_refresh_token);
+        account.access_token = Some(final_access_token.clone());
+        account.refresh_token = Some(final_refresh_token.clone());
         account.provider = Some(idp.clone());
         account.user_id = user_id;
         account.usage_data = Some(usage_result.usage_data);
@@ -253,7 +267,7 @@ pub async fn add_account_by_social(
         provider: idp,
     };
     *state.auth.user.lock().unwrap() = Some(user);
-    *state.auth.access_token.lock().unwrap() = Some(access_token);
+    *state.auth.access_token.lock().unwrap() = Some(final_access_token);
     
     Ok(account)
 }
@@ -311,6 +325,7 @@ pub async fn add_local_kiro_account(state: State<'_, AppState>) -> Result<Accoun
             client_reg.client_secret,
             Some(region),
             None, // 本地导入不指定 machine_id，自动生成
+            local_token.access_token.clone(), // 传入 access_token
         ).await
     } else {
         add_account_by_social(
@@ -318,6 +333,7 @@ pub async fn add_local_kiro_account(state: State<'_, AppState>) -> Result<Accoun
             refresh_token,
             Some(provider),
             None, // 本地导入不指定 machine_id，自动生成
+            local_token.access_token.clone(), // 传入 access_token
         ).await
     }
 }
@@ -331,6 +347,7 @@ pub async fn add_account_by_idc(
     client_secret: String,
     region: Option<String>,
     machine_id: Option<String>,
+    access_token: Option<String>,
 ) -> Result<Account, String> {
     {
         let store = state.store.lock().unwrap();
@@ -338,59 +355,91 @@ pub async fn add_account_by_idc(
     }
     
     let region = region.unwrap_or_else(|| "us-east-1".to_string());
-    let metadata = RefreshMetadata {
-        client_id: Some(client_id.clone()),
-        client_secret: Some(client_secret.clone()),
-        region: Some(region.clone()),
-        ..Default::default()
-    };
     
-    let idc_provider = IdcProvider::new("BuilderId", &region, None);
-    let auth_result = idc_provider.refresh_token(&refresh_token, metadata).await?;
+    // 先尝试用传入的 access_token 获取配额
+    let (final_access_token, final_refresh_token, usage_result, expires_at, id_token, sso_session_id) = 
+        if let Some(at) = access_token {
+            let usage_result = get_usage_by_provider("BuilderId", &at).await;
+            if usage_result.is_auth_error {
+                // 401 了，刷新 token
+                let metadata = RefreshMetadata {
+                    client_id: Some(client_id.clone()),
+                    client_secret: Some(client_secret.clone()),
+                    region: Some(region.clone()),
+                    ..Default::default()
+                };
+                let idc_provider = IdcProvider::new("BuilderId", &region, None);
+                let auth_result = idc_provider.refresh_token(&refresh_token, metadata).await?;
+                let new_usage = get_usage_by_provider("BuilderId", &auth_result.access_token).await;
+                let expires_at = calc_expires_at(auth_result.expires_in);
+                (auth_result.access_token, auth_result.refresh_token, new_usage, expires_at, auth_result.id_token, auth_result.sso_session_id)
+            } else {
+                // access_token 有效，不需要刷新
+                (at, refresh_token.clone(), usage_result, String::new(), None, None)
+            }
+        } else {
+            // 没有 access_token，直接刷新
+            let metadata = RefreshMetadata {
+                client_id: Some(client_id.clone()),
+                client_secret: Some(client_secret.clone()),
+                region: Some(region.clone()),
+                ..Default::default()
+            };
+            let idc_provider = IdcProvider::new("BuilderId", &region, None);
+            let auth_result = idc_provider.refresh_token(&refresh_token, metadata).await?;
+            let usage_result = get_usage_by_provider("BuilderId", &auth_result.access_token).await;
+            let expires_at = calc_expires_at(auth_result.expires_in);
+            (auth_result.access_token, auth_result.refresh_token, usage_result, expires_at, auth_result.id_token, auth_result.sso_session_id)
+        };
     
-    let usage_result = get_usage_by_provider("BuilderId", &auth_result.access_token).await;
     let usage: Option<crate::providers::web_oauth::GetUserUsageAndLimitsResponse> = 
         serde_json::from_value(usage_result.usage_data.clone()).ok();
     
     let (new_email, user_id) = extract_user_info(&usage);
     let client_id_hash = calc_client_id_hash();
-    let expires_at = calc_expires_at(auth_result.expires_in);
     
     let mut store = state.store.lock().unwrap();
     let existing_idx = find_existing_account_idx(&store.accounts, &new_email, "BuilderId", &refresh_token);
     
     let account = if let Some(idx) = existing_idx {
         let existing = &mut store.accounts[idx];
-        existing.access_token = Some(auth_result.access_token);
-        existing.refresh_token = Some(auth_result.refresh_token);
+        existing.access_token = Some(final_access_token);
+        existing.refresh_token = Some(final_refresh_token);
         existing.user_id = user_id;
-        existing.expires_at = Some(expires_at);
+        if !expires_at.is_empty() {
+            existing.expires_at = Some(expires_at);
+        }
         existing.client_id = Some(client_id);
         existing.client_secret = Some(client_secret);
         existing.region = Some(region);
         existing.client_id_hash = Some(client_id_hash);
-        existing.id_token = auth_result.id_token;
-        existing.sso_session_id = auth_result.sso_session_id;
+        if id_token.is_some() {
+            existing.id_token = id_token;
+        }
+        if sso_session_id.is_some() {
+            existing.sso_session_id = sso_session_id;
+        }
         existing.usage_data = Some(usage_result.usage_data);
         existing.status = calc_status(usage_result.is_banned);
         existing.clone()
     } else {
         let final_email = new_email.unwrap_or_else(|| super::generate_random_email("BuilderId"));
         let mut account = Account::new(final_email, "Kiro BuilderId 账号".to_string());
-        account.access_token = Some(auth_result.access_token);
-        account.refresh_token = Some(auth_result.refresh_token);
+        account.access_token = Some(final_access_token);
+        account.refresh_token = Some(final_refresh_token);
         account.provider = Some("BuilderId".to_string());
         account.user_id = user_id;
-        account.expires_at = Some(expires_at);
+        if !expires_at.is_empty() {
+            account.expires_at = Some(expires_at);
+        }
         account.client_id = Some(client_id);
         account.client_secret = Some(client_secret);
         account.region = Some(region);
         account.client_id_hash = Some(client_id_hash);
-        account.id_token = auth_result.id_token;
-        account.sso_session_id = auth_result.sso_session_id;
+        account.id_token = id_token;
+        account.sso_session_id = sso_session_id;
         account.usage_data = Some(usage_result.usage_data);
         account.status = calc_status(usage_result.is_banned);
-        // 使用传入的 machine_id，没有则自动生成
         account.machine_id = Some(machine_id.clone().unwrap_or_else(|| uuid::Uuid::new_v4().to_string().to_lowercase()));
         store.accounts.insert(0, account.clone());
         account

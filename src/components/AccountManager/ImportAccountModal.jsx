@@ -183,7 +183,8 @@ function ImportAccountModal({ onClose, onSuccess }) {
           account = await invoke('add_account_by_social', {
             refreshToken: item.refreshToken,
             provider: provider,
-            machineId: item.machineId || null
+            machineId: item.machineId || null,
+            accessToken: item.accessToken || null
           })
         } else {
           account = await invoke('add_account_by_idc', {
@@ -191,7 +192,8 @@ function ImportAccountModal({ onClose, onSuccess }) {
             clientId: item.clientId,
             clientSecret: item.clientSecret,
             region: item.region || null,
-            machineId: item.machineId || null
+            machineId: item.machineId || null,
+            accessToken: item.accessToken || null
           })
         }
         return { success: true, index: item._index + 1, email: account.email }
