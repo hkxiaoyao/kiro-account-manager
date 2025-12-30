@@ -73,27 +73,6 @@ SSOOIDC_VERSIONS = [
 # UA 模式标识
 UA_MODE = ["m/E", "m/F", "m/D", "m/G", "m/H", "m/I"]
 
-# 真实浏览器 User-Agent 池（用于 Selenium）
-BROWSER_USER_AGENTS = [
-    # Chrome Windows
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
-    # Chrome macOS
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-    # Edge Windows
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0",
-]
-
-
-def get_random_browser_ua():
-    """获取随机浏览器 User-Agent"""
-    return random.choice(BROWSER_USER_AGENTS)
-
-
 def generate_auth_user_agent():
     """生成OIDC认证用的User-Agent"""
     sdk_version = random.choice(AWS_SDK_VERSIONS)
@@ -215,8 +194,9 @@ DEFAULT_BATCH_COUNT = 1
 DEFAULT_CONCURRENT_WINDOWS = 1
 HEADLESS_MODE = False  # 无头模式开关（建议关闭，否则可能收不到验证码）
 
-# 全局锁（只有文件写入需要锁，API 调用可以并行）
+# 全局锁
 file_lock = threading.Lock()
+oidc_lock = threading.Lock()
 
 
 def set_headless_mode(enabled: bool):
@@ -417,52 +397,21 @@ def generate_machine_id():
     return str(uuid.uuid4()).lower()
 
 
-def reset_system_machine_guid(new_guid):
-    """
-    重置系统机器码（需要管理员权限）
-    返回 (success, error_message)
-    """
-    if sys.platform != 'win32':
-        return False, "仅支持 Windows"
-    
-    try:
-        import ctypes
-        # 检查管理员权限
-        if not ctypes.windll.shell32.IsUserAnAdmin():
-            return False, "需要管理员权限"
-        
-        import winreg
-        key = winreg.OpenKey(
-            winreg.HKEY_LOCAL_MACHINE,
-            r"SOFTWARE\Microsoft\Cryptography",
-            0,
-            winreg.KEY_SET_VALUE | winreg.KEY_WOW64_64KEY
-        )
-        winreg.SetValueEx(key, "MachineGuid", 0, winreg.REG_SZ, new_guid)
-        winreg.CloseKey(key)
-        return True, None
-    except Exception as e:
-        return False, str(e)
 
-
-def register_single_account(account_num, total_accounts, reset_machine_id=True):
+def register_single_account(account_num, total_accounts):
     """
     注册单个 Amazon Q Developer 账号
     
     参数:
         account_num: 当前账号序号
         total_accounts: 总账号数
-        reset_machine_id: 是否重置系统机器 ID（需要管理员权限，默认 True）
     """
-    from machine_guid import get_machine_guid, set_machine_guid
-    
     # 日志前缀
     tag = f"[W{account_num}]"
     def log(msg):
         print(f"{tag} {msg}")
     
     password_success = False  # 标记密码是否设置成功
-    original_machine_id = None  # 保存原始机器 ID，用于恢复
     
     # 生成本次注册使用的机器 ID
     current_machine_id = generate_machine_id()
@@ -470,25 +419,7 @@ def register_single_account(account_num, total_accounts, reset_machine_id=True):
     log("")
     log("🎯" * 20)
     log(f"开始注册账号 {account_num}/{total_accounts}")
-    log("🎯" * 20)
-    
-    # 重置系统机器 ID
-    if reset_machine_id:
-        # 先保存原始机器 ID
-        original_machine_id, err = get_machine_guid()
-        if original_machine_id:
-            log(f"📦 已保存原始机器 ID: {original_machine_id}")
-        else:
-            log(f"⚠️ 获取原始机器 ID 失败: {err}")
-        
-        log(f"🔧 重置系统机器 ID: {current_machine_id}")
-        success, err = reset_system_machine_guid(current_machine_id)
-        if success:
-            log(f"✅ 系统机器 ID 已重置")
-        else:
-            log(f"⚠️ 重置失败: {err}（继续使用生成的 ID）")
-    else:
-        log(f"🆔 使用机器 ID: {current_machine_id}")
+    log(f"🆔 使用机器 ID: {current_machine_id}")
     log("🎯" * 20)
 
     # 步骤1: 自动创建 GPTMail 邮箱
@@ -549,14 +480,16 @@ def register_single_account(account_num, total_accounts, reset_machine_id=True):
     log("=" * 60)
 
     try:
-        log("⏳ 正在注册 OIDC 客户端...")
-        client_id, client_secret = register_client_min()
-        log("✅ 客户端注册成功")
-        log(f"   Client ID: {client_id}")
-        log(f"   Client Secret: {client_secret[:20]}...")
+        with oidc_lock:
+            log("⏳ 正在注册 OIDC 客户端...")
+            client_id, client_secret = register_client_min()
+            log("✅ 客户端注册成功")
+            log(f"   Client ID: {client_id}")
+            log(f"   Client Secret: {client_secret[:20]}...")
 
-        log(f"\n⏳ [窗口 {account_num}] 正在获取设备授权...")
-        device_auth = device_authorize(client_id, client_secret)
+            log(f"\n⏳ [窗口 {account_num}] 正在获取设备授权...")
+            device_auth = device_authorize(client_id, client_secret)
+            time.sleep(0.5)
 
         device_code = device_auth.get('deviceCode')
         verification_uri_complete = device_auth.get('verificationUriComplete')
@@ -596,24 +529,12 @@ def register_single_account(account_num, total_accounts, reset_machine_id=True):
     
     try:
         log(f"⏳ 正在启动浏览器...")
-        browser_ua = get_random_browser_ua()
-        log(f"   🌐 使用 UA: {browser_ua}...")
-        
         # 使用 Driver 类（UC 模式反检测配置）
-        # 参考官方文档: https://github.com/seleniumbase/seleniumbase/blob/master/help_docs/uc_mode.md
-        # 使用 chromium_arg 强制启用无痕模式
         sb = Driver(
             uc=True,                    # 启用 undetected-chromedriver
             uc_subprocess=True,         # 子进程模式（多线程必需）
-            uc_cdp_events=True,         # 启用 CDP 事件捕获
-            headless2=HEADLESS_MODE,    # 新版无头模式（支持扩展）
-            agent=browser_ua,           # 随机 User-Agent
+            headless2=HEADLESS_MODE,    # 新版无头模式
             locale_code="en",           # 语言设置
-            ad_block_on=True,           # 广告拦截
-            do_not_track=True,          # DNT 头
-            disable_csp=True,           # 禁用 CSP
-            page_load_strategy="eager", # 快速加载（不等待所有资源）
-            chromium_arg="--incognito,--disable-extensions",  # 强制无痕模式
         )
         log(f"✅ 浏览器启动成功 ({'无头模式' if HEADLESS_MODE else '有头模式'})")
 
@@ -981,15 +902,6 @@ def register_single_account(account_num, total_accounts, reset_machine_id=True):
                 log("✅ 浏览器已关闭")
             except:
                 pass
-        
-        # 恢复原始机器 ID
-        if original_machine_id and reset_machine_id:
-            log(f"🔄 恢复原始机器 ID: {original_machine_id}")
-            success, err = set_machine_guid(original_machine_id)
-            if success:
-                log(f"✅ 机器 ID 已恢复")
-            else:
-                log(f"⚠️ 恢复失败: {err}")
 
 
 

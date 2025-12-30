@@ -147,6 +147,9 @@ pub struct Account {
     // 绑定的机器码
     #[serde(default)]
     pub machine_id: Option<String>,
+    // 账号密码（可选）
+    #[serde(default)]
+    pub password: Option<String>,
 }
 
 impl Account {
@@ -177,6 +180,7 @@ impl Account {
             tags: Vec::new(),
             usage_breakdown: None,
             machine_id: None,
+            password: None,
         }
     }
 

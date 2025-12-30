@@ -41,6 +41,16 @@ PROXY_HOST = "127.0.0.1"
 PROXY_PORT = "7897"
 PROXY_SOCKS5 = f"socks5://{PROXY_HOST}:{PROXY_PORT}"
 
+# ========== 无头模式配置 ==========
+HEADLESS_MODE = False
+
+
+def set_headless_mode(enabled: bool):
+    """设置无头模式"""
+    global HEADLESS_MODE
+    HEADLESS_MODE = enabled
+    print(f"🖥️  无头模式: {'开启' if enabled else '关闭'}")
+
 # ========== User-Agent 池配置 ==========
 
 # AWS SDK版本池
@@ -441,9 +451,9 @@ def register_single_account(account_num, total_accounts):
 
     try:
         print(f"⏳ [窗口 {account_num}] 正在启动浏览器...")
-        sb_context = SB(uc=True, proxy=f"{PROXY_HOST}:{PROXY_PORT}", chromium_arg="--enable-logging --v=1")
+        sb_context = SB(uc=True, headless=HEADLESS_MODE, proxy=f"{PROXY_HOST}:{PROXY_PORT}", chromium_arg="--enable-logging --v=1")
         sb = sb_context.__enter__()
-        print(f"✅ [窗口 {account_num}] 浏览器启动成功")
+        print(f"✅ [窗口 {account_num}] 浏览器启动成功 ({'无头模式' if HEADLESS_MODE else '有头模式'})")
 
         print(f"⏳ [窗口 {account_num}] 正在打开授权链接: {verification_uri_complete}")
         sb.open(verification_uri_complete)

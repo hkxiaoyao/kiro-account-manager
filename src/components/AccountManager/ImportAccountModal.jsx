@@ -191,7 +191,8 @@ function ImportAccountModal({ onClose, onSuccess }) {
             clientSecret: item.clientSecret,
             region: item.region || null,
             machineId: item.machineId || null,
-            accessToken: item.accessToken || null
+            accessToken: item.accessToken || null,
+            password: item.password || null
           })
         }
         return { success: true, index: item._index + 1, email: account.email }

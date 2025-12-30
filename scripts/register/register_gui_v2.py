@@ -1,27 +1,13 @@
 """
-Amazon Q Developer 批量注册 GUI
+Amazon Q Developer 批量注册 GUI (V2)
 使用 ttkbootstrap 实现现代化界面
+基于 amazonq_auto_register_v2.py (SB 上下文管理器版本)
 
 依赖安装: pip install ttkbootstrap
 """
 
 import sys
 import os
-import ctypes
-
-# Windows 自动提权
-def is_admin():
-    try:
-        return ctypes.windll.shell32.IsUserAnAdmin()
-    except:
-        return False
-
-if sys.platform == 'win32' and not is_admin():
-    # 以管理员权限重新运行
-    ctypes.windll.shell32.ShellExecuteW(
-        None, "runas", sys.executable, " ".join(sys.argv), None, 1
-    )
-    sys.exit(0)
 
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
@@ -33,7 +19,7 @@ import time
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
-ACCOUNTS_FILE = os.path.join(SCRIPT_DIR, "accounts.json")
+ACCOUNTS_FILE = os.path.join(SCRIPT_DIR, "registered_accounts.json")
 
 
 class StdoutRedirector:
@@ -52,7 +38,7 @@ class StdoutRedirector:
 class RegisterGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("Amazon Q Developer 批量注册")
+        self.root.title("Amazon Q Developer 批量注册 (V2)")
         self.root.geometry("700x600")
         self.root.resizable(True, True)
         
@@ -72,7 +58,7 @@ class RegisterGUI:
         # 标题
         title_label = ttk.Label(
             main_frame, 
-            text="🤖 Amazon Q Developer 批量注册",
+            text="🤖 Amazon Q Developer 批量注册 (V2)",
             font=("Microsoft YaHei", 16, "bold"),
             bootstyle="primary"
         )
@@ -110,7 +96,7 @@ class RegisterGUI:
         
         self.account_label = ttk.Label(row2, text="📁 已有账号: 0 个", font=("Microsoft YaHei", 10))
         self.account_label.pack(side=LEFT)
-        
+
         # 按钮区域
         btn_frame = ttk.Frame(main_frame)
         btn_frame.pack(fill=X, pady=10)
@@ -211,7 +197,7 @@ class RegisterGUI:
         self.account_label.config(text=f"📁 已有账号: {count} 个")
     
     def open_accounts_file(self):
-        """打开账号文件（跨平台）"""
+        """打开账号文件"""
         if os.path.exists(ACCOUNTS_FILE):
             import subprocess
             if sys.platform == 'win32':
@@ -239,7 +225,7 @@ class RegisterGUI:
         thread.start()
     
     def run_import(self):
-        """运行导入任务（并发）"""
+        """运行导入任务"""
         old_stdout = sys.stdout
         old_stderr = sys.stderr
         redirector = StdoutRedirector(self)
@@ -248,7 +234,6 @@ class RegisterGUI:
         
         try:
             from import_registered import main as import_main
-            # 使用 5 个并发线程加速导入
             import_main(max_workers=5)
         except Exception as e:
             print(f"❌ 导入出错: {e}")
@@ -307,7 +292,7 @@ class RegisterGUI:
         """停止注册"""
         self.is_running = False
         self.log("⚠️ 用户请求停止，等待当前任务完成...")
-    
+
     def run_register(self, count, concurrent, headless):
         """运行注册任务"""
         old_stdout = sys.stdout
@@ -318,7 +303,7 @@ class RegisterGUI:
         
         try:
             from concurrent.futures import ThreadPoolExecutor, as_completed
-            from amazonq_auto_register import register_single_account, set_headless_mode
+            from amazonq_auto_register_v2 import register_single_account, set_headless_mode
             
             set_headless_mode(headless)
             
@@ -387,7 +372,7 @@ class RegisterGUI:
 
 
 def main():
-    root = ttk.Window(themename="darkly")  # 深色主题
+    root = ttk.Window(themename="darkly")
     app = RegisterGUI(root)
     root.mainloop()
 

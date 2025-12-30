@@ -321,6 +321,7 @@ pub async fn add_local_kiro_account(state: State<'_, AppState>) -> Result<Accoun
             Some(region),
             None, // 本地导入不指定 machine_id，自动生成
             local_token.access_token.clone(), // 传入 access_token
+            None, // 本地导入无密码
         ).await
     } else {
         add_account_by_social(
@@ -343,6 +344,7 @@ pub async fn add_account_by_idc(
     region: Option<String>,
     machine_id: Option<String>,
     access_token: Option<String>,
+    password: Option<String>,
 ) -> Result<Account, String> {
     let region = region.unwrap_or_else(|| "us-east-1".to_string());
     
@@ -431,6 +433,7 @@ pub async fn add_account_by_idc(
         account.usage_data = Some(usage_result.usage_data);
         account.status = calc_status(usage_result.is_banned);
         account.machine_id = Some(machine_id.clone().unwrap_or_else(|| uuid::Uuid::new_v4().to_string().to_lowercase()));
+        account.password = password.clone();
         store.accounts.insert(0, account.clone());
         account
     };
