@@ -97,8 +97,10 @@ export function useAutoRefresh(appSettings, settingsLoading) {
 
   // 启动定时器
   const startAutoRefreshTimer = () => {
+    // 先清理旧定时器，防止重复创建
     if (refreshTimerRef.current) {
       clearInterval(refreshTimerRef.current)
+      refreshTimerRef.current = null
     }
 
     // 启动时刷新 5 分钟内过期的 token
@@ -122,6 +124,7 @@ export function useAutoRefresh(appSettings, settingsLoading) {
     return () => {
       if (refreshTimerRef.current) {
         clearInterval(refreshTimerRef.current)
+        refreshTimerRef.current = null
       }
     }
   }, [settingsLoading])

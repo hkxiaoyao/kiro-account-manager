@@ -177,7 +177,6 @@ function AccountTable({
         <div 
           ref={scrollRef} 
           className="flex-1 overflow-auto"
-          style={{ contain: 'strict' }}
         >
           <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
             <div

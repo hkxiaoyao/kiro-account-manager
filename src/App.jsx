@@ -34,9 +34,19 @@ function PageLoading() {
 function App() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [activeMenu, setActiveMenu] = useState('home')
+  const [activeMenu, setActiveMenu] = useState(() => {
+    // 从 localStorage 恢复上次的页面
+    return localStorage.getItem('activeMenu') || 'home'
+  })
   const { colors } = useApp()
   const { settings: appSettings, loading: settingsLoading } = useAppSettings()
+
+  // 保存当前页面到 localStorage
+  useEffect(() => {
+    if (activeMenu && activeMenu !== 'callback') {
+      localStorage.setItem('activeMenu', activeMenu)
+    }
+  }, [activeMenu])
 
   // 使用抽离的 hooks
   const { startAutoRefreshTimer } = useAutoRefresh(appSettings, settingsLoading)

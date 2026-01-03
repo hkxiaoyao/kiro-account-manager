@@ -30,16 +30,12 @@ function BatchTagModal({ accountIds, onClose, onSuccess }) {
     )
   }
 
-  // 点击可用标签，填充到输入框
-  const handleFillInput = (tag) => {
-    setNewTagName(tag.name)
-  }
-
   const handleAddTag = async () => {
-    const trimmed = newTagName.trim().slice(0, 20)
+    const trimmed = newTagName.trim()
     if (!trimmed) return
+    const safeName = trimmed.slice(0, 20)
     
-    const existing = tags.find(t => t.name === trimmed)
+    const existing = tags.find(t => t.name === safeName)
     if (existing) {
       if (!selectedTagIds.includes(existing.id)) {
         setSelectedTagIds([...selectedTagIds, existing.id])
@@ -50,7 +46,7 @@ function BatchTagModal({ accountIds, onClose, onSuccess }) {
     
     const color = PRESET_COLORS[Math.floor(Math.random() * PRESET_COLORS.length)]
     try {
-      const newTag = await invoke('add_tag', { name: trimmed, color })
+      const newTag = await invoke('add_tag', { name: safeName, color })
       setTags([...tags, newTag])
       setSelectedTagIds([...selectedTagIds, newTag.id])
       setNewTagName('')

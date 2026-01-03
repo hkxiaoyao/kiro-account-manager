@@ -32,10 +32,13 @@ const ContextMenu = memo(function ContextMenu({ x, y, onClose, items, isLightThe
   useEffect(() => {
     const handleClick = () => onClose()
     const handleScroll = () => onClose()
+    const handleKeyDown = (e) => e.key === 'Escape' && onClose()
     document.addEventListener('click', handleClick)
+    document.addEventListener('keydown', handleKeyDown)
     window.addEventListener('scroll', handleScroll, true)
     return () => {
       document.removeEventListener('click', handleClick)
+      document.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('scroll', handleScroll, true)
     }
   }, [onClose])
