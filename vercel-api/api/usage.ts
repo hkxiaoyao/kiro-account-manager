@@ -20,7 +20,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const url = `${KIRO_WEB_PORTAL}/service/KiroWebPortalService/operation/GetUserUsageAndLimits`
     const cookie = `Idp=${idp}; AccessToken=${accessToken}`
-    const body = encode({ isEmailRequired: true, origin: 'KIRO_IDE' })
+    // encode 返回 Buffer，转成 Uint8Array 兼容 fetch body
+    const encoded = encode({ isEmailRequired: true, origin: 'KIRO_IDE' })
+    const body = new Uint8Array(encoded)
 
     const response = await fetch(url, {
       method: 'POST',

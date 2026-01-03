@@ -1,34 +1,55 @@
 import { useState, useEffect } from 'react'
-import { AlertTriangle, X, ExternalLink, MessageCircle } from 'lucide-react'
+import { AlertTriangle, ExternalLink, MessageCircle } from 'lucide-react'
 import { useApp } from '../hooks/useApp'
 
-// 公告版本号，修改此值会重新显示公告
-const ANNOUNCEMENT_VERSION = '2'
+// 公告 API 地址
+const ANNOUNCEMENT_API = 'https://vercel-api-hj01857655s-projects-fa88a766.vercel.app/api/announcement'
 
 export default function AnnouncementModal() {
   const { t, theme, colors } = useApp()
   const isLightTheme = theme === 'light' || theme === 'purple'
   const [show, setShow] = useState(false)
+  const [announcement, setAnnouncement] = useState(null)
+  const [agreed, setAgreed] = useState(false)
 
   useEffect(() => {
-    // 检查是否已经显示过此版本的公告
-    const shownVersion = localStorage.getItem('announcement_shown')
-    if (shownVersion !== ANNOUNCEMENT_VERSION) {
-      setShow(true)
-    }
+    fetchAnnouncement()
   }, [])
 
+  const fetchAnnouncement = async () => {
+    try {
+      const res = await fetch(ANNOUNCEMENT_API)
+      if (!res.ok) return
+      
+      const data = await res.json()
+      
+      // API 返回数组，取第一个未读的公告
+      const list = Array.isArray(data) ? data : [data]
+      const readIds = JSON.parse(localStorage.getItem('announcement_read_ids') || '[]')
+      
+      // 找到第一个未读的启用公告
+      const unread = list.find(a => a.enabled && !readIds.includes(a.id))
+      if (!unread) return
+      
+      setAnnouncement(unread)
+      setShow(true)
+    } catch (e) {
+      console.log('[Announcement] 获取公告失败:', e)
+    }
+  }
+
   const handleClose = () => {
-    localStorage.setItem('announcement_shown', ANNOUNCEMENT_VERSION)
+    if (announcement?.id) {
+      const readIds = JSON.parse(localStorage.getItem('announcement_read_ids') || '[]')
+      if (!readIds.includes(announcement.id)) {
+        readIds.push(announcement.id)
+        localStorage.setItem('announcement_read_ids', JSON.stringify(readIds))
+      }
+    }
     setShow(false)
   }
 
-  const handleDontRemind = () => {
-    localStorage.setItem('announcement_shown', ANNOUNCEMENT_VERSION)
-    setShow(false)
-  }
-
-  if (!show) return null
+  if (!show || !announcement) return null
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -38,72 +59,134 @@ export default function AnnouncementModal() {
         {/* 顶部警告条 */}
         <div className="bg-gradient-to-r from-red-500 to-orange-500 px-6 py-4 flex items-center gap-3">
           <AlertTriangle size={24} className="text-white" />
-          <span className="text-white font-bold text-lg">{t('announcement.title')}</span>
+          <span className="text-white font-bold text-lg">{announcement.title || t('announcement.title')}</span>
         </div>
 
         {/* 内容 */}
         <div className="p-6">
           <div className={`text-base leading-relaxed ${colors.text}`}>
-            <p className="mb-4 font-medium text-red-500">
-              ⚠️ {t('announcement.warning')}
-            </p>
-            <p className="mb-3">
-              {t('announcement.content1')}
-            </p>
-            <p className="mb-3">
-              {t('announcement.content2')}
-            </p>
-            <p className={`text-sm ${colors.textMuted}`}>
-              {t('announcement.content3')}
-            </p>
+            {announcement.content?.map((text, i) => (
+              <p key={i} className={i === 0 ? 'mb-4 font-medium text-red-500' : 'mb-3'}>
+                {i === 0 && '⚠️ '}{text}
+              </p>
+            ))}
           </div>
 
-          {/* 官方链接 */}
-          <div className={`mt-5 p-4 rounded-xl ${isLightTheme ? 'bg-gray-50' : 'bg-white/5'}`}>
-            <p className={`text-sm font-medium mb-2 ${colors.text}`}>{t('announcement.official')}</p>
-            <a 
-              href="https://github.com/hj01857655/kiro-account-manager" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 text-blue-500 hover:text-blue-400 text-sm"
-            >
-              <span>github.com/hj01857655/kiro-account-manager</span>
-              <ExternalLink size={14} />
-            </a>
-          </div>
+          {/* 官方开源信息 */}
+          {(announcement.officialUrl || announcement.qqGroup) && (
+            <div className={`mt-5 p-4 rounded-xl ${isLightTheme ? 'bg-gray-50' : 'bg-white/5'}`}>
+              <p className={`text-sm font-medium mb-3 ${colors.text}`}>{t('announcement.official')}</p>
+              <div className="space-y-2">
+                {announcement.officialUrl && (
+                  <a 
+                    href={announcement.officialUrl}
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-blue-500 hover:text-blue-400 text-sm"
+                  >
+                    <ExternalLink size={14} className="shrink-0" />
+                    <span>{announcement.officialUrl.replace('https://', '')}</span>
+                  </a>
+                )}
+                {announcement.tutorialUrl && (
+                  <a 
+                    href={announcement.tutorialUrl}
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-blue-500 hover:text-blue-400 text-sm"
+                  >
+                    <ExternalLink size={14} className="shrink-0" />
+                    <span>使用教程</span>
+                  </a>
+                )}
+                {announcement.qqGroup && (
+                  <a 
+                    href={announcement.qqGroupUrl || '#'}
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-blue-500 hover:text-blue-400 text-sm"
+                  >
+                    <MessageCircle size={14} className="shrink-0" />
+                    <span>{t('announcement.qqGroup')} {announcement.qqGroup}</span>
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
 
-          {/* QQ 群 */}
-          <div className={`mt-3 p-4 rounded-xl ${isLightTheme ? 'bg-gray-50' : 'bg-white/5'}`}>
-            <p className={`text-sm font-medium mb-2 ${colors.text}`}>{t('announcement.qqGroup')}</p>
-            <a 
-              href="https://qm.qq.com/q/JjXJiVCiAw" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 text-blue-500 hover:text-blue-400 text-sm"
-            >
-              <MessageCircle size={14} />
-              <span>1020204332</span>
-              <ExternalLink size={14} />
-            </a>
-          </div>
+          {/* 续杯交流群 */}
+          {announcement.buyGroup && (
+            <div className={`mt-3 p-4 rounded-xl ${isLightTheme ? 'bg-gray-50' : 'bg-white/5'}`}>
+              <p className={`text-sm font-medium mb-3 ${colors.text}`}>账号购买需求：</p>
+              <div className="space-y-2">
+                {announcement.buyUrl && (
+                  <a 
+                    href={announcement.buyUrl}
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-blue-500 hover:text-blue-400 text-sm"
+                  >
+                    <ExternalLink size={14} className="shrink-0" />
+                    <span>在线购买</span>
+                  </a>
+                )}
+                {announcement.refillTutorialUrl && (
+                  <a 
+                    href={announcement.refillTutorialUrl}
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-blue-500 hover:text-blue-400 text-sm"
+                  >
+                    <ExternalLink size={14} className="shrink-0" />
+                    <span>Kiro续杯教程</span>
+                  </a>
+                )}
+                <a 
+                  href={announcement.buyGroupUrl || '#'}
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-blue-500 hover:text-blue-400 text-sm"
+                >
+                  <MessageCircle size={14} className="shrink-0" />
+                  <span>{announcement.buyGroup}</span>
+                </a>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 底部按钮 */}
-        <div className="px-6 pb-6 flex gap-3">
-          <button
-            onClick={handleDontRemind}
-            className={`flex-1 py-3 rounded-xl border ${
-              isLightTheme ? 'border-gray-300 text-gray-600 hover:bg-gray-50' : 'border-gray-600 text-gray-300 hover:bg-white/5'
-            } font-medium transition-colors`}
-          >
-            {t('announcement.dontRemind')}
-          </button>
-          <button
-            onClick={handleClose}
-            className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white font-medium hover:opacity-90 transition-opacity"
-          >
-            {t('announcement.understand')}
-          </button>
+        <div className="px-6 pb-6">
+          <label className={`flex items-center gap-2 mb-4 cursor-pointer select-none ${colors.text}`}>
+            <input
+              type="checkbox"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+            />
+            <span className="text-sm">我已阅读并知晓以上内容</span>
+          </label>
+          <div className="flex gap-3">
+            <button
+              onClick={handleClose}
+              className={`flex-1 py-3 rounded-xl border ${
+                isLightTheme ? 'border-gray-300 text-gray-600 hover:bg-gray-50' : 'border-gray-600 text-gray-300 hover:bg-white/5'
+              } font-medium transition-colors`}
+            >
+              {t('announcement.dontRemind')}
+            </button>
+            <button
+              onClick={handleClose}
+              disabled={!agreed}
+              className={`flex-1 py-3 rounded-xl font-medium transition-all ${
+                agreed 
+                  ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:opacity-90' 
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
+            >
+              {t('announcement.understand')}
+            </button>
+          </div>
         </div>
       </div>
     </div>

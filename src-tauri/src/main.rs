@@ -62,6 +62,25 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_deep_link::init())
+        // 单实例插件：确保只有一个实例运行，deep-link 回调传递给已运行的实例
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            // 当第二个实例尝试启动时，处理传入的参数
+            println!("[SingleInstance] 检测到第二个实例，参数: {:?}", argv);
+            
+            // 查找 deep-link URL (kiro:// 开头)
+            for arg in argv.iter() {
+                if arg.starts_with("kiro://") {
+                    println!("[SingleInstance] 处理 deep-link: {}", arg);
+                    deep_link_handler::handle_deep_link(arg);
+                }
+            }
+            
+            // 聚焦主窗口
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
         .setup(|app| {
             // 监听 deep link 事件 (使用 kiro:// 协议)
             #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]

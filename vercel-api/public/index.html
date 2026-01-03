@@ -6,70 +6,142 @@
   <title>Kiro API</title>
   <style>
     * { box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background: #1a1a2e; color: #eee; }
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background: #1a1a2e; color: #eee; }
     h1 { color: #00d9ff; }
+    h3 { color: #aaa; margin: 20px 0 10px; }
     .card { background: #16213e; border-radius: 8px; padding: 20px; margin: 20px 0; }
-    label { display: block; margin: 10px 0 5px; color: #aaa; }
-    input, select { width: 100%; padding: 10px; border: 1px solid #333; border-radius: 4px; background: #0f0f23; color: #fff; }
+    textarea { width: 100%; height: 200px; padding: 12px; border: 1px solid #333; border-radius: 4px; background: #0f0f23; color: #fff; font-family: monospace; font-size: 13px; resize: vertical; }
     button { background: #00d9ff; color: #000; border: none; padding: 12px 24px; border-radius: 4px; cursor: pointer; margin: 10px 5px 10px 0; font-weight: bold; }
     button:hover { background: #00b8d4; }
-    pre { background: #0f0f23; padding: 15px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; max-height: 400px; }
+    button.secondary { background: #444; color: #fff; }
+    button.secondary:hover { background: #555; }
+    pre { background: #0f0f23; padding: 15px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; max-height: 300px; font-size: 12px; }
     .error { color: #ff6b6b; }
     .success { color: #51cf66; }
+    .hint { color: #888; font-size: 12px; margin-top: 8px; }
   </style>
 </head>
 <body>
   <h1>Kiro API</h1>
+  
   <div class="card">
-    <label>IDP (for usage)</label>
-    <select id="idp">
-      <option value="Google">Google</option>
-      <option value="Github">Github</option>
-      <option value="BuilderId">BuilderId</option>
-    </select>
-    <label>Access Token</label>
-    <input type="text" id="accessToken">
-    <label>Refresh Token</label>
-    <input type="text" id="refreshToken">
-    <label>Machine ID (optional)</label>
-    <input type="text" id="machineId" placeholder="留空使用默认值">
+    <h3>账号 JSON（支持单个或数组）</h3>
+    <textarea id="jsonInput" placeholder='{
+  "accessToken": "...",
+  "refreshToken": "...",
+  "provider": "Google"
+}
+
+或数组格式：
+[
+  { "accessToken": "...", "refreshToken": "...", "provider": "Google" },
+  { "accessToken": "...", "refreshToken": "...", "provider": "Github" }
+]'></textarea>
+    <p class="hint">支持字段：accessToken, refreshToken, provider (Google/Github/BuilderId), machineId (可选)</p>
   </div>
+
   <div class="card">
-    <button onclick="testUsage()">Get Usage</button>
-    <button onclick="testRefresh()">Refresh Token</button>
+    <button onclick="testUsage()">获取配额 (Usage)</button>
+    <button onclick="testRefresh()">刷新 Token (Refresh)</button>
+    <button class="secondary" onclick="formatJson()">格式化 JSON</button>
+    <button class="secondary" onclick="clearAll()">清空</button>
   </div>
+
   <div class="card">
-    <pre id="result">-</pre>
+    <pre id="result">结果将显示在这里...</pre>
   </div>
+
   <script>
     const $ = id => document.getElementById(id)
-    async function testUsage() {
-      $('result').textContent = 'Loading...'
-      try {
-        const res = await fetch('/api/usage', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ accessToken: $('accessToken').value, idp: $('idp').value })
-        })
-        const data = await res.json()
-        $('result').className = res.ok ? 'success' : 'error'
-        $('result').textContent = JSON.stringify(data, null, 2)
-      } catch (e) { $('result').className = 'error'; $('result').textContent = e.message }
+
+    function parseInput() {
+      const text = $('jsonInput').value.trim()
+      if (!text) throw new Error('请输入 JSON 数据')
+      const data = JSON.parse(text)
+      return Array.isArray(data) ? data : [data]
     }
-    async function testRefresh() {
-      $('result').textContent = 'Loading...'
+
+    function formatJson() {
       try {
-        const body = { refreshToken: $('refreshToken').value }
-        if ($('machineId').value) body.machineId = $('machineId').value
-        const res = await fetch('/api/refresh', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        })
-        const data = await res.json()
-        $('result').className = res.ok ? 'success' : 'error'
-        $('result').textContent = JSON.stringify(data, null, 2)
-      } catch (e) { $('result').className = 'error'; $('result').textContent = e.message }
+        const data = JSON.parse($('jsonInput').value)
+        $('jsonInput').value = JSON.stringify(data, null, 2)
+      } catch (e) {
+        $('result').className = 'error'
+        $('result').textContent = 'JSON 格式错误: ' + e.message
+      }
+    }
+
+    function clearAll() {
+      $('jsonInput').value = ''
+      $('result').textContent = '结果将显示在这里...'
+      $('result').className = ''
+    }
+
+    async function testUsage() {
+      $('result').textContent = '请求中...'
+      try {
+        const accounts = parseInput()
+        const results = []
+        
+        for (const acc of accounts) {
+          const idp = acc.provider || acc.idp || 'Google'
+          const accessToken = acc.accessToken || acc.access_token
+          
+          if (!accessToken) {
+            results.push({ error: '缺少 accessToken', account: acc })
+            continue
+          }
+
+          const res = await fetch('/api/usage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ accessToken, idp })
+          })
+          const data = await res.json()
+          results.push({ status: res.status, idp, data })
+        }
+
+        $('result').className = 'success'
+        $('result').textContent = JSON.stringify(results, null, 2)
+      } catch (e) {
+        $('result').className = 'error'
+        $('result').textContent = '错误: ' + e.message
+      }
+    }
+
+    async function testRefresh() {
+      $('result').textContent = '请求中...'
+      try {
+        const accounts = parseInput()
+        const results = []
+        
+        for (const acc of accounts) {
+          const refreshToken = acc.refreshToken || acc.refresh_token
+          const machineId = acc.machineId || acc.machine_id
+          
+          if (!refreshToken) {
+            results.push({ error: '缺少 refreshToken', account: acc })
+            continue
+          }
+
+          const body = { refreshToken }
+          if (machineId) body.machineId = machineId
+
+          const res = await fetch('/api/refresh', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          })
+          const data = await res.json()
+          results.push({ status: res.status, data })
+        }
+
+        $('result').className = 'success'
+        $('result').textContent = JSON.stringify(results, null, 2)
+      } catch (e) {
+        $('result').className = 'error'
+        $('result').textContent = '错误: ' + e.message
+      }
     }
   </script>
 </body>

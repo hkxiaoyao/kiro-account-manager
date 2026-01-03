@@ -610,8 +610,8 @@
   "announcement.content1": "Если кто-то берёт с вас деньги за это ПО — вас обманули! Сообщите об этом.",
   "announcement.content2": "Проект распространяется под лицензией GPL-3.0, бесплатно для всех.",
   "announcement.content3": "Скачивайте только с официального репозитория GitHub.",
-  "announcement.official": "Официальная загрузка:",
-  "announcement.qqGroup": "QQ группа:",
+  "announcement.official": "Официальный репозиторий:",
+  "announcement.qqGroup": "Группа сообщества:",
   "announcement.dontRemind": "Не напоминать",
   "announcement.understand": "Понятно"
 }

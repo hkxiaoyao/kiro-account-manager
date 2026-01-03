@@ -612,8 +612,8 @@
   "announcement.content1": "If anyone charges you for this software, you have been scammed! Please report immediately.",
   "announcement.content2": "This project is licensed under GPL-3.0, free for everyone to use.",
   "announcement.content3": "Please download from the official GitHub repository to avoid tampered versions.",
-  "announcement.official": "Official Download:",
-  "announcement.qqGroup": "QQ Group:",
+  "announcement.official": "Official Repository:",
+  "announcement.qqGroup": "Community Group:",
   "announcement.dontRemind": "Don't remind",
   "announcement.understand": "I Understand"
 }
