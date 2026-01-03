@@ -18,7 +18,7 @@ jobs:
             target: ''
           - platform: macos-latest
             target: 'x86_64-apple-darwin'
-          - platform: macos-latest
+          - platform: macos-14
             target: 'aarch64-apple-darwin'
           - platform: ubuntu-22.04
             target: ''
@@ -39,6 +39,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          cache-on-failure: true
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -65,30 +71,35 @@ jobs:
           prerelease: false
           args: ${{ matrix.target && format('--target {0}', matrix.target) || '' }}
 
-  # 修正 latest.json，移除不支持在线更新的 deb 平台
-  fix-updater-json:
+  # 生成 deb 专用的 latest-deb.json
+  generate-deb-json:
     if: ${{ !endsWith(github.repository, '_dev') }}
     needs: release
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Wait for release assets
-        run: sleep 30
-
-      - name: Fix latest.json
+      - name: Download latest.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 下载 latest.json
-          gh release download ${{ github.ref_name }} -p "latest.json" -R ${{ github.repository }} -O latest.json || exit 0
-          
-          # 移除 linux-x86_64-deb 平台（deb 不支持在线更新）
-          if [ -f latest.json ]; then
-            jq 'del(.platforms["linux-x86_64-deb"])' latest.json > latest_fixed.json
-            mv latest_fixed.json latest.json
-            
-            # 上传修正后的文件
-            gh release upload ${{ github.ref_name }} latest.json --clobber -R ${{ github.repository }}
-            echo "✅ 已移除 linux-x86_64-deb 平台"
-          fi
+          VERSION=${{ github.ref_name }}
+          gh release download "$VERSION" -p "latest.json" -R ${{ github.repository }} -O latest.json
+          cat latest.json
+
+      - name: Generate latest-deb.json
+        run: |
+          VERSION=${{ github.ref_name }}
+          VERSION_NUM=${VERSION#v}
+          # 修改 linux-x86_64 平台的 URL 为 deb
+          jq --arg ver "$VERSION" --arg verNum "$VERSION_NUM" '
+            .platforms["linux-x86_64"].url = "https://github.com/${{ github.repository }}/releases/download/\($ver)/Kiro.Account.Manager_\($verNum)_amd64.deb"
+          ' latest.json > latest-deb.json
+          cat latest-deb.json
+
+      - name: Upload latest-deb.json to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=${{ github.ref_name }}
+          gh release upload "$VERSION" latest-deb.json --clobber -R ${{ github.repository }}
