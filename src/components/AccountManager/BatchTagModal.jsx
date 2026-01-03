@@ -30,17 +30,24 @@ function BatchTagModal({ accountIds, onClose, onSuccess }) {
     )
   }
 
+  // 点击可用标签，填充到输入框
+  const handleFillInput = (tag) => {
+    setNewTagName(tag.name)
+  }
+
   const handleAddTag = async () => {
     const trimmed = newTagName.trim().slice(0, 20)
     if (!trimmed) return
-    if (tags.some(t => t.name === trimmed)) {
-      const existing = tags.find(t => t.name === trimmed)
+    
+    const existing = tags.find(t => t.name === trimmed)
+    if (existing) {
       if (!selectedTagIds.includes(existing.id)) {
         setSelectedTagIds([...selectedTagIds, existing.id])
       }
       setNewTagName('')
       return
     }
+    
     const color = PRESET_COLORS[Math.floor(Math.random() * PRESET_COLORS.length)]
     try {
       const newTag = await invoke('add_tag', { name: trimmed, color })
@@ -65,10 +72,11 @@ function BatchTagModal({ accountIds, onClose, onSuccess }) {
     }
   }
 
+  const availableTags = tags.filter(t => !selectedTagIds.includes(t.id))
+
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className={`${isLightTheme ? 'bg-white' : 'bg-[#1a1a2e]'} rounded-xl w-full max-w-md shadow-2xl`} onClick={e => e.stopPropagation()}>
-        {/* 头部 */}
         <div className={`flex items-center justify-between px-5 py-4 border-b ${colors.cardBorder}`}>
           <div className="flex items-center gap-2">
             <Tag size={20} className="text-purple-500" />
@@ -80,9 +88,7 @@ function BatchTagModal({ accountIds, onClose, onSuccess }) {
           </button>
         </div>
 
-        {/* 内容 */}
-        <div className="p-5 space-y-4">
-          {/* 已选标签 */}
+        <div className="p-5 space-y-4 max-h-[60vh] overflow-y-auto">
           <div>
             <label className={`block text-sm font-medium ${colors.textMuted} mb-2`}>{t('tags.selected')}</label>
             <div className="flex flex-wrap gap-1.5 min-h-[32px]">
@@ -106,26 +112,8 @@ function BatchTagModal({ accountIds, onClose, onSuccess }) {
             </div>
           </div>
 
-          {/* 可选标签 */}
-          {tags.filter(t => !selectedTagIds.includes(t.id)).length > 0 && (
-            <div>
-              <label className={`block text-sm font-medium ${colors.textMuted} mb-2`}>{t('tags.available')}</label>
-              <div className="flex flex-wrap gap-1.5">
-                {tags.filter(t => !selectedTagIds.includes(t.id)).map(tag => (
-                  <button key={tag.id} type="button" onClick={() => handleToggleTag(tag.id)}
-                    className="text-xs px-2 py-1 rounded-full text-white opacity-70 hover:opacity-100"
-                    style={{ backgroundColor: tag.color || '#8b5cf6' }}
-                  >
-                    + {tag.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* 新建标签 */}
           <div>
-            <label className={`block text-sm font-medium ${colors.textMuted} mb-2`}>{t('tags.createNew')}</label>
+            <label className={`block text-sm font-medium ${colors.textMuted} mb-2`}>{t('tags.addTag')}</label>
             <div className="flex gap-2">
               <input type="text" value={newTagName} onChange={(e) => setNewTagName(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
@@ -139,9 +127,31 @@ function BatchTagModal({ accountIds, onClose, onSuccess }) {
               </button>
             </div>
           </div>
+
+          {availableTags.length > 0 && (
+            <div>
+              <label className={`block text-sm font-medium ${colors.textMuted} mb-2`}>{t('tags.available')}</label>
+              <select
+                onChange={(e) => {
+                  const tagId = e.target.value
+                  if (tagId) {
+                    const tag = tags.find(t => t.id === tagId)
+                    if (tag) setNewTagName(tag.name)
+                  }
+                  e.target.value = ''
+                }}
+                defaultValue=""
+                className={`w-full px-3 py-2 border ${colors.cardBorder} rounded-lg text-sm ${colors.input} ${colors.text} ${isLightTheme ? 'bg-white' : 'bg-[#1a1a2e]'}`}
+              >
+                <option value="" disabled>{t('tags.selectTags')}</option>
+                {availableTags.map(tag => (
+                  <option key={tag.id} value={tag.id}>{tag.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
-        {/* 底部 */}
         <div className={`flex justify-end gap-3 px-5 py-4 border-t ${colors.cardBorder}`}>
           <button onClick={onClose} className={`px-4 py-2 ${isLightTheme ? 'hover:bg-gray-100' : 'hover:bg-white/10'} rounded-lg text-sm ${colors.text}`}>
             {t('common.cancel')}

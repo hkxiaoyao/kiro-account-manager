@@ -13,7 +13,8 @@ const PRESET_COLORS = [
 
 // 标签选择器（用于账号编辑）
 export function TagSelector({ selectedTagIds, onChange, allTags }) {
-  const { t, colors } = useApp()
+  const { t, theme, colors } = useApp()
+  const isLightTheme = theme === 'light'
   const [newTagName, setNewTagName] = useState('')
   const [tags, setTags] = useState(allTags || [])
 
@@ -24,6 +25,7 @@ export function TagSelector({ selectedTagIds, onChange, allTags }) {
   }, [allTags])
 
   const actualTags = allTags || tags
+  const availableTags = actualTags.filter(t => !selectedTagIds.includes(t.id))
 
   // 添加新标签
   const handleAddTag = async () => {
@@ -52,9 +54,16 @@ export function TagSelector({ selectedTagIds, onChange, allTags }) {
     onChange(selectedTagIds.filter(id => id !== tagId))
   }
 
-  const handleSelectTag = (tag) => {
-    // 点击已有标签时，填入输入框，允许用户编辑
-    setNewTagName(tag.name)
+  // 下拉选择标签 - 填充到输入框
+  const handleSelectFromDropdown = (e) => {
+    const tagId = e.target.value
+    if (tagId) {
+      const tag = actualTags.find(t => t.id === tagId)
+      if (tag) {
+        setNewTagName(tag.name)
+      }
+    }
+    e.target.value = '' // 重置下拉框
   }
 
   const getTagById = (tagId) => actualTags.find(t => t.id === tagId)
@@ -87,7 +96,22 @@ export function TagSelector({ selectedTagIds, onChange, allTags }) {
           <span className={`text-xs ${colors.textMuted}`}>{t('tags.noTags')}</span>
         )}
       </div>
-      {/* 添加新标签 */}
+      {/* 下拉选择已有标签 */}
+      {availableTags.length > 0 && (
+        <div className="mb-2">
+          <select
+            onChange={handleSelectFromDropdown}
+            defaultValue=""
+            className={`w-full px-3 py-1.5 border ${colors.cardBorder} rounded-lg text-sm ${colors.input} ${colors.text} ${isLightTheme ? 'bg-white' : 'bg-[#1a1a2e]'}`}
+          >
+            <option value="" disabled>{t('tags.selectTags')}</option>
+            {availableTags.map(tag => (
+              <option key={tag.id} value={tag.id}>{tag.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+      {/* 新建标签 */}
       <div className="flex gap-2">
         <input
           type="text"
@@ -106,25 +130,6 @@ export function TagSelector({ selectedTagIds, onChange, allTags }) {
           <Plus size={14} />
         </button>
       </div>
-      {/* 已有标签快速选择 */}
-      {actualTags.filter(t => !selectedTagIds.includes(t.id)).length > 0 && (
-        <div className="mt-2">
-          <span className={`text-xs ${colors.textMuted}`}>{t('tags.selectTags')}:</span>
-          <div className="flex flex-wrap gap-1 mt-1">
-            {actualTags.filter(t => !selectedTagIds.includes(t.id)).map(tag => (
-              <button
-                key={tag.id}
-                type="button"
-                onClick={() => handleSelectTag(tag)}
-                className="text-xs px-2 py-0.5 rounded-full text-white opacity-80 hover:opacity-100"
-                style={{ backgroundColor: tag.color || '#8b5cf6' }}
-              >
-                + {tag.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

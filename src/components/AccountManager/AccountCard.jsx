@@ -1,6 +1,7 @@
 import { memo, useState, useCallback, useMemo } from 'react'
 import { RefreshCw, Eye, Trash2, Copy, Check, Clock, Repeat, Edit2, UserX } from 'lucide-react'
-import { useApp } from '../../hooks/useApp'
+import { useTranslation } from 'react-i18next'
+import { useTheme } from '../../contexts/ThemeContext'
 import { usePrivacy } from '../../contexts/PrivacyContext'
 import { getUsagePercent, getProgressBarColor } from './hooks/useAccountStats'
 import { getQuota, getUsed, getSubType, getSubPlan } from '../../utils/accountStats'
@@ -8,7 +9,7 @@ import ContextMenu from './ContextMenu'
 
 const AccountCard = memo(function AccountCard({
   account,
-  isSelected,
+  selectedIdsSet,
   onSelect,
   copiedId,
   onCopy,
@@ -23,19 +24,38 @@ const AccountCard = memo(function AccountCard({
   isCurrentAccount,
   tagDefinitions = [],
 }) {
-  const { t, theme, colors } = useApp()
+  const { t } = useTranslation()
+  const { theme, colors } = useTheme()
   const { maskEmail } = usePrivacy()
   const isLightTheme = theme === 'light'
   const [contextMenu, setContextMenu] = useState(null)
+  
+  // 从 Set 中计算是否选中
+  const isSelected = selectedIdsSet?.has(account.id) ?? false
+
+  // 预计算常用值，避免重复计算
+  const cardData = useMemo(() => {
+    const quota = getQuota(account)
+    const used = getUsed(account)
+    const subType = getSubType(account)
+    const subPlan = getSubPlan(account)
+    const percent = getUsagePercent(used, quota)
+    const isBanned = account.status === 'banned' || account.status === '封禁' || account.status === '已封禁'
+    const isNormal = account.status === 'active' || account.status === '正常' || account.status === '有效'
+    const isExpired = account.expiresAt && new Date(account.expiresAt.replace(/\//g, '-')) < new Date()
+    const breakdown = account.usageData?.usageBreakdownList?.[0]
+    const nextDateReset = account.usageData?.nextDateReset
+    
+    return { quota, used, subType, subPlan, percent, isBanned, isNormal, isExpired, breakdown, nextDateReset }
+  }, [account])
+
+  const { quota, used, subType, subPlan, percent, isBanned, isNormal, isExpired, breakdown, nextDateReset } = cardData
 
   // 右键菜单处理
   const handleContextMenu = useCallback((e) => {
     e.preventDefault()
     setContextMenu({ x: e.clientX, y: e.clientY })
   }, [])
-
-  // 判断是否被封禁
-  const isBannedAccount = account.status === 'banned' || account.status === '封禁' || account.status === '已封禁'
 
   // 复制账号 JSON
   const handleCopyJson = useCallback(() => {
@@ -55,35 +75,6 @@ const AccountCard = memo(function AccountCard({
     onCopy(JSON.stringify(exportData, null, 2), account.id)
   }, [account, onCopy])
 
-  // 右键菜单项（使用 useMemo 缓存）
-  const menuItems = useMemo(() => [
-    { icon: Eye, label: t('accountCard.viewDetails'), onClick: () => onEdit(account) },
-    { icon: Edit2, label: t('accountCard.editRemark'), onClick: () => onEditLabel(account) },
-    { icon: Copy, label: t('accountCard.copyJson'), onClick: handleCopyJson },
-    { divider: true },
-    { icon: RefreshCw, label: t('accountCard.refresh'), onClick: () => onRefresh(account.id), disabled: refreshingId === account.id },
-    { icon: Repeat, label: t('accountCard.switchAccount'), onClick: () => onSwitch(account), disabled: switchingId === account.id },
-    { divider: true },
-    { icon: Trash2, label: t('accountCard.delete'), onClick: () => onDelete(account.id), danger: true },
-    // Google/Github/BuilderId 支持远程注销，Enterprise 不支持，封禁账号不支持
-    ...(account.provider !== 'Enterprise' && !isBannedAccount && onDeleteRemote ? [
-      { icon: UserX, label: t('accountCard.deleteRemote'), onClick: () => onDeleteRemote(account), danger: true },
-    ] : []),
-  ], [t, account, handleCopyJson, onEdit, onEditLabel, onRefresh, onSwitch, onDelete, onDeleteRemote, refreshingId, switchingId, isBannedAccount])
-
-  const quota = getQuota(account)
-  const used = getUsed(account)
-  const subType = getSubType(account)
-  const subPlan = getSubPlan(account)
-  const usageData = account.usageData
-  const breakdown = usageData?.usageBreakdownList?.[0]
-  const nextDateReset = usageData?.nextDateReset
-  const percent = getUsagePercent(used, quota)
-  const isExpired = account.expiresAt && new Date(account.expiresAt.replace(/\//g, '-')) < new Date()
-  // 统一状态判断：后端只设置 'active' 或 'banned'，兼容旧数据的中文状态
-  const isBanned = account.status === 'banned'
-  const isNormal = account.status === 'active'
-
   // 状态光环颜色
   const glowColor = isCurrentAccount
     ? 'shadow-green-500/30 hover:shadow-green-500/50'
@@ -92,6 +83,21 @@ const AccountCard = memo(function AccountCard({
       : isNormal
         ? ''
         : 'shadow-orange-500/30 hover:shadow-orange-500/50'
+
+  // 右键菜单项 - 只在菜单打开时计算
+  const getMenuItems = useCallback(() => [
+    { icon: Eye, label: t('accountCard.viewDetails'), onClick: () => onEdit(account) },
+    { icon: Edit2, label: t('accountCard.editRemark'), onClick: () => onEditLabel(account) },
+    { icon: Copy, label: t('accountCard.copyJson'), onClick: handleCopyJson },
+    { divider: true },
+    { icon: RefreshCw, label: t('accountCard.refresh'), onClick: () => onRefresh(account.id), disabled: refreshingId === account.id },
+    { icon: Repeat, label: t('accountCard.switchAccount'), onClick: () => onSwitch(account), disabled: switchingId === account.id },
+    { divider: true },
+    { icon: Trash2, label: t('accountCard.delete'), onClick: () => onDelete(account.id), danger: true },
+    ...(account.provider !== 'Enterprise' && !isBanned && onDeleteRemote ? [
+      { icon: UserX, label: t('accountCard.deleteRemote'), onClick: () => onDeleteRemote(account), danger: true },
+    ] : []),
+  ], [t, account, handleCopyJson, onEdit, onEditLabel, onRefresh, onSwitch, onDelete, onDeleteRemote, refreshingId, switchingId, isBanned])
 
   return (
     <div
@@ -107,13 +113,13 @@ const AccountCard = memo(function AccountCard({
               ? (isLightTheme ? 'border-orange-300 bg-orange-50/50' : 'border-orange-500/50 bg-orange-500/5')
               : (isLightTheme ? 'border-gray-200 bg-white hover:border-gray-300' : 'border-gray-700 bg-gray-800/50 hover:border-gray-600')
     }`}>
-      {/* 右键菜单 */}
+      {/* 右键菜单 - 懒加载 */}
       {contextMenu && (
         <ContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
           onClose={() => setContextMenu(null)}
-          items={menuItems}
+          items={getMenuItems()}
           isLightTheme={isLightTheme}
         />
       )}
@@ -271,6 +277,20 @@ const AccountCard = memo(function AccountCard({
         </div>
       </div>
     </div>
+  )
+}, (prevProps, nextProps) => {
+  // 自定义比较：只在关键 props 变化时重渲染
+  const prevSelected = prevProps.selectedIdsSet?.has(prevProps.account.id) ?? false
+  const nextSelected = nextProps.selectedIdsSet?.has(nextProps.account.id) ?? false
+  
+  return (
+    prevProps.account === nextProps.account &&
+    prevSelected === nextSelected &&
+    prevProps.copiedId === nextProps.copiedId &&
+    prevProps.refreshingId === nextProps.refreshingId &&
+    prevProps.switchingId === nextProps.switchingId &&
+    prevProps.isCurrentAccount === nextProps.isCurrentAccount &&
+    prevProps.tagDefinitions === nextProps.tagDefinitions
   )
 })
 

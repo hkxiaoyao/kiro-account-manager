@@ -12,6 +12,77 @@ function getColumnCount(width) {
   return 1
 }
 
+// 单独的行组件，避免重复渲染
+const VirtualRow = memo(function VirtualRow({
+  row,
+  columns,
+  selectedIdsSet,
+  onSelectOne,
+  copiedId,
+  onCopy,
+  onSwitch,
+  onRefresh,
+  onEdit,
+  onEditLabel,
+  onDelete,
+  onDeleteRemote,
+  onAdd,
+  refreshingId,
+  switchingId,
+  localToken,
+  tagDefinitions,
+  isLightTheme,
+  colors,
+  t,
+}) {
+  return (
+    <div className="gap-4 pb-4" style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
+      {row.map(item => {
+        if (item._isAddButton) {
+          return <AddButton key="add" onClick={onAdd} isLightTheme={isLightTheme} colors={colors} t={t} />
+        }
+        return (
+          <AccountCard
+            key={item.id}
+            account={item}
+            selectedIdsSet={selectedIdsSet}
+            onSelect={(checked) => onSelectOne(item.id, checked)}
+            copiedId={copiedId}
+            onCopy={onCopy}
+            onSwitch={onSwitch}
+            onRefresh={onRefresh}
+            onEdit={onEdit}
+            onEditLabel={onEditLabel}
+            onDelete={onDelete}
+            onDeleteRemote={onDeleteRemote}
+            refreshingId={refreshingId}
+            switchingId={switchingId}
+            isCurrentAccount={localToken?.refreshToken && item.refreshToken === localToken.refreshToken}
+            tagDefinitions={tagDefinitions}
+          />
+        )
+      })}
+    </div>
+  )
+}, (prev, next) => {
+  // 只在行数据或关键状态变化时重渲染
+  if (prev.row !== next.row || prev.columns !== next.columns) return false
+  if (prev.copiedId !== next.copiedId) return false
+  if (prev.refreshingId !== next.refreshingId) return false
+  if (prev.switchingId !== next.switchingId) return false
+  if (prev.localToken !== next.localToken) return false
+  if (prev.tagDefinitions !== next.tagDefinitions) return false
+  if (prev.isLightTheme !== next.isLightTheme) return false
+  // selectedIdsSet 比较：检查行内账号的选中状态是否变化
+  for (const item of prev.row) {
+    if (item._isAddButton) continue
+    const prevSelected = prev.selectedIdsSet?.has(item.id)
+    const nextSelected = next.selectedIdsSet?.has(item.id)
+    if (prevSelected !== nextSelected) return false
+  }
+  return true
+})
+
 function AccountTable({
   accounts,
   totalCount,
@@ -62,35 +133,12 @@ function AccountTable({
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 360,
-    overscan: 2,
+    estimateSize: () => 340,
+    overscan: 1, // 减少预渲染行数
   })
 
-  const renderCard = useCallback((item) => {
-    if (item._isAddButton) {
-      return <AddButton key="add" onClick={onAdd} isLightTheme={isLightTheme} colors={colors} t={t} />
-    }
-    return (
-      <AccountCard
-        key={item.id}
-        account={item}
-        isSelected={selectedIds.includes(item.id)}
-        onSelect={(checked) => onSelectOne(item.id, checked)}
-        copiedId={copiedId}
-        onCopy={onCopy}
-        onSwitch={onSwitch}
-        onRefresh={onRefresh}
-        onEdit={onEdit}
-        onEditLabel={onEditLabel}
-        onDelete={onDelete}
-        onDeleteRemote={onDeleteRemote}
-        refreshingId={refreshingId}
-        switchingId={switchingId}
-        isCurrentAccount={localToken?.refreshToken && item.refreshToken === localToken.refreshToken}
-        tagDefinitions={tagDefinitions}
-      />
-    )
-  }, [selectedIds, copiedId, onCopy, onSwitch, onRefresh, onEdit, onEditLabel, onDelete, onDeleteRemote, onAdd, refreshingId, switchingId, localToken, isLightTheme, colors, t, onSelectOne, tagDefinitions])
+  // 将 selectedIds 转为 Set 提高查找性能
+  const selectedIdsSet = useMemo(() => new Set(selectedIds), [selectedIds])
 
   return (
     <div ref={containerRef} className="flex-1 flex flex-col overflow-hidden p-6">
@@ -126,24 +174,48 @@ function AccountTable({
           </button>
         </div>
       ) : (
-        <div ref={scrollRef} className="flex-1 overflow-auto">
+        <div 
+          ref={scrollRef} 
+          className="flex-1 overflow-auto"
+          style={{ contain: 'strict' }}
+        >
           <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
-            {rowVirtualizer.getVirtualItems().map((virtualRow) => (
-              <div
-                key={virtualRow.key}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  transform: `translateY(${virtualRow.start}px)`,
-                }}
-              >
-                <div className="gap-4 pb-4" style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
-                  {rows[virtualRow.index].map(renderCard)}
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                transform: `translateY(${rowVirtualizer.getVirtualItems()[0]?.start ?? 0}px)`,
+              }}
+            >
+              {rowVirtualizer.getVirtualItems().map((virtualRow) => (
+                <div key={virtualRow.key} data-index={virtualRow.index}>
+                  <VirtualRow
+                    row={rows[virtualRow.index]}
+                    columns={columns}
+                    selectedIdsSet={selectedIdsSet}
+                    onSelectOne={onSelectOne}
+                    copiedId={copiedId}
+                    onCopy={onCopy}
+                    onSwitch={onSwitch}
+                    onRefresh={onRefresh}
+                    onEdit={onEdit}
+                    onEditLabel={onEditLabel}
+                    onDelete={onDelete}
+                    onDeleteRemote={onDeleteRemote}
+                    onAdd={onAdd}
+                    refreshingId={refreshingId}
+                    switchingId={switchingId}
+                    localToken={localToken}
+                    tagDefinitions={tagDefinitions}
+                    isLightTheme={isLightTheme}
+                    colors={colors}
+                    t={t}
+                  />
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       )}

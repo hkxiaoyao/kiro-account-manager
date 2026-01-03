@@ -2,9 +2,28 @@ import { useEffect, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { emit } from '@tauri-apps/api/event'
 
-// 常量（与 Kiro 官方一致）
-const REFRESH_BEFORE_EXPIRY_SECONDS = 10 * 60
-const DEFAULT_REFRESH_INTERVAL = 50 // 分钟
+// 常量
+const REFRESH_BEFORE_EXPIRY_SECONDS = 5 * 60 // 5 分钟内过期才刷新
+const DEFAULT_REFRESH_INTERVAL = 10 // 分钟
+
+// 根据账号数量计算并发数
+const getConcurrency = (count) => {
+  if (count <= 10) return count // 10 个以内全并发
+  if (count <= 50) return 10    // 50 个以内并发 10
+  if (count <= 200) return 20   // 200 个以内并发 20
+  return 30                     // 超过 200 并发 30
+}
+
+// 分批执行异步任务
+const runWithConcurrency = async (tasks, concurrency) => {
+  const results = []
+  for (let i = 0; i < tasks.length; i += concurrency) {
+    const batch = tasks.slice(i, i + concurrency)
+    const batchResults = await Promise.allSettled(batch.map(fn => fn()))
+    results.push(...batchResults)
+  }
+  return results
+}
 
 /**
  * 自动刷新 Token 的 Hook
@@ -46,18 +65,21 @@ export function useAutoRefresh(appSettings, settingsLoading) {
         return
       }
 
-      console.log(`[AutoRefresh] 刷新 ${expiredAccounts.length} 个过期 token...`)
+      const concurrency = getConcurrency(expiredAccounts.length)
+      console.log(`[AutoRefresh] 刷新 ${expiredAccounts.length} 个过期 token，并发数: ${concurrency}`)
 
-      await Promise.allSettled(
-        expiredAccounts.map(async (account) => {
-          try {
-            await invoke('refresh_account_token', { id: account.id })
-            console.log(`[AutoRefresh] ${account.email} token 刷新成功`)
-          } catch (e) {
-            console.warn(`[AutoRefresh] ${account.email} token 刷新失败:`, e)
-          }
-        })
-      )
+      // 构建任务列表
+      const tasks = expiredAccounts.map((account) => async () => {
+        try {
+          await invoke('refresh_account_token', { id: account.id })
+          console.log(`[AutoRefresh] ${account.email} token 刷新成功`)
+        } catch (e) {
+          console.warn(`[AutoRefresh] ${account.email} token 刷新失败:`, e)
+        }
+      })
+
+      // 分批执行
+      await runWithConcurrency(tasks, concurrency)
 
       console.log('[AutoRefresh] token 刷新完成')
       emit('accounts-updated')
@@ -79,7 +101,7 @@ export function useAutoRefresh(appSettings, settingsLoading) {
       clearInterval(refreshTimerRef.current)
     }
 
-    // 启动时立即刷新一次
+    // 启动时刷新 5 分钟内过期的 token
     refreshExpiredTokens()
 
     const settings = appSettingsRef.current || {}

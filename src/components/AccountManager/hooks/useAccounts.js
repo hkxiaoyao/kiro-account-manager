@@ -120,12 +120,17 @@ export function useAccounts() {
 
   const handleExport = useCallback(async (selectedIds = []) => {
     try {
+      // 必须选中账号才能导出
+      if (selectedIds.length === 0) {
+        console.warn('未选中任何账号')
+        return
+      }
+      
       const { save } = await import('@tauri-apps/plugin-dialog')
       const { writeTextFile } = await import('@tauri-apps/plugin-fs')
       const { downloadDir } = await import('@tauri-apps/api/path')
       
-      const suffix = selectedIds.length > 0 ? `-${selectedIds.length}` : ''
-      const defaultName = `kiro-accounts${suffix}-${new Date().toISOString().slice(0, 10)}.json`
+      const defaultName = `kiro-accounts-${selectedIds.length}-${new Date().toISOString().slice(0, 10)}.json`
       const defaultDir = await downloadDir()
       const sep = defaultDir.includes('\\') ? '\\' : '/'
       
@@ -137,7 +142,7 @@ export function useAccounts() {
       
       if (!filePath) return // 用户取消
       
-      const json = await invoke('export_accounts', { ids: selectedIds.length > 0 ? selectedIds : null })
+      const json = await invoke('export_accounts', { ids: selectedIds })
       await writeTextFile(filePath, json)
     } catch (e) {
       console.error('导出失败:', e)

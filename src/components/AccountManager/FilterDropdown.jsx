@@ -131,31 +131,23 @@ function FilterDropdown({
           </div>
 
           <div className="p-4 space-y-4 max-h-[400px] overflow-y-auto">
-            {/* 标签筛选 */}
+            {/* 标签筛选 - 下拉框 */}
             {allTags.length > 0 && (
               <div>
                 <div className={`text-xs font-medium ${colors.textMuted} mb-2 uppercase tracking-wide`}>
                   {t('tags.title')}
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {allTags.map(tag => {
-                    const isActive = selectedTag === tag.id
-                    return (
-                      <button
-                        key={tag.id}
-                        onClick={() => onTagFilter(isActive ? null : tag.id)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                          isActive
-                            ? 'bg-blue-500 text-white shadow-lg'
-                            : `${colors.input} ${colors.text}`
-                        }`}
-                        style={!isActive && tag.color ? { borderLeft: `3px solid ${tag.color}` } : {}}
-                      >
-                        {tag.name}
-                      </button>
-                    )
-                  })}
-                </div>
+                <select
+                  value={selectedTag || ''}
+                  onChange={(e) => onTagFilter(e.target.value || null)}
+                  className={`w-full px-3 py-2 border rounded-lg text-sm ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 transition-all`}
+                >
+                  <option value="">{t('tags.all')}</option>
+                  <option value="__none__">{t('tags.noTags')}</option>
+                  {allTags.map(tag => (
+                    <option key={tag.id} value={tag.id}>{tag.name}</option>
+                  ))}
+                </select>
               </div>
             )}
 

@@ -103,9 +103,9 @@ function AccountManager() {
     return tagDefinitions.filter(t => usedTagIds.has(t.id))
   }, [accounts, tagDefinitions])
 
-  // 当选中的标签不存在时，重置筛选
+  // 当选中的标签不存在时，重置筛选（排除 __none__ 特殊值）
   useEffect(() => {
-    if (selectedTag && !allTags.find(t => t.id === selectedTag)) {
+    if (selectedTag && selectedTag !== '__none__' && !allTags.find(t => t.id === selectedTag)) {
       setSelectedTag(null)
     }
   }, [allTags, selectedTag])
@@ -140,8 +140,9 @@ function AccountManager() {
       const matchSearch = a.email.toLowerCase().includes(term) ||
         a.label.toLowerCase().includes(term) ||
         tagNames.includes(term)
-      // 标签过滤（按 ID）
-      const matchTag = !selectedTag || (a.tags && a.tags.includes(selectedTag))
+      // 标签过滤（按 ID，__none__ 表示筛选无标签账号）
+      const matchTag = !selectedTag || 
+        (selectedTag === '__none__' ? (!a.tags || a.tags.length === 0) : (a.tags && a.tags.includes(selectedTag)))
       // 状态过滤
       const matchStatus = !selectedStatus || 
         (selectedStatus === 'active' && (a.status === 'active' || a.status === '正常' || a.status === '有效')) ||
