@@ -3,7 +3,38 @@
 use serde::{Deserialize, Serialize};
 use reqwest::Proxy;
 
-const UPDATE_URL: &str = "https://github.com/hj01857655/kiro-account-manager/releases/latest/download/latest.json";
+const UPDATE_URL_DEFAULT: &str = "https://github.com/hj01857655/kiro-account-manager/releases/latest/download/latest.json";
+const UPDATE_URL_DEB: &str = "https://github.com/hj01857655/kiro-account-manager/releases/latest/download/latest-deb.json";
+
+/// 检测 Linux 安装方式
+#[cfg(target_os = "linux")]
+fn detect_linux_install_type() -> &'static str {
+    // 检测当前可执行文件路径
+    if let Ok(exe_path) = std::env::current_exe() {
+        let path_str = exe_path.to_string_lossy();
+        // deb 安装通常在 /usr/bin 或 /opt
+        if path_str.starts_with("/usr/") || path_str.starts_with("/opt/") {
+            return "deb";
+        }
+        // AppImage 通常在 /tmp/.mount_ 或用户目录
+        if path_str.contains(".mount_") || path_str.contains("AppImage") {
+            return "appimage";
+        }
+    }
+    // 默认返回 appimage
+    "appimage"
+}
+
+/// 获取更新 URL
+fn get_update_url() -> &'static str {
+    #[cfg(target_os = "linux")]
+    {
+        if detect_linux_install_type() == "deb" {
+            return UPDATE_URL_DEB;
+        }
+    }
+    UPDATE_URL_DEFAULT
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateInfo {
@@ -117,8 +148,9 @@ pub async fn check_update() -> Result<UpdateCheckResult, String> {
     let current_version = env!("CARGO_PKG_VERSION").to_string();
     
     let client = build_http_client()?;
+    let update_url = get_update_url();
     
-    let response = client.get(UPDATE_URL)
+    let response = client.get(update_url)
         .send()
         .await
         .map_err(|e| format!("请求更新信息失败: {}", e))?;
