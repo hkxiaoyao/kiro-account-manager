@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
-import { AlertTriangle, ExternalLink, MessageCircle, Download } from 'lucide-react'
+import { AlertTriangle, ExternalLink, MessageCircle, Download, Loader2 } from 'lucide-react'
+import { check } from '@tauri-apps/plugin-updater'
+import { relaunch } from '@tauri-apps/plugin-process'
 import { useApp } from '../hooks/useApp'
 
 // 公告 API 地址
@@ -26,6 +28,8 @@ export default function AnnouncementModal() {
   const [announcement, setAnnouncement] = useState(null)
   const [forceUpdate, setForceUpdate] = useState(null)
   const [agreed, setAgreed] = useState(false)
+  const [updating, setUpdating] = useState(false)
+  const [progress, setProgress] = useState(0)
 
   useEffect(() => {
     fetchAnnouncement()
@@ -77,6 +81,33 @@ export default function AnnouncementModal() {
     setShow(false)
   }
 
+  const handleUpdate = async () => {
+    setUpdating(true)
+    try {
+      const update = await check()
+      if (update) {
+        let downloaded = 0
+        await update.downloadAndInstall((event) => {
+          if (event.event === 'Started' && event.data.contentLength) {
+            setProgress(0)
+          } else if (event.event === 'Progress') {
+            downloaded += event.data.chunkLength
+            // 简单进度显示
+            setProgress(prev => Math.min(prev + 1, 99))
+          } else if (event.event === 'Finished') {
+            setProgress(100)
+          }
+        })
+        await relaunch()
+      }
+    } catch (e) {
+      console.error('[Update] 更新失败:', e)
+      // 失败时跳转到下载页面
+      window.open('https://github.com/hj01857655/kiro-account-manager/releases/latest', '_blank')
+    }
+    setUpdating(false)
+  }
+
   const handleDownload = () => {
     window.open('https://github.com/hj01857655/kiro-account-manager/releases/latest', '_blank')
   }
@@ -99,14 +130,29 @@ export default function AnnouncementModal() {
             <p className={`text-sm ${colors.textMuted}`}>
               当前版本: v{CURRENT_VERSION} → 最低要求: v{forceUpdate.minVersion}
             </p>
+            {updating && progress > 0 && (
+              <div className="mt-4">
+                <div className={`h-2 rounded-full ${isLightTheme ? 'bg-gray-200' : 'bg-white/10'}`}>
+                  <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${progress}%` }} />
+                </div>
+                <p className={`text-xs mt-1 ${colors.textMuted}`}>下载中... {progress}%</p>
+              </div>
+            )}
           </div>
-          <div className="px-6 pb-6">
+          <div className="px-6 pb-6 space-y-2">
+            <button
+              onClick={handleUpdate}
+              disabled={updating}
+              className="w-full py-3 rounded-xl font-medium bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {updating ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+              {updating ? '更新中...' : '立即更新'}
+            </button>
             <button
               onClick={handleDownload}
-              className="w-full py-3 rounded-xl font-medium bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:opacity-90 flex items-center justify-center gap-2"
+              className={`w-full py-2 rounded-xl text-sm ${colors.textMuted} hover:underline`}
             >
-              <Download size={18} />
-              前往下载最新版本
+              手动下载
             </button>
           </div>
         </div>
