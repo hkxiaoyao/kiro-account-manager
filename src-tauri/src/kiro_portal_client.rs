@@ -172,8 +172,6 @@ impl KiroPortalClient {
         let body = cbor_encode(&request)?;
         let cookie = format!("Idp={}; AccessToken={}", idp, access_token);
 
-        println!("[KiroPortal] GetUserUsageAndLimits: idp={}", idp);
-
         let response = self.client
             .post(&url)
             .header("Content-Type", "application/cbor")
@@ -197,12 +195,11 @@ impl KiroPortalClient {
                 String::from_utf8_lossy(&bytes).to_string()
             };
             
-            // 封禁判断：状态码 + 错误消息 同时满足
-            let is_banned_status = status.as_u16() == 403 || status.as_u16() == 423;
+            // 封禁判断：403 + 特定错误消息
             let is_banned_msg = error_msg.contains("AccountSuspendedException") 
                 || error_msg.contains("TEMPORARILY_SUSPENDED");
             
-            if is_banned_status && is_banned_msg {
+            if status.as_u16() == 403 && is_banned_msg {
                 if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&error_msg) {
                     if let Some(msg) = parsed.get("message").and_then(|m| m.as_str()) {
                         return Err(format!("BANNED: {}", msg));
@@ -210,6 +207,12 @@ impl KiroPortalClient {
                 }
                 return Err("BANNED: 账号已被封禁".to_string());
             }
+            
+            // 403 + token invalid → 认证错误，不是封禁
+            if status.as_u16() == 403 && error_msg.contains("invalid") {
+                return Err(format!("AUTH_ERROR: {}", error_msg));
+            }
+            
             return Err(format!("GetUserUsageAndLimits failed ({}): {}", status, error_msg));
         }
 

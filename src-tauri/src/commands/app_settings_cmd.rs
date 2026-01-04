@@ -106,16 +106,10 @@ pub async fn save_app_settings(settings: AppSettings) -> Result<(), String> {
 
 /// 获取自定义浏览器路径（供打开浏览器时使用）
 pub fn get_browser_path() -> Option<String> {
-    let path = get_app_settings_path();
-    println!("[Settings] App settings path: {:?}", path);
-    
-    let result = get_app_settings_inner();
-    println!("[Settings] get_app_settings_inner result: {:?}", result);
-    
-    let browser_path = result.ok().and_then(|s| s.browser_path).filter(|p| !p.is_empty());
-    println!("[Settings] browser_path: {:?}", browser_path);
-    
-    browser_path
+    get_app_settings_inner()
+        .ok()
+        .and_then(|s| s.browser_path)
+        .filter(|p| !p.is_empty())
 }
 
 // ============================================================

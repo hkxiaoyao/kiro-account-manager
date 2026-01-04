@@ -145,8 +145,6 @@ fn open_with_custom_browser(browser_path: &str, url: &str) -> Result<(), String>
     };
     args.push(url);
 
-    println!("[Browser] Opening with custom browser: {} {:?}", exe_path, args);
-
     std::process::Command::new(exe_path)
         .args(&args)
         .spawn()
@@ -157,8 +155,6 @@ fn open_with_custom_browser(browser_path: &str, url: &str) -> Result<(), String>
 
 /// 使用系统默认浏览器打开 URL
 fn open_with_default_browser(url: &str) -> Result<(), String> {
-    println!("[Browser] Opening with default browser: {}", url);
-
     #[cfg(target_os = "windows")]
     {
         std::process::Command::new("rundll32")

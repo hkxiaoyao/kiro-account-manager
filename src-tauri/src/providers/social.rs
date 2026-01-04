@@ -68,9 +68,6 @@ impl AuthProvider for SocialProvider {
         let code_verifier = auth_social::generate_code_verifier_social();
         let code_challenge = auth_social::generate_code_challenge_social(&code_verifier);
 
-        #[cfg(debug_assertions)]
-        println!("[Social] Starting {} authentication", provider);
-
         // Step 3: 注册回调等待器
         let waiter = register_waiter(&state);
 
@@ -80,28 +77,18 @@ impl AuthProvider for SocialProvider {
         client.login(provider, &redirect_uri, &code_challenge, &state).await?;
 
         // Step 5: 等待 deep link 回调
-        #[cfg(debug_assertions)]
-        println!("[Social] Waiting for deep link callback");
         let callback = tokio::task::spawn_blocking(move || waiter.wait_for_callback())
             .await
             .map_err(|e| format!("Failed to join callback waiter: {}", e))?
             .map_err(|e| format!("OAuth callback failed: {}", e))?;
-        
-        #[cfg(debug_assertions)]
-        println!("[Social] Callback received");
 
         // Step 6: 交换 token
-        #[cfg(debug_assertions)]
-        println!("[Social] Exchanging code for tokens");
         let token_response: SocialTokenResponse = client
             .create_token(&callback.code, &code_verifier, &redirect_uri, None)
             .await?;
 
         // Step 7: 构建 AuthResult
         let expires_at = chrono::Local::now() + chrono::Duration::seconds(token_response.expires_in);
-
-        #[cfg(debug_assertions)]
-        println!("[Social] {} login successful", provider);
 
         Ok(AuthResult {
             access_token: token_response.access_token,

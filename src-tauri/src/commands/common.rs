@@ -95,8 +95,8 @@ fn parse_usage_result<T: serde::Serialize>(
             is_banned: true,
             is_auth_error: false,
         },
-        // 401 或认证相关错误
-        Err(e) if e.contains("401") || e.contains("Unauthorized") || e.contains("expired") || e.contains("invalid token") => UsageResult {
+        // 401 或认证相关错误（包括 403 + token invalid）
+        Err(e) if e.starts_with("AUTH_ERROR:") || e.contains("401") || e.contains("Unauthorized") || e.contains("expired") || e.contains("invalid") => UsageResult {
             usage_data: serde_json::Value::Null,
             is_banned: false,
             is_auth_error: true,

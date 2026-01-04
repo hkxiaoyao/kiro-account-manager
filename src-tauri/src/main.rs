@@ -64,13 +64,9 @@ fn main() {
         .plugin(tauri_plugin_deep_link::init())
         // 单实例插件：确保只有一个实例运行，deep-link 回调传递给已运行的实例
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-            // 当第二个实例尝试启动时，处理传入的参数
-            println!("[SingleInstance] 检测到第二个实例，参数: {:?}", argv);
-            
-            // 查找 deep-link URL (kiro:// 开头)
+            // 当第二个实例尝试启动时，处理传入的参数（deep-link 回调）
             for arg in argv.iter() {
                 if arg.starts_with("kiro://") {
-                    println!("[SingleInstance] 处理 deep-link: {}", arg);
                     deep_link_handler::handle_deep_link(arg);
                 }
             }
@@ -82,6 +78,13 @@ fn main() {
             }
         }))
         .setup(|app| {
+            // 首次启动时检查命令行参数中的 deep link（Windows/Linux）
+            for arg in std::env::args() {
+                if arg.starts_with("kiro://") {
+                    deep_link_handler::handle_deep_link(&arg);
+                }
+            }
+            
             // 监听 deep link 事件 (使用 kiro:// 协议)
             #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
             {
@@ -93,9 +96,29 @@ fn main() {
             let app_handle = app.handle().clone();
             app.listen("deep-link://new-url", move |event| {
                 let payload = event.payload();
-                println!("[DeepLink] Received: {}", payload);
+                
+                // payload 可能是 JSON 格式 ["kiro://..."] 或纯 URL
+                let url = if payload.starts_with('[') {
+                    // JSON 数组格式，解析第一个元素
+                    serde_json::from_str::<Vec<String>>(payload)
+                        .ok()
+                        .and_then(|v| v.into_iter().next())
+                        .unwrap_or_else(|| payload.to_string())
+                } else if payload.starts_with('"') {
+                    // JSON 字符串格式
+                    serde_json::from_str::<String>(payload)
+                        .unwrap_or_else(|_| payload.to_string())
+                } else {
+                    payload.to_string()
+                };
+                
+                // 只处理 kiro:// 协议的 URL
+                if !url.starts_with("kiro://") {
+                    return;
+                }
+                
                 // 处理 OAuth 回调
-                deep_link_handler::handle_deep_link(payload);
+                deep_link_handler::handle_deep_link(&url);
                 // 聚焦窗口
                 if let Some(window) = app_handle.get_webview_window("main") {
                     let _ = window.set_focus();

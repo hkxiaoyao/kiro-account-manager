@@ -53,9 +53,6 @@ impl KiroAuthServiceClient {
             state,
         );
 
-        #[cfg(debug_assertions)]
-        println!("[KiroAuth] Login with {} provider", provider);
-
         let login_url = login_url.trim().to_string();
         
         open_browser(&login_url)?;
@@ -71,9 +68,6 @@ impl KiroAuthServiceClient {
         redirect_uri: &str,
         invitation_code: Option<&str>,
     ) -> Result<T, String> {
-        #[cfg(debug_assertions)]
-        println!("[KiroAuth] CreateToken request to {}", self.create_token_url());
-
         #[derive(serde::Serialize)]
         struct Body<'a> {
             code: &'a str,
@@ -102,9 +96,6 @@ impl KiroAuthServiceClient {
             .bytes()
             .await
             .map_err(|e| format!("Kiro Auth Service read body failed: {}", e))?;
-
-        #[cfg(debug_assertions)]
-        println!("[KiroAuth] CreateToken Status: {}", status);
         
         let body_str = String::from_utf8_lossy(&bytes);
         
@@ -127,9 +118,6 @@ impl KiroAuthServiceClient {
         &self,
         refresh_token: &str,
     ) -> Result<T, String> {
-        #[cfg(debug_assertions)]
-        println!("[KiroAuth] RefreshToken request");
-
         #[derive(serde::Serialize)]
         struct Body<'a> {
             #[serde(rename = "refreshToken")]

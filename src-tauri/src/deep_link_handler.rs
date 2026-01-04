@@ -61,30 +61,21 @@ pub fn register_waiter(state: &str) -> DeepLinkCallbackWaiter {
 
 /// 处理 deep link URL（由 main.rs 调用）
 pub fn handle_deep_link(url: &str) -> bool {
-    println!("[DeepLink] Processing URL: {}", url);
-    
     let storage = match PENDING_SENDER.get() {
         Some(s) => s,
-        None => {
-            println!("[DeepLink] No pending sender");
-            return false;
-        }
+        None => return false,
     };
     
     let mut guard = storage.lock().unwrap();
     let (expected_state, tx) = match guard.take() {
         Some(s) => s,
-        None => {
-            println!("[DeepLink] No pending waiter");
-            return false;
-        }
+        None => return false,
     };
     
     // 解析 URL
     let parsed = match url::Url::parse(url) {
         Ok(u) => u,
         Err(e) => {
-            println!("[DeepLink] URL parse error: {}", e);
             let _ = tx.send(Err(format!("Invalid URL: {}", e)));
             return false;
         }
@@ -92,7 +83,6 @@ pub fn handle_deep_link(url: &str) -> bool {
 
     // 检查是否是 kiro:// 协议
     if parsed.scheme() != "kiro" {
-        println!("[DeepLink] Not kiro:// scheme");
         *guard = Some((expected_state, tx)); // 放回去
         return false;
     }
@@ -105,7 +95,6 @@ pub fn handle_deep_link(url: &str) -> bool {
         let desc = params.get("error_description")
             .map(|s| s.to_string())
             .unwrap_or_else(|| "Unknown error".to_string());
-        println!("[DeepLink] OAuth error: {} - {}", error, desc);
         let _ = tx.send(Err(format!("OAuth error: {} - {}", error, desc)));
         return true;
     }
@@ -113,7 +102,6 @@ pub fn handle_deep_link(url: &str) -> bool {
     let code = match params.get("code") {
         Some(c) => c.to_string(),
         None => {
-            println!("[DeepLink] Missing code parameter");
             let _ = tx.send(Err("Missing code parameter".to_string()));
             return true;
         }
@@ -122,7 +110,6 @@ pub fn handle_deep_link(url: &str) -> bool {
     let state = match params.get("state") {
         Some(s) => s.to_string(),
         None => {
-            println!("[DeepLink] Missing state parameter");
             let _ = tx.send(Err("Missing state parameter".to_string()));
             return true;
         }
@@ -130,12 +117,10 @@ pub fn handle_deep_link(url: &str) -> bool {
 
     // 验证 state
     if state != expected_state {
-        println!("[DeepLink] State mismatch: expected {}, got {}", expected_state, state);
         let _ = tx.send(Err("State mismatch - possible CSRF attack".to_string()));
         return true;
     }
 
-    println!("[DeepLink] Callback success, code: {}...", &code[..20.min(code.len())]);
     let _ = tx.send(Ok(OAuthCallbackResult { code }));
     true
 }
