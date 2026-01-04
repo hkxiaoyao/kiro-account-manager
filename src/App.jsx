@@ -7,6 +7,7 @@ import AnnouncementModal from './components/AnnouncementModal'
 
 import { useApp } from './hooks/useApp'
 import { useAutoRefresh } from './hooks/useAutoRefresh'
+import { useAutoSwitch } from './hooks/useAutoSwitch'
 import { useModelLock } from './hooks/useModelLock'
 import { useAppSettings } from './contexts/AppSettingsContext'
 import { AccountProvider } from './contexts/AccountContext'
@@ -50,6 +51,7 @@ function App() {
 
   // 使用抽离的 hooks
   const { startAutoRefreshTimer } = useAutoRefresh(appSettings, settingsLoading)
+  const { startAutoSwitchTimer } = useAutoSwitch(appSettings, settingsLoading)
   const { checkAndRestoreLockedModel } = useModelLock(appSettings, settingsLoading)
 
   useEffect(() => {
@@ -81,6 +83,7 @@ function App() {
         if (!mounted) return
         console.log('[AutoRefresh] 设置已变化，重启定时器')
         startAutoRefreshTimer()
+        startAutoSwitchTimer()
       })
       
       // 监听设置变化，重新检查模型

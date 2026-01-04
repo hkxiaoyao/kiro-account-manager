@@ -1,12 +1,33 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { useApp } from '../../hooks/useApp'
 import { useDialog } from '../../contexts/DialogContext'
-import { Server, Plus, Edit2, Trash2, Terminal } from 'lucide-react'
+import { Server, Plus, Edit2, Trash2, Terminal, Search, X } from 'lucide-react'
 import AddMCPModal from '../MCPManager/AddMCPModal'
 import EditMCPModal from '../MCPManager/EditMCPModal'
 
-function MCPPanel() {
+// 搜索框组件
+function SearchInput({ value, onChange, onClear, placeholder, colors, isLightTheme }) {
+  return (
+    <div className="flex-1 max-w-xs relative">
+      <Search size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 ${colors.textMuted}`} />
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className={`w-full pl-9 pr-8 py-1.5 text-sm border rounded-lg ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-1 transition-all`}
+      />
+      {value && (
+        <button onClick={onClear} className={`absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded ${isLightTheme ? 'hover:bg-gray-200' : 'hover:bg-white/20'}`}>
+          <X size={14} className={colors.textMuted} />
+        </button>
+      )}
+    </div>
+  )
+}
+
+function MCPPanel({ onCountChange }) {
   const { t, theme, colors } = useApp()
   const isLightTheme = theme === 'light'
   const { showConfirm } = useDialog()
@@ -14,65 +35,74 @@ function MCPPanel() {
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingServer, setEditingServer] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
   const loadConfig = useCallback(async () => {
     try {
       const config = await invoke('get_mcp_config')
-      setServers(config.mcpServers || {})
+      const mcpServers = config.mcpServers || {}
+      setServers(mcpServers)
+      onCountChange?.(Object.keys(mcpServers).length)
     } catch (e) {
       console.error('加载 MCP 配置失败:', e)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [onCountChange])
 
-  useEffect(() => {
-    loadConfig()
-  }, [loadConfig])
+  useEffect(() => { loadConfig() }, [loadConfig])
 
   const handleToggle = async (name, disabled) => {
-    // 保存旧状态用于回滚
     const oldDisabled = servers[name]?.disabled
-    // 乐观更新 UI
     setServers(prev => ({ ...prev, [name]: { ...prev[name], disabled } }))
     try {
       await invoke('toggle_mcp_server', { name, disabled })
     } catch (e) {
-      // 失败时回滚状态
       setServers(prev => ({ ...prev, [name]: { ...prev[name], disabled: oldDisabled } }))
       console.error('切换状态失败:', e)
     }
   }
 
   const handleDelete = async (name) => {
-    const confirmed = await showConfirm(t('mcp.confirmDelete'), `${t('common.confirm')} ${name}?`)
-    if (confirmed) {
-      try {
-        await invoke('delete_mcp_server', { name })
-        setServers(prev => {
-          const next = { ...prev }
-          delete next[name]
-          return next
-        })
-      } catch (e) {
-        console.error('删除失败:', e)
-      }
+    if (!await showConfirm(t('mcp.confirmDelete'), `${t('common.confirm')} ${name}?`)) return
+    try {
+      await invoke('delete_mcp_server', { name })
+      setServers(prev => { const next = { ...prev }; delete next[name]; return next })
+    } catch (e) {
+      console.error('删除失败:', e)
     }
   }
 
   const serverList = Object.entries(servers)
+  const filteredServers = useMemo(() => {
+    if (!searchQuery.trim()) return serverList
+    const q = searchQuery.toLowerCase()
+    return serverList.filter(([name, cfg]) => 
+      name.toLowerCase().includes(q) || [cfg.command, ...(cfg.args || [])].join(' ').toLowerCase().includes(q)
+    )
+  }, [serverList, searchQuery])
 
   return (
     <div className="h-full flex flex-col">
       {/* 工具栏 */}
-      <div className={`px-6 py-3 border-b ${colors.cardBorder} flex items-center justify-between`}>
-        <span className={`text-sm ${colors.textMuted}`}>{serverList.length} {t('mcp.title')}</span>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="px-3 py-1.5 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg text-sm font-medium hover:from-purple-600 hover:to-pink-700 flex items-center gap-1.5"
-        >
-          <Plus size={14} />{t('mcp.add')}
-        </button>
+      <div className={`px-6 py-3 border-b ${colors.cardBorder} flex items-center justify-between gap-4`}>
+        <SearchInput
+          value={searchQuery}
+          onChange={setSearchQuery}
+          onClear={() => setSearchQuery('')}
+          placeholder={t('common.search')}
+          colors={colors}
+          isLightTheme={isLightTheme}
+        />
+        <div className="flex items-center gap-3">
+          <span className={`text-sm ${colors.textMuted}`}>{filteredServers.length}/{serverList.length}</span>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="px-3 py-1.5 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg text-sm font-medium hover:from-purple-600 hover:to-pink-700 flex items-center gap-1.5"
+          >
+            <Plus size={14} />{t('mcp.add')}
+          </button>
+        </div>
       </div>
 
       {/* 列表 */}
@@ -86,7 +116,7 @@ function MCPPanel() {
           </div>
         ) : (
           <div className="space-y-3">
-            {serverList.map(([name, config]) => (
+            {filteredServers.map(([name, config]) => (
               <MCPServerItem
                 key={name}
                 name={name}
@@ -118,9 +148,12 @@ function MCPPanel() {
   )
 }
 
+// MCP 服务器卡片
 function MCPServerItem({ name, config, isLightTheme, colors, onToggle, onEdit, onDelete, t }) {
   const isDisabled = config.disabled
   const commandStr = [config.command, ...(config.args || [])].join(' ')
+  const envCount = Object.keys(config.env || {}).length
+  const autoApproveCount = config.autoApprove?.length || 0
 
   return (
     <div className={`${colors.card} border ${colors.cardBorder} rounded-xl p-4 flex items-center gap-4`}>
@@ -141,6 +174,20 @@ function MCPServerItem({ name, config, isLightTheme, colors, onToggle, onEdit, o
           <Terminal size={12} />
           <code className="truncate">{commandStr}</code>
         </div>
+        {(envCount > 0 || autoApproveCount > 0) && (
+          <div className={`flex items-center gap-3 mt-1.5 text-xs ${colors.textMuted} ${isDisabled ? 'opacity-50' : ''}`}>
+            {envCount > 0 && (
+              <span className={`px-1.5 py-0.5 rounded ${isLightTheme ? 'bg-blue-50 text-blue-600' : 'bg-blue-500/20 text-blue-400'}`}>
+                {envCount} {t('mcpManager.envVars')}
+              </span>
+            )}
+            {autoApproveCount > 0 && (
+              <span className={`px-1.5 py-0.5 rounded ${isLightTheme ? 'bg-green-50 text-green-600' : 'bg-green-500/20 text-green-400'}`}>
+                {t('mcpManager.autoApprove')} {autoApproveCount} {t('mcpManager.tools')}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-2">

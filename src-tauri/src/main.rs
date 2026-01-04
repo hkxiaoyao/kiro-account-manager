@@ -36,7 +36,7 @@ use commands::account_cmd::{
 use commands::group_tag_cmd::{
     get_groups, add_group, update_group, delete_group, reorder_groups,
     get_tags, add_tag, update_tag, delete_tag,
-    set_account_group, add_tag_to_account, remove_tag_from_account, set_account_tags
+    set_account_group, add_tag_to_account, remove_tag_from_account, set_account_tags, remove_account_tags
 };
 use commands::app_settings_cmd::*;
 use commands::auth_cmd::*;
@@ -165,6 +165,7 @@ fn main() {
             add_tag_to_account,
             remove_tag_from_account,
             set_account_tags,
+            remove_account_tags,
             // Auth 命令
             get_current_user,
             logout,
@@ -185,6 +186,12 @@ fn main() {
             set_kiro_model,
             set_kiro_codebase_indexing,
             set_kiro_trusted_commands,
+            set_kiro_agent_autonomy,
+            set_kiro_tab_autocomplete,
+            set_kiro_usage_summary,
+            set_kiro_code_references,
+            set_kiro_debug_logs,
+            set_kiro_notification,
             // 应用设置命令
             get_app_settings,
             save_app_settings,

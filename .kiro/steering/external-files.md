@@ -4,16 +4,12 @@ inclusion: always
 
 # 外部文件访问
 
-## 参考项目路径
-- `D:\Downloads\Documents\kiro-account0manager` - 参考项目，可用于对比功能实现
+## 参考项目
+- GitHub 仓库：`chaogei/Kiro-account-manager`
+- 用于对比功能实现和学习优化
 
-## 访问方式
-工作区外的文件无法用 readFile 工具读取，需要用 PowerShell 命令：
-
-```powershell
-# 读取文件内容
-Get-Content -Path "D:\path\to\file.jsx" -Raw
-
-# 列出目录
-Get-ChildItem -Path "D:\path\to\dir" -Recurse
+## 访问 GitHub 仓库
+使用 MCP GitHub 工具访问：
+```
+mcp_github_get_file_contents(owner="chaogei", repo="Kiro-account-manager", path="路径")
 ```

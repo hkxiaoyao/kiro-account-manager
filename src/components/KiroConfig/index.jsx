@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { invoke } from '@tauri-apps/api/core'
 import { useApp } from '../../hooks/useApp'
 import { Server, Settings2, FileText } from 'lucide-react'
 import MCPPanel from './MCPPanel'
@@ -8,10 +9,17 @@ function KiroConfig() {
   const { t, theme, colors } = useApp()
   const isLightTheme = theme === 'light'
   const [activeTab, setActiveTab] = useState('mcp')
+  const [mcpCount, setMcpCount] = useState(0)
+  const [steeringCount, setSteeringCount] = useState(0)
+
+  // 初始加载 steering 数量
+  useEffect(() => {
+    invoke('get_steering_files').then(files => setSteeringCount(files?.length || 0)).catch(() => {})
+  }, [])
 
   const TABS = [
-    { id: 'mcp', label: t('kiroConfig.mcp'), icon: Server },
-    { id: 'steering', label: t('kiroConfig.steering'), icon: FileText },
+    { id: 'mcp', label: t('kiroConfig.mcp'), icon: Server, count: mcpCount },
+    { id: 'steering', label: t('kiroConfig.steering'), icon: FileText, count: steeringCount },
   ]
 
   return (
@@ -47,6 +55,15 @@ function KiroConfig() {
               >
                 <Icon size={16} />
                 {tab.label}
+                {tab.count > 0 && (
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                    isActive
+                      ? (isLightTheme ? 'bg-gray-200 text-gray-700' : 'bg-white/20 text-white')
+                      : (isLightTheme ? 'bg-gray-200 text-gray-500' : 'bg-white/10 text-gray-400')
+                  }`}>
+                    {tab.count}
+                  </span>
+                )}
               </button>
             )
           })}
@@ -55,8 +72,8 @@ function KiroConfig() {
 
       {/* 内容区 */}
       <div className="flex-1 overflow-hidden">
-        {activeTab === 'mcp' && <MCPPanel />}
-        {activeTab === 'steering' && <SteeringPanel />}
+        {activeTab === 'mcp' && <MCPPanel onCountChange={setMcpCount} />}
+        {activeTab === 'steering' && <SteeringPanel onCountChange={setSteeringCount} />}
       </div>
     </div>
   )

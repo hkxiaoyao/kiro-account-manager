@@ -35,7 +35,7 @@ function QuotaOverviewCard({ stats, isLightTheme, colors, t }) {
       </div>
       <div className="flex items-center justify-between text-sm">
         <span className={colors.textMuted}>{t('home.usedTotal')}</span>
-        <span className={`font-medium ${colors.text}`}>{stats.totalUsed} / {stats.totalQuota}</span>
+        <span className={`font-medium ${colors.text}`}>{stats.totalUsedStr} / {stats.totalQuotaStr}</span>
       </div>
     </div>
   )

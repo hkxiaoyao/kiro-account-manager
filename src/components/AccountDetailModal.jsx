@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { X, Copy, Check, RefreshCw, User, CreditCard, Key, Clock, ChevronDown, ChevronUp, Shield } from 'lucide-react'
 import { useApp } from '../hooks/useApp'
 import { useDialog } from '../contexts/DialogContext'
+import { formatUsage } from '../utils/accountStats'
 
 function AccountDetailModal({ account, onClose }) {
   const { t, theme, colors } = useApp()
@@ -135,8 +136,8 @@ function AccountDetailModal({ account, onClose }) {
               <div className="mb-4">
                 <div className="flex items-baseline justify-between mb-2">
                   <div>
-                    <span className={`text-3xl font-bold ${colors.text}`}>{totalUsed}</span>
-                    <span className={`${colors.textMuted} ml-1`}>/ {totalQuota}</span>
+                    <span className={`text-3xl font-bold ${colors.text}`}>{formatUsage(totalUsed)}</span>
+                    <span className={`${colors.textMuted} ml-1`}>/ {formatUsage(totalQuota)}</span>
                   </div>
                   <span className={`text-sm font-medium ${totalPercent > 80 ? 'text-red-500' : totalPercent > 50 ? 'text-yellow-600' : 'text-green-600'}`}>
                     {totalPercent.toFixed(0)}% {t('detail.used')}
@@ -153,7 +154,7 @@ function AccountDetailModal({ account, onClose }) {
                     <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                     <span className={`text-xs ${colors.textMuted}`}>{t('detail.mainQuota')}</span>
                   </div>
-                  <div className={`text-lg font-semibold ${colors.text}`} title={breakdown?.currentUsageWithPrecision != null ? `${t('detail.precise')}: ${breakdown.currentUsageWithPrecision} / ${breakdown.usageLimitWithPrecision}` : undefined}>{form.used} / {form.quota}</div>
+                  <div className={`text-lg font-semibold ${colors.text}`} title={breakdown?.currentUsageWithPrecision != null ? `${t('detail.precise')}: ${breakdown.currentUsageWithPrecision} / ${breakdown.usageLimitWithPrecision}` : undefined}>{formatUsage(form.used)} / {formatUsage(form.quota)}</div>
                   {breakdown?.nextDateReset && <div className={`text-xs ${colors.textMuted} mt-1`}>{new Date(breakdown.nextDateReset * 1000).toLocaleDateString()} {t('detail.reset')}</div>}
                 </div>
                 
@@ -163,7 +164,7 @@ function AccountDetailModal({ account, onClose }) {
                     <span className={`text-xs ${colors.textMuted}`}>{t('detail.freeTrial')}</span>
                     {freeTrialInfo?.freeTrialStatus && <span className={`text-xs ${freeTrialInfo.freeTrialStatus === 'ACTIVE' ? 'text-cyan-500' : colors.textMuted}`}>({freeTrialInfo.freeTrialStatus})</span>}
                   </div>
-                  <div className={`text-lg font-semibold ${colors.text}`} title={freeTrialInfo?.currentUsageWithPrecision != null ? `${t('detail.precise')}: ${freeTrialInfo.currentUsageWithPrecision} / ${freeTrialInfo.usageLimitWithPrecision}` : undefined}>{freeTrialQuota ? `${freeTrialUsed} / ${freeTrialQuota}` : '-'}</div>
+                  <div className={`text-lg font-semibold ${colors.text}`} title={freeTrialInfo?.currentUsageWithPrecision != null ? `${t('detail.precise')}: ${freeTrialInfo.currentUsageWithPrecision} / ${freeTrialInfo.usageLimitWithPrecision}` : undefined}>{freeTrialQuota ? `${formatUsage(freeTrialUsed)} / ${formatUsage(freeTrialQuota)}` : '-'}</div>
                   {freeTrialInfo?.freeTrialExpiry && <div className={`text-xs ${colors.textMuted} mt-1`}>{new Date(freeTrialInfo.freeTrialExpiry * 1000).toLocaleDateString()} {t('detail.expires')}</div>}
                 </div>
                 
@@ -172,7 +173,7 @@ function AccountDetailModal({ account, onClose }) {
                     <div className={`w-2 h-2 rounded-full ${bonusQuota ? 'bg-purple-500' : 'bg-gray-300'}`}></div>
                     <span className={`text-xs ${colors.textMuted}`}>{t('detail.bonusTotal')}</span>
                   </div>
-                  <div className={`text-lg font-semibold ${colors.text}`}>{bonusQuota ? `${Math.round(bonusUsed)} / ${Math.round(bonusQuota)}` : '-'}</div>
+                  <div className={`text-lg font-semibold ${colors.text}`}>{bonusQuota ? `${formatUsage(bonusUsed)} / ${formatUsage(bonusQuota)}` : '-'}</div>
                   {bonuses.length > 0 && <div className={`text-xs ${colors.textMuted} mt-1`}>{bonuses.length} {t('detail.bonusCount')}</div>}
                 </div>
               </div>
@@ -196,7 +197,7 @@ function AccountDetailModal({ account, onClose }) {
                           </div>
                         </div>
                         <div className="text-right ml-3">
-                          <div className={`text-sm font-semibold ${colors.text}`}>{Math.round(bonus.currentUsage || 0)} / {Math.round(bonus.usageLimit || 0)}</div>
+                          <div className={`text-sm font-semibold ${colors.text}`}>{formatUsage(bonus.currentUsage || 0)} / {formatUsage(bonus.usageLimit || 0)}</div>
                           <div className={`text-xs ${colors.textMuted}`}>{bonus.bonusCode}</div>
                         </div>
                       </div>

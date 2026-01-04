@@ -126,3 +126,15 @@ pub fn set_account_tags(state: State<AppState>, account_id: String, tag_ids: Vec
         Err("账号不存在".to_string())
     }
 }
+
+#[tauri::command]
+pub fn remove_account_tags(state: State<AppState>, account_id: String, tag_ids: Vec<String>) -> Result<(), String> {
+    let mut store = state.store.lock().unwrap();
+    if let Some(account) = store.accounts.iter_mut().find(|a| a.id == account_id) {
+        account.tags.retain(|t| !tag_ids.contains(t));
+        store.save_to_file();
+        Ok(())
+    } else {
+        Err("账号不存在".to_string())
+    }
+}

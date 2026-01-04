@@ -11,6 +11,17 @@ pub struct KiroSettings {
     pub enable_codebase_indexing: Option<bool>,
     pub trusted_commands_mode: Option<String>,
     pub custom_trusted_commands: Option<String>,
+    // Agent 设置
+    pub agent_autonomy: Option<String>,
+    pub enable_tab_autocomplete: Option<bool>,
+    pub usage_summary: Option<bool>,
+    pub code_references: Option<bool>,
+    pub enable_debug_logs: Option<bool>,
+    // 通知设置
+    pub notify_action_required: Option<bool>,
+    pub notify_failure: Option<bool>,
+    pub notify_success: Option<bool>,
+    pub notify_billing: Option<bool>,
 }
 
 fn get_kiro_settings_path() -> Option<PathBuf> {
@@ -83,6 +94,17 @@ fn get_kiro_settings_inner() -> Result<KiroSettings, String> {
                 .filter_map(|item| item.as_str())
                 .collect::<Vec<_>>()
                 .join("\n")),
+        // Agent 设置
+        agent_autonomy: json.get("kiroAgent.agentAutonomy").and_then(|v| v.as_str()).map(|s| s.to_string()),
+        enable_tab_autocomplete: json.get("kiroAgent.enableTabAutocomplete").and_then(|v| v.as_bool()),
+        usage_summary: json.get("kiroAgent.usageSummary").and_then(|v| v.as_bool()),
+        code_references: json.get("kiroAgent.codeReferences").and_then(|v| v.as_bool()),
+        enable_debug_logs: json.get("kiroAgent.enableDebugLogs").and_then(|v| v.as_bool()),
+        // 通知设置
+        notify_action_required: json.get("kiroAgent.notifications.agent.actionRequired").and_then(|v| v.as_bool()),
+        notify_failure: json.get("kiroAgent.notifications.agent.failure").and_then(|v| v.as_bool()),
+        notify_success: json.get("kiroAgent.notifications.agent.success").and_then(|v| v.as_bool()),
+        notify_billing: json.get("kiroAgent.notifications.billing").and_then(|v| v.as_bool()),
     })
 }
 
@@ -261,6 +283,205 @@ fn set_kiro_trusted_commands_inner(mode: String, custom_commands: Option<String>
 #[tauri::command]
 pub async fn set_kiro_trusted_commands(mode: String, custom_commands: Option<String>) -> Result<(), String> {
     tokio::task::spawn_blocking(move || set_kiro_trusted_commands_inner(mode, custom_commands))
+        .await
+        .map_err(|e| format!("Task failed: {}", e))?
+}
+
+
+// 设置 Agent 自主模式
+fn set_kiro_agent_autonomy_inner(autonomy: String) -> Result<(), String> {
+    let path = get_kiro_settings_path()
+        .ok_or("无法获取 Kiro 设置路径")?;
+    
+    let mut settings: serde_json::Value = if path.exists() {
+        let content = std::fs::read_to_string(&path)
+            .map_err(|e| format!("读取设置文件失败: {}", e))?;
+        serde_json::from_str(&content).unwrap_or(serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+    
+    if let Some(obj) = settings.as_object_mut() {
+        obj.insert("kiroAgent.agentAutonomy".to_string(), serde_json::Value::String(autonomy));
+    }
+    
+    let content = serde_json::to_string_pretty(&settings)
+        .map_err(|e| format!("序列化设置失败: {}", e))?;
+    
+    std::fs::write(&path, content)
+        .map_err(|e| format!("写入设置文件失败: {}", e))?;
+    
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn set_kiro_agent_autonomy(autonomy: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || set_kiro_agent_autonomy_inner(autonomy))
+        .await
+        .map_err(|e| format!("Task failed: {}", e))?
+}
+
+// 设置 Tab 自动补全
+fn set_kiro_tab_autocomplete_inner(enabled: bool) -> Result<(), String> {
+    let path = get_kiro_settings_path()
+        .ok_or("无法获取 Kiro 设置路径")?;
+    
+    let mut settings: serde_json::Value = if path.exists() {
+        let content = std::fs::read_to_string(&path)
+            .map_err(|e| format!("读取设置文件失败: {}", e))?;
+        serde_json::from_str(&content).unwrap_or(serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+    
+    if let Some(obj) = settings.as_object_mut() {
+        obj.insert("kiroAgent.enableTabAutocomplete".to_string(), serde_json::Value::Bool(enabled));
+    }
+    
+    let content = serde_json::to_string_pretty(&settings)
+        .map_err(|e| format!("序列化设置失败: {}", e))?;
+    
+    std::fs::write(&path, content)
+        .map_err(|e| format!("写入设置文件失败: {}", e))?;
+    
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn set_kiro_tab_autocomplete(enabled: bool) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || set_kiro_tab_autocomplete_inner(enabled))
+        .await
+        .map_err(|e| format!("Task failed: {}", e))?
+}
+
+// 设置使用统计
+fn set_kiro_usage_summary_inner(enabled: bool) -> Result<(), String> {
+    let path = get_kiro_settings_path()
+        .ok_or("无法获取 Kiro 设置路径")?;
+    
+    let mut settings: serde_json::Value = if path.exists() {
+        let content = std::fs::read_to_string(&path)
+            .map_err(|e| format!("读取设置文件失败: {}", e))?;
+        serde_json::from_str(&content).unwrap_or(serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+    
+    if let Some(obj) = settings.as_object_mut() {
+        obj.insert("kiroAgent.usageSummary".to_string(), serde_json::Value::Bool(enabled));
+    }
+    
+    let content = serde_json::to_string_pretty(&settings)
+        .map_err(|e| format!("序列化设置失败: {}", e))?;
+    
+    std::fs::write(&path, content)
+        .map_err(|e| format!("写入设置文件失败: {}", e))?;
+    
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn set_kiro_usage_summary(enabled: bool) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || set_kiro_usage_summary_inner(enabled))
+        .await
+        .map_err(|e| format!("Task failed: {}", e))?
+}
+
+// 设置代码引用
+fn set_kiro_code_references_inner(enabled: bool) -> Result<(), String> {
+    let path = get_kiro_settings_path()
+        .ok_or("无法获取 Kiro 设置路径")?;
+    
+    let mut settings: serde_json::Value = if path.exists() {
+        let content = std::fs::read_to_string(&path)
+            .map_err(|e| format!("读取设置文件失败: {}", e))?;
+        serde_json::from_str(&content).unwrap_or(serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+    
+    if let Some(obj) = settings.as_object_mut() {
+        obj.insert("kiroAgent.codeReferences".to_string(), serde_json::Value::Bool(enabled));
+    }
+    
+    let content = serde_json::to_string_pretty(&settings)
+        .map_err(|e| format!("序列化设置失败: {}", e))?;
+    
+    std::fs::write(&path, content)
+        .map_err(|e| format!("写入设置文件失败: {}", e))?;
+    
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn set_kiro_code_references(enabled: bool) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || set_kiro_code_references_inner(enabled))
+        .await
+        .map_err(|e| format!("Task failed: {}", e))?
+}
+
+// 设置调试日志
+fn set_kiro_debug_logs_inner(enabled: bool) -> Result<(), String> {
+    let path = get_kiro_settings_path()
+        .ok_or("无法获取 Kiro 设置路径")?;
+    
+    let mut settings: serde_json::Value = if path.exists() {
+        let content = std::fs::read_to_string(&path)
+            .map_err(|e| format!("读取设置文件失败: {}", e))?;
+        serde_json::from_str(&content).unwrap_or(serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+    
+    if let Some(obj) = settings.as_object_mut() {
+        obj.insert("kiroAgent.enableDebugLogs".to_string(), serde_json::Value::Bool(enabled));
+    }
+    
+    let content = serde_json::to_string_pretty(&settings)
+        .map_err(|e| format!("序列化设置失败: {}", e))?;
+    
+    std::fs::write(&path, content)
+        .map_err(|e| format!("写入设置文件失败: {}", e))?;
+    
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn set_kiro_debug_logs(enabled: bool) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || set_kiro_debug_logs_inner(enabled))
+        .await
+        .map_err(|e| format!("Task failed: {}", e))?
+}
+
+// 设置通知选项
+fn set_kiro_notification_inner(key: String, enabled: bool) -> Result<(), String> {
+    let path = get_kiro_settings_path()
+        .ok_or("无法获取 Kiro 设置路径")?;
+    
+    let mut settings: serde_json::Value = if path.exists() {
+        let content = std::fs::read_to_string(&path)
+            .map_err(|e| format!("读取设置文件失败: {}", e))?;
+        serde_json::from_str(&content).unwrap_or(serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+    
+    if let Some(obj) = settings.as_object_mut() {
+        obj.insert(key, serde_json::Value::Bool(enabled));
+    }
+    
+    let content = serde_json::to_string_pretty(&settings)
+        .map_err(|e| format!("序列化设置失败: {}", e))?;
+    
+    std::fs::write(&path, content)
+        .map_err(|e| format!("写入设置文件失败: {}", e))?;
+    
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn set_kiro_notification(key: String, enabled: bool) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || set_kiro_notification_inner(key, enabled))
         .await
         .map_err(|e| format!("Task failed: {}", e))?
 }

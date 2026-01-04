@@ -64,3 +64,8 @@ export async function removeTagFromAccount(accountId, tagId) {
 export async function setAccountTags(accountId, tagIds) {
   return await invoke('set_account_tags', { accountId, tagIds })
 }
+
+// 批量移除账号的指定标签
+export async function removeAccountTags(accountId, tagIds) {
+  return await invoke('remove_account_tags', { accountId, tagIds })
+}

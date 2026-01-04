@@ -1,87 +1,97 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { useApp } from '../../hooks/useApp'
 import { useDialog } from '../../contexts/DialogContext'
 import { FileText, RefreshCw, Trash2, Save, Plus, X } from 'lucide-react'
 
-function SteeringPanel() {
+// 解析 front-matter
+const parseFrontMatter = (content) => {
+  const match = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/)
+  if (!match) return { inclusion: 'always', filePattern: '', body: content }
+  const [, fm, body] = match
+  return {
+    inclusion: fm.match(/inclusion:\s*(\w+)/)?.[1] || 'always',
+    filePattern: fm.match(/fileMatchPattern:\s*['"]?([^'"\n]+)['"]?/)?.[1] || '',
+    body
+  }
+}
+
+// 组装 front-matter
+const buildContent = (inclusion, filePattern, body) => {
+  let fm = `---\ninclusion: ${inclusion}`
+  if (inclusion === 'fileMatch' && filePattern.trim()) fm += `\nfileMatchPattern: '${filePattern.trim()}'`
+  return fm + '\n---\n' + body
+}
+
+// 格式化文件大小
+const formatSize = (bytes) => bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`
+
+// inclusion 标签颜色映射
+const getInclusionStyle = (inclusion, isLightTheme) => {
+  const styles = {
+    always: { color: 'green', light: 'bg-green-50 text-green-600', dark: 'bg-green-500/20 text-green-400' },
+    fileMatch: { color: 'blue', light: 'bg-blue-50 text-blue-600', dark: 'bg-blue-500/20 text-blue-400' },
+    manual: { color: 'orange', light: 'bg-orange-50 text-orange-600', dark: 'bg-orange-500/20 text-orange-400' }
+  }
+  const s = styles[inclusion] || { light: 'bg-gray-100 text-gray-600', dark: 'bg-gray-500/20 text-gray-400' }
+  return isLightTheme ? s.light : s.dark
+}
+
+function SteeringPanel({ onCountChange }) {
   const { t, theme, colors } = useApp()
   const { showConfirm, showError } = useDialog()
   const isLightTheme = theme === 'light'
+  
   const [files, setFiles] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedFile, setSelectedFile] = useState(null)
-  const [editContent, setEditContent] = useState('')
-  const [editInclusion, setEditInclusion] = useState('always')
-  const [editFilePattern, setEditFilePattern] = useState('')
+  const [editState, setEditState] = useState({ content: '', inclusion: 'always', filePattern: '' })
   const [saving, setSaving] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [newFileName, setNewFileName] = useState('')
-  const [newInclusion, setNewInclusion] = useState('always')
-  const [newFilePattern, setNewFilePattern] = useState('')
 
-  const loadFiles = async () => {
+  const loadFiles = useCallback(async () => {
     setLoading(true)
     try {
       const data = await invoke('get_steering_files')
       setFiles(data)
+      onCountChange?.(data?.length || 0)
     } catch (e) {
       console.error('加载 Steering 文件失败:', e)
     } finally {
       setLoading(false)
     }
-  }
+  }, [onCountChange])
 
-  useEffect(() => {
-    loadFiles()
-  }, [])
+  useEffect(() => { loadFiles() }, [loadFiles])
 
   const handleSelect = async (file) => {
-    if (hasChanges) {
-      const confirmed = await showConfirm(t('steering.unsavedChanges'), t('steering.confirmSwitch'))
-      if (!confirmed) return
-    }
+    if (hasChanges && !await showConfirm(t('steering.unsavedChanges'), t('steering.confirmSwitch'))) return
     setSelectedFile(file)
     const parsed = parseFrontMatter(file.content)
-    setEditInclusion(parsed.inclusion)
-    setEditFilePattern(parsed.filePattern)
-    setEditContent(parsed.body)
+    setEditState({ content: parsed.body, inclusion: parsed.inclusion, filePattern: parsed.filePattern })
     setHasChanges(false)
   }
 
-  const handleContentChange = (e) => {
-    setEditContent(e.target.value)
-    checkChanges(editInclusion, editFilePattern, e.target.value)
-  }
-
-  const handleInclusionChange = (value) => {
-    setEditInclusion(value)
-    checkChanges(value, editFilePattern, editContent)
-  }
-
-  const handleFilePatternChange = (value) => {
-    setEditFilePattern(value)
-    checkChanges(editInclusion, value, editContent)
-  }
-
-  const checkChanges = (inclusion, pattern, body) => {
-    if (!selectedFile) return
-    const newContent = buildContent(inclusion, pattern, body)
-    setHasChanges(newContent !== selectedFile.content)
+  const updateEditState = (key, value) => {
+    const newState = { ...editState, [key]: value }
+    setEditState(newState)
+    if (selectedFile) {
+      const newContent = buildContent(newState.inclusion, newState.filePattern, newState.content)
+      setHasChanges(newContent !== selectedFile.content)
+    }
   }
 
   const handleSave = async () => {
     if (!selectedFile) return
     setSaving(true)
     try {
-      const fullContent = buildContent(editInclusion, editFilePattern, editContent)
+      const fullContent = buildContent(editState.inclusion, editState.filePattern, editState.content)
       await invoke('save_steering_file', { fileName: selectedFile.fileName, content: fullContent })
       setFiles(files.map(f => f.fileName === selectedFile.fileName ? { ...f, content: fullContent } : f))
       setSelectedFile({ ...selectedFile, content: fullContent })
       setHasChanges(false)
     } catch (e) {
-      console.error('Save failed:', e)
       showError(t('steering.saveFailed'), String(e))
     } finally {
       setSaving(false)
@@ -89,14 +99,13 @@ function SteeringPanel() {
   }
 
   const handleDelete = async (fileName) => {
-    const confirmed = await showConfirm(t('steering.confirmDelete'), t('steering.confirmDeleteFile', { fileName }))
-    if (!confirmed) return
+    if (!await showConfirm(t('steering.confirmDelete'), t('steering.confirmDeleteFile', { fileName }))) return
     try {
       await invoke('delete_steering_file', { fileName })
       setFiles(files.filter(f => f.fileName !== fileName))
       if (selectedFile?.fileName === fileName) {
         setSelectedFile(null)
-        setEditContent('')
+        setEditState({ content: '', inclusion: 'always', filePattern: '' })
         setHasChanges(false)
       }
     } catch (e) {
@@ -104,64 +113,17 @@ function SteeringPanel() {
     }
   }
 
-  const openCreateModal = () => {
-    setNewFileName('')
-    setNewInclusion('always')
-    setNewFilePattern('')
-    setShowCreateModal(true)
-  }
-
-  const handleCreate = async () => {
-    if (!newFileName.trim()) return
-    const fileName = newFileName.endsWith('.md') ? newFileName : `${newFileName}.md`
-    
-    let frontMatter = `---\ninclusion: ${newInclusion}`
-    if (newInclusion === 'fileMatch' && newFilePattern.trim()) {
-      frontMatter += `\nfileMatchPattern: '${newFilePattern.trim()}'`
-    }
-    frontMatter += '\n---\n\n<!-- 在此添加你的 steering 规则 -->\n'
-    
+  const handleCreate = async (fileName, inclusion, filePattern) => {
+    const name = fileName.endsWith('.md') ? fileName : `${fileName}.md`
+    const content = buildContent(inclusion, filePattern, '\n<!-- 在此添加你的 steering 规则 -->\n')
     try {
-      const newFile = await invoke('create_steering_file', { fileName, content: frontMatter })
+      const newFile = await invoke('create_steering_file', { fileName: name, content })
       setFiles([...files, newFile])
       setShowCreateModal(false)
       handleSelect(newFile)
     } catch (e) {
       showError(t('steering.createFailed'), String(e))
     }
-  }
-
-  const formatSize = (bytes) => {
-    if (bytes < 1024) return `${bytes} B`
-    return `${(bytes / 1024).toFixed(1)} KB`
-  }
-
-  // 解析 front-matter
-  const parseFrontMatter = (content) => {
-    const match = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/)
-    if (!match) return { inclusion: 'always', filePattern: '', body: content }
-    
-    const frontMatter = match[1]
-    const body = match[2]
-    
-    const inclusionMatch = frontMatter.match(/inclusion:\s*(\w+)/)
-    const patternMatch = frontMatter.match(/fileMatchPattern:\s*['"]?([^'"\n]+)['"]?/)
-    
-    return {
-      inclusion: inclusionMatch ? inclusionMatch[1] : 'always',
-      filePattern: patternMatch ? patternMatch[1] : '',
-      body: body
-    }
-  }
-
-  // 组装 front-matter
-  const buildContent = (inclusion, filePattern, body) => {
-    let frontMatter = `---\ninclusion: ${inclusion}`
-    if (inclusion === 'fileMatch' && filePattern.trim()) {
-      frontMatter += `\nfileMatchPattern: '${filePattern.trim()}'`
-    }
-    frontMatter += '\n---\n'
-    return frontMatter + body
   }
 
   const inclusionOptions = [
@@ -181,112 +143,35 @@ function SteeringPanel() {
   return (
     <div className="h-full flex">
       {/* 左侧列表 */}
-      <div className={`w-64 border-r ${colors.cardBorder} flex flex-col`}>
-        <div className={`p-4 border-b ${colors.cardBorder} flex items-center justify-between`}>
-          <span className={`text-sm font-medium ${colors.text}`}>Steering ({files.length})</span>
-          <div className="flex gap-1">
-            <button onClick={openCreateModal} className={`p-1.5 rounded-lg ${isLightTheme ? 'hover:bg-gray-100' : 'hover:bg-white/10'}`}>
-              <Plus size={16} className={colors.textMuted} />
-            </button>
-            <button onClick={loadFiles} className={`p-1.5 rounded-lg ${isLightTheme ? 'hover:bg-gray-100' : 'hover:bg-white/10'}`}>
-              <RefreshCw size={16} className={colors.textMuted} />
-            </button>
-          </div>
-        </div>
-        <div className="flex-1 overflow-auto p-2 space-y-1">
-          {files.length === 0 ? (
-            <div className={`text-center py-8 ${colors.textMuted}`}>
-              <FileText size={32} className="mx-auto mb-2 opacity-50" />
-              <p className="text-sm">{t('steering.noFiles')}</p>
-            </div>
-          ) : (
-            files.map(file => (
-              <div
-                key={file.fileName}
-                onClick={() => handleSelect(file)}
-                className={`p-3 rounded-xl cursor-pointer transition-all group ${
-                  selectedFile?.fileName === file.fileName
-                    ? (isLightTheme ? 'bg-blue-50' : 'bg-white/10')
-                    : (isLightTheme ? 'hover:bg-gray-50' : 'hover:bg-white/5')
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className={`font-medium text-sm ${colors.text} truncate`}>{file.fileName}</span>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleDelete(file.fileName) }}
-                    className="opacity-0 group-hover:opacity-100 p-1 rounded text-red-500 hover:bg-red-500/10"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-                <div className={`text-xs ${colors.textMuted} mt-1`}>
-                  {formatSize(file.size)} · {file.modifiedAt || t('steering.unknownTime')}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
+      <FileList
+        files={files}
+        selectedFile={selectedFile}
+        onSelect={handleSelect}
+        onDelete={handleDelete}
+        onRefresh={loadFiles}
+        onCreate={() => setShowCreateModal(true)}
+        isLightTheme={isLightTheme}
+        colors={colors}
+        t={t}
+      />
 
       {/* 右侧编辑器 */}
       <div className="flex-1 flex flex-col">
         {selectedFile ? (
-          <>
-            <div className={`p-4 border-b ${colors.cardBorder} flex items-center justify-between`}>
-              <div className="flex items-center gap-2">
-                <h3 className={`font-semibold ${colors.text}`}>{selectedFile.fileName}</h3>
-                {hasChanges && <span className="text-xs text-orange-500">● 未保存</span>}
-              </div>
-              <button
-                onClick={handleSave}
-                disabled={!hasChanges || saving}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  hasChanges
-                    ? 'bg-blue-500 text-white hover:bg-blue-600'
-                    : (isLightTheme ? 'bg-gray-100 text-gray-400' : 'bg-white/5 text-gray-500')
-                } disabled:opacity-50`}
-              >
-                <Save size={14} />
-                {saving ? t('steering.saving') : t('steering.save')}
-              </button>
-            </div>
-            {/* 配置区域 */}
-            <div className={`px-4 py-3 border-b ${colors.cardBorder} flex items-center gap-4`}>
-              <div className="flex items-center gap-2">
-                <span className={`text-xs ${colors.textMuted}`}>{t('steering.inclusionMode')}:</span>
-                <select
-                  value={editInclusion}
-                  onChange={(e) => handleInclusionChange(e.target.value)}
-                  className={`px-2 py-1 border rounded-lg text-xs ${colors.text} ${colors.input} focus:outline-none focus:ring-1 focus:ring-blue-500/30`}
-                >
-                  {inclusionOptions.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-              {editInclusion === 'fileMatch' && (
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs ${colors.textMuted}`}>{t('steering.filePattern')}:</span>
-                  <input
-                    type="text"
-                    value={editFilePattern}
-                    onChange={(e) => handleFilePatternChange(e.target.value)}
-                    placeholder="**/*.jsx"
-                    className={`px-2 py-1 border rounded-lg text-xs w-32 ${colors.text} ${isLightTheme ? 'bg-white border-gray-200' : 'bg-white/5 border-white/10'} focus:outline-none focus:ring-1 focus:ring-blue-500/30`}
-                  />
-                </div>
-              )}
-            </div>
-            {/* 编辑区域 */}
-            <div className="flex-1 p-4">
-              <textarea
-                value={editContent}
-                onChange={handleContentChange}
-                className={`w-full h-full p-4 rounded-xl border ${colors.cardBorder} ${isLightTheme ? 'bg-gray-50' : 'bg-white/5'} ${colors.text} text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/30`}
-                placeholder={t('steering.contentPlaceholder')}
-              />
-            </div>
-          </>
+          <Editor
+            file={selectedFile}
+            editState={editState}
+            hasChanges={hasChanges}
+            saving={saving}
+            inclusionOptions={inclusionOptions}
+            onContentChange={(v) => updateEditState('content', v)}
+            onInclusionChange={(v) => updateEditState('inclusion', v)}
+            onFilePatternChange={(v) => updateEditState('filePattern', v)}
+            onSave={handleSave}
+            isLightTheme={isLightTheme}
+            colors={colors}
+            t={t}
+          />
         ) : (
           <div className={`flex-1 flex items-center justify-center ${colors.textMuted}`}>
             <div className="text-center">
@@ -297,88 +182,212 @@ function SteeringPanel() {
         )}
       </div>
 
-      {/* 创建弹窗 */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowCreateModal(false)}>
-          <div 
-            className={`${colors.card} rounded-2xl w-full max-w-[380px] shadow-2xl border ${colors.cardBorder} overflow-hidden`}
-            onClick={e => e.stopPropagation()}
-            style={{ animation: 'dialogIn 0.2s ease-out' }}
-          >
-            {/* Header */}
-            <div className={`flex items-center justify-between px-5 py-4 ${isLightTheme ? 'bg-gray-50/50' : 'bg-white/[0.02]'}`}>
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl ${isLightTheme ? 'bg-blue-50' : 'bg-blue-500/15'} flex items-center justify-center`}>
-                  <FileText size={20} className="text-blue-500" />
-                </div>
-                <h2 className={`text-base font-semibold ${colors.text}`}>{t('steering.newSteering')}</h2>
-              </div>
-              <button onClick={() => setShowCreateModal(false)} className={`p-1.5 rounded-lg transition-colors ${isLightTheme ? 'hover:bg-black/5' : 'hover:bg-white/10'}`}>
-                <X size={18} className={colors.textMuted} />
-              </button>
-            </div>
+        <CreateModal
+          inclusionOptions={inclusionOptions}
+          onCreate={handleCreate}
+          onClose={() => setShowCreateModal(false)}
+          isLightTheme={isLightTheme}
+          colors={colors}
+          t={t}
+        />
+      )}
+    </div>
+  )
+}
 
-            <div className="p-5 space-y-4">
-              {/* 文件名 */}
-              <div>
-                <label className={`block text-xs font-medium ${colors.textMuted} mb-1.5`}>{t('steering.fileName')}</label>
-                <input
-                  type="text"
-                  placeholder={t('steering.fileNamePlaceholder')}
-                  value={newFileName}
-                  onChange={(e) => setNewFileName(e.target.value)}
-                  className={`w-full px-4 py-3 border rounded-xl text-sm ${colors.text} ${isLightTheme ? 'bg-white border-gray-200' : 'bg-white/5 border-white/10'} focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all`}
-                />
-                <p className={`text-xs ${colors.textMuted} mt-1`}>{t('steering.fileNameHint')}</p>
-              </div>
-
-              {/* Inclusion 模式 */}
-              <div>
-                <label className={`block text-xs font-medium ${colors.textMuted} mb-1.5`}>{t('steering.inclusionMode')}</label>
-                <select
-                  value={newInclusion}
-                  onChange={(e) => setNewInclusion(e.target.value)}
-                  className={`w-full px-4 py-3 border rounded-xl text-sm ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 transition-all`}
-                >
-                  {inclusionOptions.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label} - {opt.desc}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* fileMatch 模式的 pattern 输入 */}
-              {newInclusion === 'fileMatch' && (
-                <div>
-                  <label className={`block text-xs font-medium ${colors.textMuted} mb-1.5`}>{t('steering.filePattern')}</label>
-                  <input
-                    type="text"
-                    placeholder={t('steering.filePatternPlaceholder')}
-                    value={newFilePattern}
-                    onChange={(e) => setNewFilePattern(e.target.value)}
-                    className={`w-full px-4 py-3 border rounded-xl text-sm ${colors.text} ${isLightTheme ? 'bg-white border-gray-200' : 'bg-white/5 border-white/10'} focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all`}
-                  />
-                </div>
-              )}
-
-              {/* 创建按钮 */}
-              <button
-                onClick={handleCreate}
-                disabled={!newFileName.trim()}
-                className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl text-sm font-medium shadow-lg shadow-blue-500/25 hover:from-blue-600 hover:to-purple-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+// 文件列表组件
+function FileList({ files, selectedFile, onSelect, onDelete, onRefresh, onCreate, isLightTheme, colors, t }) {
+  return (
+    <div className={`w-64 border-r ${colors.cardBorder} flex flex-col`}>
+      <div className={`p-4 border-b ${colors.cardBorder} flex items-center justify-between`}>
+        <span className={`text-sm font-medium ${colors.text}`}>Steering ({files.length})</span>
+        <div className="flex gap-1">
+          <button onClick={onCreate} className={`p-1.5 rounded-lg ${isLightTheme ? 'hover:bg-gray-100' : 'hover:bg-white/10'}`}>
+            <Plus size={16} className={colors.textMuted} />
+          </button>
+          <button onClick={onRefresh} className={`p-1.5 rounded-lg ${isLightTheme ? 'hover:bg-gray-100' : 'hover:bg-white/10'}`}>
+            <RefreshCw size={16} className={colors.textMuted} />
+          </button>
+        </div>
+      </div>
+      <div className="flex-1 overflow-auto p-2 space-y-1">
+        {files.length === 0 ? (
+          <div className={`text-center py-8 ${colors.textMuted}`}>
+            <FileText size={32} className="mx-auto mb-2 opacity-50" />
+            <p className="text-sm">{t('steering.noFiles')}</p>
+          </div>
+        ) : (
+          files.map(file => {
+            const parsed = parseFrontMatter(file.content)
+            const isSelected = selectedFile?.fileName === file.fileName
+            return (
+              <div
+                key={file.fileName}
+                onClick={() => onSelect(file)}
+                className={`p-3 rounded-xl cursor-pointer transition-all group ${
+                  isSelected ? (isLightTheme ? 'bg-blue-50' : 'bg-white/10') : (isLightTheme ? 'hover:bg-gray-50' : 'hover:bg-white/5')
+                }`}
               >
-                {t('common.add')}
-              </button>
+                <div className="flex items-center justify-between">
+                  <span className={`font-medium text-sm ${colors.text} truncate`}>{file.fileName}</span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onDelete(file.fileName) }}
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded text-red-500 hover:bg-red-500/10"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+                <div className={`flex items-center gap-2 text-xs ${colors.textMuted} mt-1`}>
+                  <span>{formatSize(file.size)}</span>
+                  <span>·</span>
+                  <span className={`px-1.5 py-0.5 rounded ${getInclusionStyle(parsed.inclusion, isLightTheme)}`}>
+                    {t(`steering.inclusion${parsed.inclusion.charAt(0).toUpperCase() + parsed.inclusion.slice(1)}`)}
+                  </span>
+                </div>
+              </div>
+            )
+          })
+        )}
+      </div>
+    </div>
+  )
+}
+
+// 编辑器组件
+function Editor({ file, editState, hasChanges, saving, inclusionOptions, onContentChange, onInclusionChange, onFilePatternChange, onSave, isLightTheme, colors, t }) {
+  return (
+    <>
+      <div className={`p-4 border-b ${colors.cardBorder} flex items-center justify-between`}>
+        <div className="flex items-center gap-2">
+          <h3 className={`font-semibold ${colors.text}`}>{file.fileName}</h3>
+          {hasChanges && <span className="text-xs text-orange-500">● 未保存</span>}
+        </div>
+        <button
+          onClick={onSave}
+          disabled={!hasChanges || saving}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+            hasChanges ? 'bg-blue-500 text-white hover:bg-blue-600' : (isLightTheme ? 'bg-gray-100 text-gray-400' : 'bg-white/5 text-gray-500')
+          } disabled:opacity-50`}
+        >
+          <Save size={14} />
+          {saving ? t('steering.saving') : t('steering.save')}
+        </button>
+      </div>
+      <div className={`px-4 py-3 border-b ${colors.cardBorder} flex items-center gap-4`}>
+        <div className="flex items-center gap-2">
+          <span className={`text-xs ${colors.textMuted}`}>{t('steering.inclusionMode')}:</span>
+          <select
+            value={editState.inclusion}
+            onChange={(e) => onInclusionChange(e.target.value)}
+            className={`px-2 py-1 border rounded-lg text-xs ${colors.text} ${colors.input} focus:outline-none focus:ring-1 focus:ring-blue-500/30`}
+          >
+            {inclusionOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+          </select>
+        </div>
+        {editState.inclusion === 'fileMatch' && (
+          <div className="flex items-center gap-2">
+            <span className={`text-xs ${colors.textMuted}`}>{t('steering.filePattern')}:</span>
+            <input
+              type="text"
+              value={editState.filePattern}
+              onChange={(e) => onFilePatternChange(e.target.value)}
+              placeholder="**/*.jsx"
+              className={`px-2 py-1 border rounded-lg text-xs w-32 ${colors.text} ${isLightTheme ? 'bg-white border-gray-200' : 'bg-white/5 border-white/10'} focus:outline-none focus:ring-1 focus:ring-blue-500/30`}
+            />
+          </div>
+        )}
+      </div>
+      <div className="flex-1 p-4">
+        <textarea
+          value={editState.content}
+          onChange={(e) => onContentChange(e.target.value)}
+          className={`w-full h-full p-4 rounded-xl border ${colors.cardBorder} ${isLightTheme ? 'bg-gray-50' : 'bg-white/5'} ${colors.text} text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/30`}
+          placeholder={t('steering.contentPlaceholder')}
+        />
+      </div>
+    </>
+  )
+}
+
+// 创建弹窗组件
+function CreateModal({ inclusionOptions, onCreate, onClose, isLightTheme, colors, t }) {
+  const [fileName, setFileName] = useState('')
+  const [inclusion, setInclusion] = useState('always')
+  const [filePattern, setFilePattern] = useState('')
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div 
+        className={`${colors.card} rounded-2xl w-full max-w-[380px] shadow-2xl border ${colors.cardBorder} overflow-hidden`}
+        onClick={e => e.stopPropagation()}
+        style={{ animation: 'dialogIn 0.2s ease-out' }}
+      >
+        <div className={`flex items-center justify-between px-5 py-4 ${isLightTheme ? 'bg-gray-50/50' : 'bg-white/[0.02]'}`}>
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl ${isLightTheme ? 'bg-blue-50' : 'bg-blue-500/15'} flex items-center justify-center`}>
+              <FileText size={20} className="text-blue-500" />
             </div>
+            <h2 className={`text-base font-semibold ${colors.text}`}>{t('steering.newSteering')}</h2>
+          </div>
+          <button onClick={onClose} className={`p-1.5 rounded-lg transition-colors ${isLightTheme ? 'hover:bg-black/5' : 'hover:bg-white/10'}`}>
+            <X size={18} className={colors.textMuted} />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <div>
+            <label className={`block text-xs font-medium ${colors.textMuted} mb-1.5`}>{t('steering.fileName')}</label>
+            <input
+              type="text"
+              placeholder={t('steering.fileNamePlaceholder')}
+              value={fileName}
+              onChange={(e) => setFileName(e.target.value)}
+              className={`w-full px-4 py-3 border rounded-xl text-sm ${colors.text} ${isLightTheme ? 'bg-white border-gray-200' : 'bg-white/5 border-white/10'} focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all`}
+            />
+            <p className={`text-xs ${colors.textMuted} mt-1`}>{t('steering.fileNameHint')}</p>
           </div>
 
-          <style>{`
-            @keyframes dialogIn {
-              from { opacity: 0; transform: scale(0.95) translateY(-10px); }
-              to { opacity: 1; transform: scale(1) translateY(0); }
-            }
-          `}</style>
+          <div>
+            <label className={`block text-xs font-medium ${colors.textMuted} mb-1.5`}>{t('steering.inclusionMode')}</label>
+            <select
+              value={inclusion}
+              onChange={(e) => setInclusion(e.target.value)}
+              className={`w-full px-4 py-3 border rounded-xl text-sm ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 transition-all`}
+            >
+              {inclusionOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label} - {opt.desc}</option>)}
+            </select>
+          </div>
+
+          {inclusion === 'fileMatch' && (
+            <div>
+              <label className={`block text-xs font-medium ${colors.textMuted} mb-1.5`}>{t('steering.filePattern')}</label>
+              <input
+                type="text"
+                placeholder={t('steering.filePatternPlaceholder')}
+                value={filePattern}
+                onChange={(e) => setFilePattern(e.target.value)}
+                className={`w-full px-4 py-3 border rounded-xl text-sm ${colors.text} ${isLightTheme ? 'bg-white border-gray-200' : 'bg-white/5 border-white/10'} focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all`}
+              />
+            </div>
+          )}
+
+          <button
+            onClick={() => onCreate(fileName, inclusion, filePattern)}
+            disabled={!fileName.trim()}
+            className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl text-sm font-medium shadow-lg shadow-blue-500/25 hover:from-blue-600 hover:to-purple-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+          >
+            {t('common.add')}
+          </button>
         </div>
-      )}
+      </div>
+
+      <style>{`
+        @keyframes dialogIn {
+          from { opacity: 0; transform: scale(0.95) translateY(-10px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+      `}</style>
     </div>
   )
 }

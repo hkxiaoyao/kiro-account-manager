@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { emit } from '@tauri-apps/api/event'
-import { Lock, Copy, Sun, Moon, Palette, Check, RefreshCw, Settings as SettingsIcon, Clock, Globe, Search, Shield, Download, Upload, Shuffle, AlertTriangle, Eye, EyeOff } from 'lucide-react'
+import { Lock, Copy, Sun, Moon, Palette, Check, RefreshCw, Settings as SettingsIcon, Clock, Globe, Search, Shield, Download, Upload, Shuffle, AlertTriangle, Eye, EyeOff, Repeat } from 'lucide-react'
 import { useApp } from '../hooks/useApp'
 import { useDialog } from '../contexts/DialogContext'
 import { useAppSettings } from '../contexts/AppSettingsContext'
@@ -35,6 +35,24 @@ function Settings() {
     const [trustedCommandsMode, setTrustedCommandsMode] = useState('none') // 'none' | 'common' | 'all'
     const [customTrustedCommands, setCustomTrustedCommands] = useState('') // 自定义命令列表
 
+    // Agent 设置
+    const [agentAutonomy, setAgentAutonomy] = useState('supervised') // 'autopilot' | 'supervised'
+    const [enableTabAutocomplete, setEnableTabAutocomplete] = useState(true)
+    const [usageSummary, setUsageSummary] = useState(true)
+    const [codeReferences, setCodeReferences] = useState(true)
+    const [enableDebugLogs, setEnableDebugLogs] = useState(false)
+
+    // 通知设置
+    const [notifyActionRequired, setNotifyActionRequired] = useState(true)
+    const [notifyFailure, setNotifyFailure] = useState(true)
+    const [notifySuccess, setNotifySuccess] = useState(true)
+    const [notifyBilling, setNotifyBilling] = useState(true)
+
+    // 自动换号设置
+    const [autoSwitchEnabled, setAutoSwitchEnabled] = useState(false)
+    const [autoSwitchThreshold, setAutoSwitchThreshold] = useState(1)
+    const [autoSwitchInterval, setAutoSwitchInterval] = useState(5)
+
     // Kiro IDE 状态
     const [loading, setLoading] = useState(false)
 
@@ -67,6 +85,17 @@ function Settings() {
                 setAiModel(kiroSettings.modelSelection || 'claude-sonnet-4.5')
                 setEnableCodebaseIndexing(kiroSettings.enableCodebaseIndexing ?? true)
                 setTrustedCommandsMode(kiroSettings.trustedCommandsMode || 'none')
+                // Agent 设置
+                setAgentAutonomy(kiroSettings.agentAutonomy || 'supervised')
+                setEnableTabAutocomplete(kiroSettings.enableTabAutocomplete ?? true)
+                setUsageSummary(kiroSettings.usageSummary ?? true)
+                setCodeReferences(kiroSettings.codeReferences ?? true)
+                setEnableDebugLogs(kiroSettings.enableDebugLogs ?? false)
+                // 通知设置
+                setNotifyActionRequired(kiroSettings.notifyActionRequired ?? true)
+                setNotifyFailure(kiroSettings.notifyFailure ?? true)
+                setNotifySuccess(kiroSettings.notifySuccess ?? true)
+                setNotifyBilling(kiroSettings.notifyBilling ?? true)
             }
             // 从应用设置读取
             if (appSettings) {
@@ -78,6 +107,10 @@ function Settings() {
                 const browser = appSettings.browserPath || ''
                 setBrowserPath(browser)
                 setOriginalBrowserPath(browser)
+                // 自动换号设置
+                setAutoSwitchEnabled(appSettings.autoSwitchEnabled ?? false)
+                setAutoSwitchThreshold(appSettings.autoSwitchThreshold ?? 1)
+                setAutoSwitchInterval(appSettings.autoSwitchInterval ?? 5)
             }
         } catch (err) {
             console.error('Failed to load settings:', err)
@@ -187,6 +220,24 @@ function Settings() {
         await saveAppSettings({ bindMachineIdToAccount: mode === 'bind' })
     }
 
+    // 自动换号处理函数
+    const handleAutoSwitchEnabledChange = async (checked) => {
+        setAutoSwitchEnabled(checked)
+        await saveAppSettings({ autoSwitchEnabled: checked }, true)
+    }
+
+    const handleAutoSwitchThresholdChange = async (value) => {
+        const threshold = parseFloat(value) || 1
+        setAutoSwitchThreshold(threshold)
+        await saveAppSettings({ autoSwitchThreshold: threshold }, true)
+    }
+
+    const handleAutoSwitchIntervalChange = async (value) => {
+        const interval = parseInt(value) || 5
+        setAutoSwitchInterval(interval)
+        await saveAppSettings({ autoSwitchInterval: interval }, true)
+    }
+
     const handleCodebaseIndexingChange = async (checked) => {
         setEnableCodebaseIndexing(checked)
         try {
@@ -213,6 +264,62 @@ function Settings() {
             } catch (err) {
                 console.error('Failed to save custom commands:', err)
             }
+        }
+    }
+
+    // Agent 设置处理函数
+    const handleAgentAutonomyChange = async (mode) => {
+        setAgentAutonomy(mode)
+        try {
+            await invoke('set_kiro_agent_autonomy', { autonomy: mode })
+        } catch (err) {
+            await showError(t('settings.saveFailed'), t('settings.saveFailed') + ': ' + err)
+        }
+    }
+
+    const handleTabAutocompleteChange = async (checked) => {
+        setEnableTabAutocomplete(checked)
+        try {
+            await invoke('set_kiro_tab_autocomplete', { enabled: checked })
+        } catch (err) {
+            await showError(t('settings.saveFailed'), t('settings.saveFailed') + ': ' + err)
+        }
+    }
+
+    const handleUsageSummaryChange = async (checked) => {
+        setUsageSummary(checked)
+        try {
+            await invoke('set_kiro_usage_summary', { enabled: checked })
+        } catch (err) {
+            await showError(t('settings.saveFailed'), t('settings.saveFailed') + ': ' + err)
+        }
+    }
+
+    const handleCodeReferencesChange = async (checked) => {
+        setCodeReferences(checked)
+        try {
+            await invoke('set_kiro_code_references', { enabled: checked })
+        } catch (err) {
+            await showError(t('settings.saveFailed'), t('settings.saveFailed') + ': ' + err)
+        }
+    }
+
+    const handleDebugLogsChange = async (checked) => {
+        setEnableDebugLogs(checked)
+        try {
+            await invoke('set_kiro_debug_logs', { enabled: checked })
+        } catch (err) {
+            await showError(t('settings.saveFailed'), t('settings.saveFailed') + ': ' + err)
+        }
+    }
+
+    // 通知设置处理函数
+    const handleNotificationChange = async (key, checked, setter) => {
+        setter(checked)
+        try {
+            await invoke('set_kiro_notification', { key, enabled: checked })
+        } catch (err) {
+            await showError(t('settings.saveFailed'), t('settings.saveFailed') + ': ' + err)
         }
     }
 
@@ -434,76 +541,72 @@ function Settings() {
                     </div>
                 </section>
 
-                {/* Kiro IDE 设置（模型、代理、代码库索引） */}
-                <section className={`card-glow ${colors.card} rounded-2xl p-6 shadow-sm border ${colors.cardBorder} mb-6 animate-slide-in-left delay-200`}>
+                {/* Kiro IDE 设置 */}
+                <section className={`card-glow ${colors.card} rounded-2xl p-6 shadow-sm border ${colors.cardBorder} mb-6 animate-slide-in-left delay-150`}>
                     <h2 className={`text-lg font-semibold ${colors.text} mb-1`}>{t('settings.kiroSettings')}</h2>
                     <p className={`text-sm ${colors.textMuted} mb-5`}>{t('settings.kiroSettingsDesc')}</p>
 
-                    {/* AI 模型 + 锁定开关 */}
+                    {/* AI 模型 */}
                     <div className="mb-5">
                         <label className={`block text-sm ${colors.textMuted} mb-2`}>{t('settings.aiModel')} {savingModel && <span className="text-blue-500 text-xs ml-2">{t('settings.saving')}</span>}</label>
-                        <div className="flex items-center gap-3">
-                            <div className="relative flex-1">
-                                {lockModel && (
-                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none z-10">
-                                        <Lock size={14} className="text-blue-500" />
-                                    </div>
-                                )}
-                                <select
-                                    value={aiModel}
-                                    onChange={(e) => handleApplyModel(e.target.value)}
-                                    disabled={savingModel}
-                                    title={lockModel ? t('settings.lockModelDesc') : ''}
-                                    className={`w-full ${lockModel ? 'pl-10' : 'pl-4'} pr-10 py-3 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 appearance-none cursor-pointer transition-all ${lockModel ? 'opacity-60 bg-opacity-60' : ''}`}
-                                >
-                                    <option value="claude-sonnet-4.5">{lockModel ? '🔒 ' : ''}Claude Sonnet 4.5 - 1.3x (⭐ {t('common.recommended')})</option>
-                                    <option value="claude-sonnet-4">{lockModel ? '🔒 ' : ''}Claude Sonnet 4 - 1.3x</option>
-                                    <option value="claude-haiku-4.5">{lockModel ? '🔒 ' : ''}Claude Haiku 4.5 - 0.4x</option>
-                                    <option value="claude-opus-4.5">{lockModel ? '🔒 ' : ''}Claude Opus 4.5 - 2.2x</option>
-                                </select>
-                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                                        <path d="M2.5 4.5L6 8L9.5 4.5" stroke={isLightTheme ? '#666' : '#888'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                    </svg>
-                                </div>
+                        <div className="relative">
+                            <select
+                                value={aiModel}
+                                onChange={(e) => handleApplyModel(e.target.value)}
+                                disabled={savingModel}
+                                className={`w-full px-4 pr-10 py-3 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 appearance-none cursor-pointer disabled:opacity-50 transition-all`}
+                            >
+                                <option value="claude-sonnet-4.5">Claude Sonnet 4.5 - 1.3x (⭐ {t('common.recommended')})</option>
+                                <option value="claude-sonnet-4">Claude Sonnet 4 - 1.3x</option>
+                                <option value="claude-haiku-4.5">Claude Haiku 4.5 - 0.4x</option>
+                                <option value="claude-opus-4.5">Claude Opus 4.5 - 2.2x</option>
+                            </select>
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                                    <path d="M2.5 4.5L6 8L9.5 4.5" stroke={isLightTheme ? '#666' : '#888'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
                             </div>
-                            <label className={`flex items-center gap-2 cursor-pointer px-4 py-3 rounded-xl border transition-all ${lockModel
-                                ? 'bg-blue-500/20 border-blue-500/50 text-blue-500'
-                                : `${colors.card} ${colors.cardHover} border ${colors.cardBorder} ${colors.text}`
-                                }`} title={t('settings.lockModelDesc')}>
-                                <input
-                                    type="checkbox"
-                                    checked={lockModel}
-                                    onChange={(e) => handleLockModelChange(e.target.checked)}
-                                    className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
-                                />
-                                <Lock size={16} />
-                                <span className="text-sm font-medium whitespace-nowrap">{t('settings.lockModel')}</span>
-                            </label>
                         </div>
                     </div>
 
-                    {/* 代码库索引 */}
-                    <label className={`flex items-start gap-3 cursor-pointer ${colors.cardSecondary} ${colors.cardHover} rounded-xl p-4 transition-all hover:scale-[1.01] mb-3`}>
+                    {/* 锁定模型 */}
+                    <label className={`flex items-start gap-3 cursor-pointer ${colors.cardSecondary} ${colors.cardHover} rounded-xl p-4 transition-all hover:scale-[1.01] mb-5`}>
                         <input
                             type="checkbox"
-                            checked={enableCodebaseIndexing}
-                            onChange={(e) => handleCodebaseIndexingChange(e.target.checked)}
+                            checked={lockModel}
+                            onChange={(e) => handleLockModelChange(e.target.checked)}
                             className="mt-0.5 w-4 h-4 rounded-lg border-gray-300 text-blue-500 focus:ring-blue-500"
                         />
-                        <Search size={16} className={`${colors.textMuted} mt-0.5 flex-shrink-0`} />
+                        <Lock size={16} className={`${colors.textMuted} mt-0.5 flex-shrink-0`} />
                         <div>
-                            <span className={`text-sm font-medium ${colors.text}`}>{t('settings.enableCodebaseIndexing')}</span>
-                            <p className={`text-xs ${colors.textMuted} mt-0.5`}>{t('settings.enableCodebaseIndexingDesc')}</p>
+                            <span className={`text-sm font-medium ${colors.text}`}>{t('settings.lockModel')}</span>
+                            <p className={`text-xs ${colors.textMuted} mt-0.5`}>{t('settings.lockModelDesc')}</p>
                         </div>
                     </label>
 
-                    {/* 信任命令 */}
-                    <div className={`${colors.cardSecondary} rounded-xl p-4 mb-3`}>
-                        <div className="flex items-center gap-2 mb-2">
-                            <Shield size={16} className={colors.textMuted} />
-                            <span className={`text-sm font-medium ${colors.text}`}>{t('settings.trustedCommands')}</span>
+                    {/* Agent 自主模式 */}
+                    <div className="mb-4">
+                        <label className={`block text-sm ${colors.textMuted} mb-2`}>{t('settings.agentAutonomy')}</label>
+                        <div className="relative">
+                            <select
+                                value={agentAutonomy}
+                                onChange={(e) => handleAgentAutonomyChange(e.target.value)}
+                                className={`w-full px-4 py-3 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 appearance-none cursor-pointer transition-all`}
+                            >
+                                <option value="supervised">{t('settings.agentSupervised')}</option>
+                                <option value="autopilot">{t('settings.agentAutopilot')}</option>
+                            </select>
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                                    <path d="M2.5 4.5L6 8L9.5 4.5" stroke={isLightTheme ? '#666' : '#888'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                            </div>
                         </div>
+                    </div>
+
+                    {/* 信任命令 */}
+                    <div className="mb-4">
+                        <label className={`block text-sm ${colors.textMuted} mb-2`}>{t('settings.trustedCommands')}</label>
                         <div className="relative">
                             <select
                                 value={trustedCommandsMode}
@@ -530,6 +633,98 @@ function Settings() {
                             />
                         )}
                         <p className={`text-xs ${colors.textMuted} mt-2`}>{t('settings.trustedCommandsDesc')}</p>
+                    </div>
+
+                    {/* 功能开关 - 2列布局 */}
+                    <div className="grid grid-cols-2 gap-2 mb-4">
+                        <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg ${colors.cardSecondary} ${colors.cardHover} transition-all`}>
+                            <input
+                                type="checkbox"
+                                checked={enableCodebaseIndexing}
+                                onChange={(e) => handleCodebaseIndexingChange(e.target.checked)}
+                                className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                            />
+                            <span className={`text-sm ${colors.text}`}>{t('settings.enableCodebaseIndexing')}</span>
+                        </label>
+                        <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg ${colors.cardSecondary} ${colors.cardHover} transition-all`}>
+                            <input
+                                type="checkbox"
+                                checked={enableTabAutocomplete}
+                                onChange={(e) => handleTabAutocompleteChange(e.target.checked)}
+                                className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                            />
+                            <span className={`text-sm ${colors.text}`}>{t('settings.enableTabAutocomplete')}</span>
+                        </label>
+                        <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg ${colors.cardSecondary} ${colors.cardHover} transition-all`}>
+                            <input
+                                type="checkbox"
+                                checked={usageSummary}
+                                onChange={(e) => handleUsageSummaryChange(e.target.checked)}
+                                className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                            />
+                            <span className={`text-sm ${colors.text}`}>{t('settings.usageSummary')}</span>
+                        </label>
+                        <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg ${colors.cardSecondary} ${colors.cardHover} transition-all`}>
+                            <input
+                                type="checkbox"
+                                checked={codeReferences}
+                                onChange={(e) => handleCodeReferencesChange(e.target.checked)}
+                                className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                            />
+                            <span className={`text-sm ${colors.text}`}>{t('settings.codeReferences')}</span>
+                        </label>
+                        <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg ${colors.cardSecondary} ${colors.cardHover} transition-all`}>
+                            <input
+                                type="checkbox"
+                                checked={enableDebugLogs}
+                                onChange={(e) => handleDebugLogsChange(e.target.checked)}
+                                className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                            />
+                            <span className={`text-sm ${colors.text}`}>{t('settings.enableDebugLogs')}</span>
+                        </label>
+                    </div>
+
+                    {/* 通知设置 */}
+                    <div className={`pt-4 border-t border-dashed ${colors.cardBorder}`}>
+                        <span className={`text-sm ${colors.textMuted} mb-3 block`}>{t('settings.notifications')}</span>
+                        <div className="grid grid-cols-2 gap-2">
+                            <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg ${colors.cardSecondary} ${colors.cardHover} transition-all`}>
+                                <input
+                                    type="checkbox"
+                                    checked={notifyActionRequired}
+                                    onChange={(e) => handleNotificationChange('kiroAgent.notifications.agent.actionRequired', e.target.checked, setNotifyActionRequired)}
+                                    className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                                />
+                                <span className={`text-sm ${colors.text}`}>{t('settings.notifyActionRequired')}</span>
+                            </label>
+                            <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg ${colors.cardSecondary} ${colors.cardHover} transition-all`}>
+                                <input
+                                    type="checkbox"
+                                    checked={notifyFailure}
+                                    onChange={(e) => handleNotificationChange('kiroAgent.notifications.agent.failure', e.target.checked, setNotifyFailure)}
+                                    className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                                />
+                                <span className={`text-sm ${colors.text}`}>{t('settings.notifyFailure')}</span>
+                            </label>
+                            <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg ${colors.cardSecondary} ${colors.cardHover} transition-all`}>
+                                <input
+                                    type="checkbox"
+                                    checked={notifySuccess}
+                                    onChange={(e) => handleNotificationChange('kiroAgent.notifications.agent.success', e.target.checked, setNotifySuccess)}
+                                    className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                                />
+                                <span className={`text-sm ${colors.text}`}>{t('settings.notifySuccess')}</span>
+                            </label>
+                            <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg ${colors.cardSecondary} ${colors.cardHover} transition-all`}>
+                                <input
+                                    type="checkbox"
+                                    checked={notifyBilling}
+                                    onChange={(e) => handleNotificationChange('kiroAgent.notifications.billing', e.target.checked, setNotifyBilling)}
+                                    className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                                />
+                                <span className={`text-sm ${colors.text}`}>{t('settings.notifyBilling')}</span>
+                            </label>
+                        </div>
                     </div>
 
                     {/* HTTP 代理 */}
@@ -569,7 +764,7 @@ function Settings() {
                 </section>
 
                 {/* 账号设置 */}
-                <section className={`card-glow ${colors.card} rounded-2xl p-6 shadow-sm border ${colors.cardBorder} mb-6 animate-slide-in-left delay-300`}>
+                <section className={`card-glow ${colors.card} rounded-2xl p-6 shadow-sm border ${colors.cardBorder} mb-6 animate-slide-in-left delay-200`}>
                     <h2 className={`text-lg font-semibold ${colors.text} mb-1`}>{t('settings.account')}</h2>
                     <p className={`text-sm ${colors.textMuted} mb-5`}>{t('settings.accountDesc')}</p>
 
@@ -642,7 +837,7 @@ function Settings() {
                     </div>
 
                     {/* 隐私模式 */}
-                    <label className={`flex items-center gap-2 cursor-pointer px-4 py-3 rounded-xl border transition-all ${privacyMode
+                    <label className={`flex items-center gap-2 cursor-pointer px-4 py-3 rounded-xl border transition-all mb-4 ${privacyMode
                         ? 'bg-blue-500/20 border-blue-500/50 text-blue-500'
                         : `${colors.card} ${colors.cardHover} border ${colors.cardBorder} ${colors.text}`
                         }`} title={t('settings.privacyModeDesc')}>
@@ -656,10 +851,59 @@ function Settings() {
                         <span className="text-sm font-medium whitespace-nowrap">{t('settings.privacyMode')}</span>
                         <span className={`text-xs ${colors.textMuted} ml-1`}>({t('settings.privacyModeHint')})</span>
                     </label>
+
+                    {/* 自动换号 */}
+                    <div className="flex items-center gap-3">
+                        <label className={`flex items-center gap-2 cursor-pointer px-4 py-3 rounded-xl border transition-all flex-shrink-0 ${autoSwitchEnabled
+                            ? 'bg-blue-500/20 border-blue-500/50 text-blue-500'
+                            : `${colors.card} ${colors.cardHover} border ${colors.cardBorder} ${colors.text}`
+                            }`} title={t('settings.autoSwitchDesc')}>
+                            <input
+                                type="checkbox"
+                                checked={autoSwitchEnabled}
+                                onChange={(e) => handleAutoSwitchEnabledChange(e.target.checked)}
+                                className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                            />
+                            <Repeat size={16} />
+                            <span className="text-sm font-medium whitespace-nowrap">{t('settings.autoSwitch')}</span>
+                        </label>
+                        <div className="flex items-center gap-2 flex-1">
+                            <span className={`text-sm ${colors.textMuted} whitespace-nowrap`}>{t('settings.autoSwitchThreshold')}</span>
+                            <input
+                                type="number"
+                                value={autoSwitchThreshold}
+                                onChange={(e) => handleAutoSwitchThresholdChange(e.target.value)}
+                                disabled={!autoSwitchEnabled}
+                                min="0"
+                                step="0.1"
+                                className={`w-20 px-3 py-2 border rounded-lg text-center ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 ${!autoSwitchEnabled ? 'cursor-not-allowed opacity-50' : ''} transition-all`}
+                            />
+                        </div>
+                        <div className="relative">
+                            <select
+                                value={autoSwitchInterval}
+                                onChange={(e) => handleAutoSwitchIntervalChange(e.target.value)}
+                                disabled={!autoSwitchEnabled}
+                                className={`px-4 py-2 border rounded-lg ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 appearance-none pr-8 ${!autoSwitchEnabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} transition-all`}
+                            >
+                                <option value="1">1 {t('common.minutes')}</option>
+                                <option value="3">3 {t('common.minutes')}</option>
+                                <option value="5">5 {t('common.minutes')}</option>
+                                <option value="10">10 {t('common.minutes')}</option>
+                                <option value="15">15 {t('common.minutes')}</option>
+                                <option value="30">30 {t('common.minutes')}</option>
+                            </select>
+                            <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                                    <path d="M2.5 4.5L6 8L9.5 4.5" stroke={isLightTheme ? '#666' : '#888'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
                 </section>
 
                 {/* 浏览器设置 */}
-                <section className={`card-glow ${colors.card} rounded-2xl p-6 shadow-sm border ${colors.cardBorder} mb-6 animate-slide-in-left delay-350`}>
+                <section className={`card-glow ${colors.card} rounded-2xl p-6 shadow-sm border ${colors.cardBorder} mb-6 animate-slide-in-left delay-250`}>
                     <div className="flex items-center gap-2 mb-1">
                         <Globe size={18} className="text-blue-500" />
                         <h2 className={`text-lg font-semibold ${colors.text}`}>{t('settings.browser')}</h2>
@@ -747,7 +991,7 @@ function Settings() {
                 </section>
 
                 {/* 系统机器码管理 */}
-                <section className={`card-glow ${colors.card} rounded-2xl p-6 shadow-sm border ${colors.cardBorder} mb-6 animate-slide-in-left delay-600`}>
+                <section className={`card-glow ${colors.card} rounded-2xl p-6 shadow-sm border ${colors.cardBorder} mb-6 animate-slide-in-left delay-300`}>
                     <div className="flex items-center gap-2 mb-1">
                         <Shield size={18} className="text-orange-500" />
                         <h2 className={`text-lg font-semibold ${colors.text}`}>{t('settings.systemMachineGuid')}</h2>

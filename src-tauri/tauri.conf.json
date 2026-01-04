@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Kiro Account Manager",
+  "productName": "KiroAccountManager",
   "version": "1.6.2",
   "identifier": "com.kiro.account-manager",
   "build": {
@@ -75,6 +75,12 @@
       "deb": {
         "depends": ["libwebkit2gtk-4.1-0", "libappindicator3-1"],
         "section": "utils"
+      },
+      "rpm": {
+        "depends": ["webkit2gtk4.1", "libappindicator-gtk3"]
+      },
+      "appimage": {
+        "bundleMediaFramework": false
       }
     },
     "shortDescription": "Kiro 账号管理工具",

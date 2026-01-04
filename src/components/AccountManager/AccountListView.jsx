@@ -3,7 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { Users, Plus, RefreshCw, ArrowRightLeft, Eye, Edit2, Trash2 } from 'lucide-react'
 import { useApp } from '../../hooks/useApp'
 import { usePrivacy } from '../../contexts/PrivacyContext'
-import { getQuota, getUsed } from '../../utils/accountStats'
+import { getQuota, getUsed, formatUsage } from '../../utils/accountStats'
 import ContextMenu from './ContextMenu'
 
 // 单行组件
@@ -84,7 +84,7 @@ const ListRow = memo(function ListRow({
 
       {/* 配额 */}
       <div className="w-20 shrink-0">
-        <div className={`text-xs ${remaining > 0 ? 'text-green-500' : 'text-red-500'}`}>{used}/{limit}</div>
+        <div className={`text-xs ${remaining > 0 ? 'text-green-500' : 'text-red-500'}`}>{formatUsage(used)}/{formatUsage(limit)}</div>
         <div className={`h-1 rounded-full ${isLightTheme ? 'bg-gray-200' : 'bg-white/10'} mt-1`}>
           <div className={`h-full rounded-full ${remaining > 0 ? 'bg-green-500' : 'bg-red-500'}`} style={{ width: `${Math.min((used / limit) * 100, 100)}%` }} />
         </div>

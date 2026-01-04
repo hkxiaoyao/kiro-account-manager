@@ -10,7 +10,7 @@ const PRESET_COLORS = [
   '#ef4444', '#ec4899', '#06b6d4', '#84cc16'
 ]
 
-function BatchTagModal({ accountIds, onClose, onSuccess }) {
+function BatchTagModal({ accountIds, accounts = [], onClose, onSuccess }) {
   const { t, theme, colors } = useApp()
   const { showError } = useDialog()
   const isLightTheme = theme === 'light'
@@ -23,6 +23,23 @@ function BatchTagModal({ accountIds, onClose, onSuccess }) {
   useEffect(() => {
     getTags().then(setTags).catch(() => {})
   }, [])
+
+  // 计算选中账号的共同标签（交集）
+  useEffect(() => {
+    if (accounts.length === 0 || accountIds.length === 0) return
+    
+    const selectedAccounts = accounts.filter(a => accountIds.includes(a.id))
+    if (selectedAccounts.length === 0) return
+    
+    // 获取所有选中账号的标签交集
+    const firstTags = new Set(selectedAccounts[0]?.tags || [])
+    const commonTags = selectedAccounts.slice(1).reduce((common, account) => {
+      const accountTags = new Set(account.tags || [])
+      return new Set([...common].filter(t => accountTags.has(t)))
+    }, firstTags)
+    
+    setSelectedTagIds([...commonTags])
+  }, [accounts, accountIds])
 
   const handleToggleTag = (tagId) => {
     setSelectedTagIds(prev => 
@@ -85,6 +102,7 @@ function BatchTagModal({ accountIds, onClose, onSuccess }) {
         </div>
 
         <div className="p-5 space-y-4 max-h-[60vh] overflow-y-auto">
+          {/* 已选标签 - 点击 ❌ 取消 */}
           <div>
             <label className={`block text-sm font-medium ${colors.textMuted} mb-2`}>{t('tags.selected')}</label>
             <div className="flex flex-wrap gap-1.5 min-h-[32px]">
@@ -98,6 +116,7 @@ function BatchTagModal({ accountIds, onClose, onSuccess }) {
                     <span key={tagId} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full text-white cursor-pointer hover:opacity-80"
                       style={{ backgroundColor: tag.color || '#8b5cf6' }}
                       onClick={() => handleToggleTag(tagId)}
+                      title={t('common.delete')}
                     >
                       {tag.name}
                       <X size={12} />
@@ -108,11 +127,21 @@ function BatchTagModal({ accountIds, onClose, onSuccess }) {
             </div>
           </div>
 
+          {/* 添加新标签 */}
           <div>
             <label className={`block text-sm font-medium ${colors.textMuted} mb-2`}>{t('tags.addTag')}</label>
             <div className="flex gap-2">
               <input type="text" value={newTagName} onChange={(e) => setNewTagName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    if (newTagName.trim()) {
+                      handleAddTag()
+                    } else {
+                      handleSubmit()
+                    }
+                  }
+                }}
                 placeholder={t('tags.newTagPlaceholder')}
                 className={`flex-1 px-3 py-2 border ${colors.cardBorder} rounded-lg text-sm ${colors.input} ${colors.text}`}
               />
@@ -124,6 +153,7 @@ function BatchTagModal({ accountIds, onClose, onSuccess }) {
             </div>
           </div>
 
+          {/* 可选标签 */}
           {availableTags.length > 0 && (
             <div>
               <label className={`block text-sm font-medium ${colors.textMuted} mb-2`}>{t('tags.available')}</label>

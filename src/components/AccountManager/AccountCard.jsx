@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useTheme } from '../../contexts/ThemeContext'
 import { usePrivacy } from '../../contexts/PrivacyContext'
 import { getUsagePercent, getProgressBarColor } from './hooks/useAccountStats'
-import { getQuota, getUsed, getSubType, getSubPlan } from '../../utils/accountStats'
+import { getQuota, getUsed, getSubType, getSubPlan, formatUsage } from '../../utils/accountStats'
 import ContextMenu from './ContextMenu'
 
 const AccountCard = memo(function AccountCard({
@@ -228,8 +228,8 @@ const AccountCard = memo(function AccountCard({
             />
           </div>
           <div className="flex items-center justify-between text-xs">
-            <span className={`font-medium ${isLightTheme ? 'text-gray-700' : 'text-gray-300'}`}>{Math.round(used * 100) / 100} / {quota}</span>
-            <span className={colors.textMuted}>{t('common.remaining')} {Math.round((quota - used) * 100) / 100}</span>
+            <span className={`font-medium ${isLightTheme ? 'text-gray-700' : 'text-gray-300'}`}>{formatUsage(used)} / {formatUsage(quota)}</span>
+            <span className={colors.textMuted}>{t('common.remaining')} {formatUsage(quota - used)}</span>
           </div>
           {/* 日期信息 - 单行紧凑显示 */}
           {(nextDateReset || (breakdown?.freeTrialInfo?.freeTrialExpiry && breakdown.freeTrialInfo.freeTrialStatus === 'ACTIVE') || breakdown?.bonuses?.some(b => b.status === 'ACTIVE' && b.expiresAt)) && (
