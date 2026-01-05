@@ -5,7 +5,7 @@ import { relaunch } from '@tauri-apps/plugin-process'
 import { useApp } from '../hooks/useApp'
 
 // 公告 API 地址
-const ANNOUNCEMENT_API = 'https://vercel-api-hj01857655s-projects-fa88a766.vercel.app/api/announcement'
+const ANNOUNCEMENT_API = 'https://vercel-api-lemon-five.vercel.app/api/announcement'
 const CURRENT_VERSION = __APP_VERSION__ || '0.0.0'
 
 // 版本比较
