@@ -185,19 +185,30 @@ export default function AnnouncementModal() {
           </div>
 
           {/* 官方开源信息 */}
-          {(announcement.officialUrl || announcement.qqGroup) && (
+          {(announcement.websiteUrl || announcement.officialUrl || announcement.qqGroup) && (
             <div className={`mt-5 p-4 rounded-xl ${isLightTheme ? 'bg-gray-50' : 'bg-white/5'}`}>
-              <p className={`text-sm font-medium mb-3 ${colors.text}`}>{t('announcement.official')}</p>
-              <div className="space-y-2">
+              <p className={`text-sm font-medium mb-3 ${colors.text}`}>相关链接</p>
+              <div className="flex flex-wrap gap-2">
+                {announcement.websiteUrl && (
+                  <a 
+                    href={announcement.websiteUrl}
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-sm hover:opacity-90 transition"
+                  >
+                    <span>🌐</span>
+                    <span>官网</span>
+                  </a>
+                )}
                 {announcement.officialUrl && (
                   <a 
                     href={announcement.officialUrl}
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-blue-500 hover:text-blue-400 text-sm"
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition ${isLightTheme ? 'bg-gray-900 text-white hover:bg-gray-800' : 'bg-white/10 text-white hover:bg-white/20'}`}
                   >
-                    <ExternalLink size={14} className="shrink-0" />
-                    <span>{announcement.officialUrl.replace('https://', '')}</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                    <span>GitHub</span>
                   </a>
                 )}
                 {announcement.tutorialUrl && (
@@ -205,10 +216,10 @@ export default function AnnouncementModal() {
                     href={announcement.tutorialUrl}
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-blue-500 hover:text-blue-400 text-sm"
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition ${isLightTheme ? 'bg-purple-100 text-purple-600 hover:bg-purple-200' : 'bg-purple-500/20 text-purple-400 hover:bg-purple-500/30'}`}
                   >
-                    <ExternalLink size={14} className="shrink-0" />
-                    <span>使用教程</span>
+                    <span>📖</span>
+                    <span>教程</span>
                   </a>
                 )}
                 {announcement.qqGroup && (
@@ -216,10 +227,10 @@ export default function AnnouncementModal() {
                     href={announcement.qqGroupUrl || '#'}
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-blue-500 hover:text-blue-400 text-sm"
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition ${isLightTheme ? 'bg-blue-100 text-blue-600 hover:bg-blue-200' : 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30'}`}
                   >
-                    <MessageCircle size={14} className="shrink-0" />
-                    <span>{t('announcement.qqGroup')} {announcement.qqGroup}</span>
+                    <MessageCircle size={14} />
+                    <span>QQ群</span>
                   </a>
                 )}
               </div>
@@ -281,9 +292,12 @@ export default function AnnouncementModal() {
           <div className="flex gap-3">
             <button
               onClick={handleClose}
-              className={`flex-1 py-3 rounded-xl border ${
-                isLightTheme ? 'border-gray-300 text-gray-600 hover:bg-gray-50' : 'border-gray-600 text-gray-300 hover:bg-white/5'
-              } font-medium transition-colors`}
+              disabled={!agreed}
+              className={`flex-1 py-3 rounded-xl border font-medium transition-all ${
+                agreed 
+                  ? (isLightTheme ? 'border-gray-300 text-gray-600 hover:bg-gray-50' : 'border-gray-600 text-gray-300 hover:bg-white/5')
+                  : 'border-gray-300 text-gray-400 cursor-not-allowed opacity-50'
+              }`}
             >
               {t('announcement.dontRemind')}
             </button>

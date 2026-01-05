@@ -271,9 +271,53 @@ const AccountCard = memo(function AccountCard({
           </div>
         )}
 
-        {/* 右键提示 */}
-        <div className={`text-xs ${colors.textMuted} mt-auto pt-2 text-center opacity-50`}>
-          {t('accountCard.rightClickTip')}
+        {/* 底部操作栏 */}
+        <div className={`mt-auto pt-3 border-t ${isLightTheme ? 'border-gray-200' : 'border-white/10'} flex items-center justify-between`}>
+          {/* 左侧：右键提示 */}
+          <span className={`text-[10px] ${colors.textMuted} opacity-60`}>{t('accountCard.rightClickTip')}</span>
+          {/* 右侧：快捷操作按钮 */}
+          <div className="flex items-center gap-1">
+            {/* 查看详情 */}
+            <button
+              onClick={(e) => { e.stopPropagation(); onEdit(account) }}
+              className={`p-1.5 rounded-lg transition-colors ${
+                isLightTheme 
+                  ? 'hover:bg-purple-100 text-purple-600' 
+                  : 'hover:bg-purple-500/20 text-purple-400'
+              }`}
+              title={t('accountCard.viewDetails')}
+            >
+              <Eye size={14} />
+            </button>
+            {/* 刷新 */}
+            <button
+              onClick={(e) => { e.stopPropagation(); onRefresh(account.id) }}
+              disabled={refreshingId === account.id}
+              className={`p-1.5 rounded-lg transition-colors ${
+                isLightTheme 
+                  ? 'hover:bg-blue-100 text-blue-600' 
+                  : 'hover:bg-blue-500/20 text-blue-400'
+              } disabled:opacity-50`}
+              title={t('accountCard.refresh')}
+            >
+              <RefreshCw size={14} className={refreshingId === account.id ? 'animate-spin' : ''} />
+            </button>
+            {/* 切换账号 */}
+            {!isCurrentAccount && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onSwitch(account) }}
+                disabled={switchingId === account.id}
+                className={`p-1.5 rounded-lg transition-colors ${
+                  isLightTheme 
+                    ? 'hover:bg-green-100 text-green-600' 
+                    : 'hover:bg-green-500/20 text-green-400'
+                } disabled:opacity-50`}
+                title={t('accountCard.switchAccount')}
+              >
+                <Repeat size={14} className={switchingId === account.id ? 'animate-spin' : ''} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

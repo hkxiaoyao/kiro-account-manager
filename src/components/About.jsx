@@ -113,6 +113,16 @@ function About() {
           <h3 className={`text-sm font-medium ${colors.text} mb-4 text-center`}>{t('about.links')}</h3>
           <div className="grid grid-cols-2 gap-3">
             <a 
+              href="https://vercel-lajuwps1g-hj01857655s-projects-fa88a766.vercel.app" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className={`flex items-center gap-3 ${isLightTheme ? 'bg-cyan-500 hover:bg-cyan-600' : 'bg-cyan-600 hover:bg-cyan-500'} rounded-xl p-3 transition-colors group`}
+            >
+              <ExternalLink size={18} className="text-white" />
+              <span className="text-white text-sm font-medium">{t('about.website')}</span>
+              <ExternalLink size={14} className="text-white/50 ml-auto group-hover:text-white" />
+            </a>
+            <a 
               href="https://xcn46cm1l4ir.feishu.cn/wiki/YfaAw3qnoixFJgkzTSmcgtPfntc" 
               target="_blank" 
               rel="noopener noreferrer"

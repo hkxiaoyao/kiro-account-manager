@@ -1,12 +1,16 @@
-# Vercel API 规范
+# Portal 规范
+
+## 目录结构
+
+官网和 API 服务在 `portal/` 目录下。
 
 ## 公告管理
 
-公告内容在 `vercel-api/api/announcement.ts` 中配置。
+公告内容在 `portal/api/announcement.ts` 中配置。
 
 修改公告后需要重新部署：
 ```powershell
-cd vercel-api && vercel --prod
+cd portal && vercel --prod
 ```
 
 ## 公告字段说明
@@ -21,6 +25,11 @@ cd vercel-api && vercel --prod
 - `buyGroup` - 续杯交流群名称
 - `buyGroupUrl` - 续杯交流群链接
 - `buyUrl` - 在线购买链接
+
+## 页面
+
+- `/` - 项目官网首页
+- `/api-test.html` - API 测试页面
 
 ## API 端点
 

@@ -288,6 +288,7 @@
   "about.ui": "UI",
   "about.backend": "Бэкенд",
   "about.links": "Ссылки",
+  "about.website": "Сайт",
   "about.tutorial": "Руководство",
   "about.qqGroup": "QQ группа",
   "about.shop": "Купить",
@@ -465,6 +466,7 @@
   "accountCard.tokenExpired": "Истёк",
   "accountCard.rightClickTip": "ПКМ для действий",
   "accountCard.copyJson": "Копировать JSON",
+  "accountCard.daysRemaining": "Осталось {{days}} дн.",
 
   "refresh.title": "Обновление аккаунтов",
   "refresh.progress": "Прогресс",

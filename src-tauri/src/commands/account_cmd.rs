@@ -71,9 +71,23 @@ pub async fn sync_account(state: State<'_, AppState>, id: String) -> Result<Acco
     
     // 如果 401 认证错误，刷新 token 后重试
     if usage_result.is_auth_error {
-        let refreshed = refresh_token_by_provider(&account).await?;
-        usage_result = get_usage_by_provider(provider_str, &refreshed.access_token).await;
-        refresh_result = Some(refreshed);
+        match refresh_token_by_provider(&account).await {
+            Ok(refreshed) => {
+                usage_result = get_usage_by_provider(provider_str, &refreshed.access_token).await;
+                refresh_result = Some(refreshed);
+            }
+            Err(e) => {
+                // 刷新失败，检查是否封禁
+                if e.starts_with("BANNED:") {
+                    let mut store = state.store.lock().unwrap();
+                    if let Some(a) = store.accounts.iter_mut().find(|a| a.id == id) {
+                        a.status = "banned".to_string();
+                        store.save_to_file();
+                    }
+                }
+                return Err(e);
+            }
+        }
     }
 
     let mut store = state.store.lock().unwrap();
@@ -99,12 +113,24 @@ pub async fn sync_account(state: State<'_, AppState>, id: String) -> Result<Acco
 }
 
 /// 只刷新 token，不获取 usage（启动时快速刷新用）
+/// 如果 token 还有 5 分钟以上有效期，跳过刷新直接返回
 #[tauri::command]
 pub async fn refresh_account_token(state: State<'_, AppState>, id: String) -> Result<Account, String> {
     let account = {
         let store = state.store.lock().unwrap();
         store.accounts.iter().find(|a| a.id == id).cloned()
     }.ok_or("Account not found")?;
+
+    // 检查 token 是否还有 5 分钟以上有效期
+    if let Some(expires_at) = &account.expires_at {
+        if let Ok(exp) = chrono::NaiveDateTime::parse_from_str(expires_at, "%Y/%m/%d %H:%M:%S") {
+            let now = chrono::Local::now().naive_local();
+            let remaining = exp.signed_duration_since(now);
+            if remaining.num_minutes() >= 5 {
+                return Ok(account);
+            }
+        }
+    }
 
     let refresh_result = refresh_token_by_provider(&account).await?;
 

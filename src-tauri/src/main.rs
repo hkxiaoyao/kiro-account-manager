@@ -10,6 +10,7 @@ mod deep_link_handler;
 
 mod kiro;
 mod kiro_auth_client;
+mod kiro_gate;
 mod kiro_portal_client;
 mod mcp;
 
@@ -48,6 +49,7 @@ use commands::proxy_cmd::*;
 use commands::sso_import_cmd::*;
 use commands::update_cmd::*;
 use commands::steering_cmd::*;
+use commands::kiro_gate_cmd::*;
 use kiro::{
     get_kiro_local_token, switch_kiro_account,
 };
@@ -231,7 +233,15 @@ fn main() {
             get_steering_file,
             save_steering_file,
             delete_steering_file,
-            create_steering_file
+            create_steering_file,
+            // KiroGate 命令
+            start_kiro_gate,
+            stop_kiro_gate,
+            get_kiro_gate_status,
+            get_kiro_gate_tokens,
+            add_kiro_gate_token,
+            update_kiro_gate_token,
+            delete_kiro_gate_token
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

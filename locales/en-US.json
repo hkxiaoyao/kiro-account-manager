@@ -287,6 +287,7 @@
   "about.ui": "UI",
   "about.backend": "Backend",
   "about.links": "Links",
+  "about.website": "Website",
   "about.tutorial": "Tutorial",
   "about.qqGroup": "QQ Group",
   "about.shop": "Buy",
@@ -467,6 +468,7 @@
   "accountCard.tokenExpired": "Expired",
   "accountCard.rightClickTip": "Right-click for more",
   "accountCard.copyJson": "Copy JSON",
+  "accountCard.daysRemaining": "{{days}} days left",
 
   "refresh.title": "Refresh Accounts",
   "refresh.progress": "Progress",

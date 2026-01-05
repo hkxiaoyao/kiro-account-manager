@@ -285,6 +285,7 @@
   "about.ui": "UI",
   "about.backend": "后端",
   "about.links": "链接",
+  "about.website": "官网",
   "about.tutorial": "使用教程",
   "about.qqGroup": "QQ群",
   "about.shop": "购买",
@@ -465,6 +466,7 @@
   "accountCard.tokenExpired": "已过期",
   "accountCard.rightClickTip": "右键查看更多操作",
   "accountCard.copyJson": "复制 JSON",
+  "accountCard.daysRemaining": "订阅剩余 {{days}} 天",
 
   "refresh.title": "刷新账号",
   "refresh.progress": "进度",

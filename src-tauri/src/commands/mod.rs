@@ -13,6 +13,7 @@ pub mod account_cmd;
 pub mod app_settings_cmd;
 pub mod auth_cmd;
 pub mod group_tag_cmd;
+pub mod kiro_gate_cmd;
 pub mod kiro_settings_cmd;
 pub mod machine_guid;
 pub mod mcp_cmd;

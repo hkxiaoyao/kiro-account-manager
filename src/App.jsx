@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import Sidebar from './components/Sidebar'
@@ -12,15 +12,11 @@ import { useModelLock } from './hooks/useModelLock'
 import { useAppSettings } from './contexts/AppSettingsContext'
 import { AccountProvider } from './contexts/AccountContext'
 import { PrivacyProvider } from './contexts/PrivacyContext'
+import { routes, internalRoutes } from './routes'
 
-// 路由级别懒加载，减少首屏加载时间
-const Home = lazy(() => import('./components/Home'))
-const AccountManager = lazy(() => import('./components/AccountManager/index'))
-const Settings = lazy(() => import('./components/Settings'))
-const KiroConfig = lazy(() => import('./components/KiroConfig/index'))
-const About = lazy(() => import('./components/About'))
-const Login = lazy(() => import('./components/Login'))
-const AuthCallback = lazy(() => import('./components/AuthCallback'))
+// 构建路由映射
+const routeMap = Object.fromEntries(routes.map(r => [r.id, r.component]))
+const allRoutes = { ...routeMap, ...internalRoutes }
 
 // 页面加载骨架屏
 function PageLoading() {
@@ -75,7 +71,7 @@ function App() {
         if (!mounted) return
         console.log('Login success in App:', event.payload)
         checkAuth()
-        setActiveMenu('token')
+        setActiveMenu('accounts')
       })
       
       // 监听设置变化，重启定时器
@@ -127,17 +123,15 @@ function App() {
     setUser(null)
   }
 
+  // 路由渲染：根据 activeMenu 动态获取组件
   const renderContent = () => {
-    switch (activeMenu) {
-      case 'home': return <Home onNavigate={setActiveMenu} />
-      case 'token': return <AccountManager />
-      case 'kiro-config': return <KiroConfig />
-      case 'login': return <Login onLogin={(user) => { handleLogin(user); setActiveMenu('token'); }} />
-      case 'callback': return <AuthCallback />
-      case 'settings': return <Settings />
-      case 'about': return <About />
-      default: return <Home />
+    const RouteComponent = allRoutes[activeMenu] || allRoutes.home
+    // 特殊处理需要 props 的路由
+    const routeProps = {
+      home: { onNavigate: setActiveMenu },
+      desktopOAuth: { onLogin: (user) => { handleLogin(user); setActiveMenu('accounts') } },
     }
+    return <RouteComponent {...(routeProps[activeMenu] || {})} />
   }
 
   if (loading) {

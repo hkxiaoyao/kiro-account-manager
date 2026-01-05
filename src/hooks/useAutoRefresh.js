@@ -3,7 +3,6 @@ import { invoke } from '@tauri-apps/api/core'
 import { emit } from '@tauri-apps/api/event'
 
 // 常量
-const REFRESH_BEFORE_EXPIRY_SECONDS = 5 * 60 // 5 分钟内过期才刷新
 const DEFAULT_REFRESH_INTERVAL = 10 // 分钟
 
 // 根据账号数量计算并发数
@@ -27,6 +26,7 @@ const runWithConcurrency = async (tasks, concurrency) => {
 
 /**
  * 自动刷新 Token 的 Hook
+ * 后端会判断 Token 是否需要刷新（5分钟内过期才刷新）
  * @param {Object} appSettings - 应用设置
  * @param {boolean} settingsLoading - 设置是否加载中
  */
@@ -39,40 +39,26 @@ export function useAutoRefresh(appSettings, settingsLoading) {
     appSettingsRef.current = appSettings
   }, [appSettings])
 
-  // 判断 token 是否在指定秒数内过期
-  const isAuthTokenExpiredWithinSeconds = (acc, seconds) => {
-    if (!acc.expiresAt || !acc.accessToken) return true
-    const expiresAt = new Date(acc.expiresAt.replace(/\//g, '-'))
-    return expiresAt.valueOf() < Date.now() + seconds * 1000
-  }
-
-  // 判断账号是否需要刷新
-  const isExpiringSoon = (acc) => {
-    if (acc.status === 'banned') return false
-    if (!acc.expiresAt || !acc.accessToken) return false
-    return isAuthTokenExpiredWithinSeconds(acc, REFRESH_BEFORE_EXPIRY_SECONDS)
-  }
-
-  // 刷新过期的 token
-  const refreshExpiredTokens = async () => {
+  // 刷新所有账号的 token（后端判断是否需要刷新）
+  const refreshAllTokens = async () => {
     try {
       const accounts = await invoke('get_accounts')
       if (!accounts?.length) return
 
-      const expiredAccounts = accounts.filter(isExpiringSoon)
-      if (!expiredAccounts.length) {
-        console.log('[AutoRefresh] 没有需要刷新的 token')
+      // 只排除封禁账号，其他都交给后端判断
+      const validAccounts = accounts.filter(acc => acc.status !== 'banned')
+      if (!validAccounts.length) {
+        console.log('[AutoRefresh] 没有有效账号')
         return
       }
 
-      const concurrency = getConcurrency(expiredAccounts.length)
-      console.log(`[AutoRefresh] 刷新 ${expiredAccounts.length} 个过期 token，并发数: ${concurrency}`)
+      const concurrency = getConcurrency(validAccounts.length)
+      console.log(`[AutoRefresh] 检查 ${validAccounts.length} 个账号的 token，并发数: ${concurrency}`)
 
-      // 构建任务列表
-      const tasks = expiredAccounts.map((account) => async () => {
+      // 构建任务列表（后端会判断是否需要刷新）
+      const tasks = validAccounts.map((account) => async () => {
         try {
           await invoke('refresh_account_token', { id: account.id })
-          console.log(`[AutoRefresh] ${account.email} token 刷新成功`)
         } catch (e) {
           console.warn(`[AutoRefresh] ${account.email} token 刷新失败:`, e)
         }
@@ -81,7 +67,7 @@ export function useAutoRefresh(appSettings, settingsLoading) {
       // 分批执行
       await runWithConcurrency(tasks, concurrency)
 
-      console.log('[AutoRefresh] token 刷新完成')
+      console.log('[AutoRefresh] token 检查完成')
       emit('accounts-updated')
     } catch (e) {
       console.error('[AutoRefresh] 刷新失败:', e)
@@ -89,10 +75,10 @@ export function useAutoRefresh(appSettings, settingsLoading) {
   }
 
   // 定时刷新检查
-  const checkAndRefreshExpiringTokens = async () => {
+  const checkAndRefreshTokens = async () => {
     const settings = appSettingsRef.current || {}
     if (settings.autoRefresh === false) return
-    await refreshExpiredTokens()
+    await refreshAllTokens()
   }
 
   // 启动定时器
@@ -103,15 +89,15 @@ export function useAutoRefresh(appSettings, settingsLoading) {
       refreshTimerRef.current = null
     }
 
-    // 启动时刷新 5 分钟内过期的 token
-    refreshExpiredTokens()
+    // 启动时检查所有账号的 token
+    refreshAllTokens()
 
     const settings = appSettingsRef.current || {}
     const interval = settings.autoRefreshInterval ?? DEFAULT_REFRESH_INTERVAL
     const intervalMs = interval * 60 * 1000
 
     console.log(`[AutoRefresh] 定时器间隔: ${interval} 分钟`)
-    refreshTimerRef.current = setInterval(checkAndRefreshExpiringTokens, intervalMs)
+    refreshTimerRef.current = setInterval(checkAndRefreshTokens, intervalMs)
   }
 
   // 设置加载完成后启动定时器

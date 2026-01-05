@@ -1,0 +1,127 @@
+import { useState, useEffect } from 'react'
+import { X, AlertCircle, CheckCircle } from 'lucide-react'
+import { useApp } from '../../hooks/useApp'
+
+// 验证 Social Token（aor 开头，冒号分隔两部分）
+const validateSocialToken = (token) => {
+  if (!token) return false
+  const trimmed = token.trim()
+  if (!trimmed.startsWith('aor')) return false
+  const parts = trimmed.split(':')
+  return parts.length === 2 && parts[0].length >= 50 && parts[1].length >= 50
+}
+
+// 验证 IDC Token（需要 refreshToken + clientId + clientSecret，region 有默认值）
+const validateIdcToken = (item) => {
+  return item.refreshToken && item.clientId && item.clientSecret
+}
+
+// 解析 JSON 数组输入
+const parseJsonInput = (input) => {
+  if (!input.trim()) return { tokens: [], error: '' }
+  try {
+    const arr = JSON.parse(input.trim())
+    if (!Array.isArray(arr)) return { tokens: [], error: '请输入 JSON 数组格式' }
+    const tokens = arr.map((item, i) => {
+      const authMethod = item.authMethod || 'social'
+      const isIdc = authMethod === 'IdC'
+      return {
+        name: item.name || `Token ${i + 1}`,
+        refreshToken: item.refreshToken || '',
+        authMethod,
+        region: item.region || 'us-east-1',
+        clientId: item.clientId || '',
+        clientSecret: item.clientSecret || '',
+        valid: isIdc ? validateIdcToken(item) : validateSocialToken(item.refreshToken)
+      }
+    })
+    return { tokens, error: '' }
+  } catch {
+    return { tokens: [], error: 'JSON 格式错误' }
+  }
+}
+
+const PLACEHOLDER = `[
+  { "name": "账号1", "refreshToken": "aor..." },
+  { "name": "BuilderId", "authMethod": "IdC", "refreshToken": "...", "clientId": "...", "clientSecret": "..." }
+]`
+
+function TokenModal({ show, onClose, onBatchSave }) {
+  const { colors } = useApp()
+  const [jsonInput, setJsonInput] = useState('')
+  const [parseResult, setParseResult] = useState({ tokens: [], error: '' })
+
+  useEffect(() => {
+    if (show) { setJsonInput(''); setParseResult({ tokens: [], error: '' }) }
+  }, [show])
+
+  useEffect(() => {
+    setParseResult(parseJsonInput(jsonInput))
+  }, [jsonInput])
+
+  if (!show) return null
+
+  const { tokens, error } = parseResult
+  const validCount = tokens.filter(t => t.valid).length
+  const canSave = validCount > 0
+
+  const handleSave = () => {
+    if (!canSave) return
+    const validTokens = tokens.filter(t => t.valid).map(t => ({
+      name: t.name,
+      refreshToken: t.refreshToken.trim(),
+      tokenType: t.tokenType,
+      region: t.region || null,
+      clientId: t.clientId || null,
+      clientSecret: t.clientSecret || null
+    }))
+    onBatchSave(validTokens)
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+      <div className={`${colors.card} rounded-2xl p-6 w-full max-w-lg border ${colors.cardBorder}`} onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className={`font-semibold ${colors.text}`}>添加 Token</h3>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-white/10"><X size={18} className={colors.textMuted} /></button>
+        </div>
+        <div className="space-y-4">
+          <div>
+            <label className={`block text-sm mb-2 ${colors.textMuted}`}>
+              JSON 数组 <span className="text-xs opacity-60">（支持 Social 和 IDC 类型）</span>
+            </label>
+            <textarea value={jsonInput} onChange={e => setJsonInput(e.target.value)} 
+              placeholder={PLACEHOLDER}
+              rows={10} className={`w-full px-4 py-3 border rounded-xl ${colors.text} ${colors.input} resize-none font-mono text-xs`} />
+            {jsonInput && (
+              <div className="mt-2">
+                {error ? (
+                  <div className="flex items-center gap-1.5 text-xs text-red-400">
+                    <AlertCircle size={14} /><span>{error}</span>
+                  </div>
+                ) : tokens.length > 0 && (
+                  <div className={`flex items-center gap-1.5 text-xs ${validCount === tokens.length ? 'text-green-500' : 'text-yellow-400'}`}>
+                    {validCount === tokens.length ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
+                    <span>解析到 {tokens.length} 个，{validCount} 个有效</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <div className={`text-xs ${colors.textMuted} space-y-1`}>
+            <p>💡 Google/GitHub 登录：refreshToken 以 aor 开头</p>
+            <p>💡 BuilderId/Enterprise：需要 authMethod="IdC"、clientId、clientSecret</p>
+          </div>
+          <button onClick={handleSave} disabled={!canSave}
+            className={`w-full py-2.5 rounded-xl font-medium transition-all ${
+              canSave ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:opacity-90' : `${colors.card} ${colors.textMuted} cursor-not-allowed border ${colors.cardBorder}`
+            }`}>
+            {canSave ? `添加 ${validCount} 个 Token` : '添加'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default TokenModal
