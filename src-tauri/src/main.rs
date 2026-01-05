@@ -239,6 +239,7 @@ fn main() {
             start_kiro_gate,
             stop_kiro_gate,
             get_kiro_gate_status,
+            get_kiro_gate_metrics,
             get_kiro_gate_tokens,
             add_kiro_gate_token,
             update_kiro_gate_token,

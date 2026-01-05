@@ -1,6 +1,7 @@
 // KiroGate 服务器命令
 
 use crate::kiro_gate::{start_server, stop_server, get_server_status, ServerStatus};
+use crate::kiro_gate::metrics::{MetricsData, METRICS};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -155,6 +156,12 @@ pub async fn stop_kiro_gate() -> Result<(), String> {
 #[tauri::command]
 pub async fn get_kiro_gate_status() -> ServerStatus {
   get_server_status().await
+}
+
+/// 获取 KiroGate 统计数据
+#[tauri::command]
+pub async fn get_kiro_gate_metrics() -> MetricsData {
+  METRICS.get_metrics()
 }
 
 // ============================================================

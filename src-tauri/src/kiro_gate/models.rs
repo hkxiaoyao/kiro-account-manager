@@ -297,3 +297,78 @@ pub struct ErrorDetail {
   pub error_type: String,
   pub code: Option<i32>,
 }
+
+// ============================================================
+// Anthropic Messages API 请求
+// ============================================================
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct AnthropicMessagesRequest {
+  pub model: String,
+  pub messages: Vec<AnthropicMessage>,
+  pub max_tokens: i32,
+  #[serde(default)]
+  pub system: Option<serde_json::Value>,
+  #[serde(default)]
+  pub stream: bool,
+  pub temperature: Option<f32>,
+  pub top_p: Option<f32>,
+  #[allow(dead_code)]
+  pub top_k: Option<i32>,
+  pub stop_sequences: Option<Vec<String>>,
+  pub tools: Option<Vec<AnthropicTool>>,
+  #[allow(dead_code)]
+  pub tool_choice: Option<serde_json::Value>,
+  #[allow(dead_code)]
+  pub metadata: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct AnthropicMessage {
+  pub role: String,
+  pub content: serde_json::Value, // 可以是字符串或内容块数组
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct AnthropicTool {
+  pub name: String,
+  pub description: Option<String>,
+  pub input_schema: serde_json::Value,
+}
+
+// ============================================================
+// Anthropic Messages API 响应
+// ============================================================
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AnthropicMessagesResponse {
+  pub id: String,
+  #[serde(rename = "type")]
+  pub response_type: String,
+  pub role: String,
+  pub content: Vec<AnthropicContentBlock>,
+  pub model: String,
+  pub stop_reason: Option<String>,
+  pub stop_sequence: Option<String>,
+  pub usage: AnthropicUsage,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AnthropicContentBlock {
+  #[serde(rename = "type")]
+  pub block_type: String,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub text: Option<String>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub id: Option<String>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub name: Option<String>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub input: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AnthropicUsage {
+  pub input_tokens: i32,
+  pub output_tokens: i32,
+}

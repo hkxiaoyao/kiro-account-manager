@@ -17,7 +17,8 @@ use tokio::sync::{oneshot, RwLock};
 use tower_http::cors::{Any, CorsLayer};
 
 use crate::kiro_gate::auth::{AuthCache, TokenConfig};
-use crate::kiro_gate::converter::{build_kiro_payload, get_available_models};
+use crate::kiro_gate::converter::{build_kiro_payload, get_available_models, anthropic_to_openai};
+use crate::kiro_gate::metrics::METRICS;
 use crate::kiro_gate::models::*;
 use crate::commands::kiro_gate_cmd::KiroGateToken;
 
@@ -83,6 +84,8 @@ pub async fn start_server(port: u16, proxy_api_key: String) -> Result<(), String
     .route("/health", get(health_handler))
     .route("/v1/models", get(models_handler))
     .route("/v1/chat/completions", post(chat_completions_handler))
+    .route("/v1/messages", post(anthropic_messages_handler))
+    .route("/metrics", get(metrics_handler))
     .layer(cors)
     .with_state(state);
 
@@ -167,15 +170,26 @@ async fn models_handler() -> impl IntoResponse {
   })
 }
 
+async fn metrics_handler() -> impl IntoResponse {
+  Json(METRICS.get_metrics())
+}
+
 async fn chat_completions_handler(
   State(state): State<Arc<ServerState>>,
   headers: HeaderMap,
   Json(request): Json<ChatCompletionRequest>,
 ) -> Response {
+  let start_time = std::time::Instant::now();
+  let model = request.model.clone();
+  let is_stream = request.stream;
+
   // 验证 API Key 并获取完整的 Token 信息
   let verify_result = match verify_api_key(&headers, &state.proxy_api_key) {
     Ok(result) => result,
-    Err(e) => return error_response(StatusCode::UNAUTHORIZED, &e),
+    Err(e) => {
+      METRICS.record_request("/v1/chat/completions", 401, start_time.elapsed().as_millis() as f64, &model, is_stream, "openai");
+      return error_response(StatusCode::UNAUTHORIZED, &e);
+    }
   };
 
   // 构建 TokenConfig（直接使用验证结果中的信息）
@@ -194,7 +208,10 @@ async fn chat_completions_handler(
   // 获取 access_token
   let access_token = match token_manager.get_access_token().await {
     Ok(token) => token,
-    Err(e) => return error_response(StatusCode::UNAUTHORIZED, &e),
+    Err(e) => {
+      METRICS.record_request("/v1/chat/completions", 401, start_time.elapsed().as_millis() as f64, &model, is_stream, "openai");
+      return error_response(StatusCode::UNAUTHORIZED, &e);
+    }
   };
 
   let profile_arn = token_manager.get_profile_arn().await;
@@ -202,7 +219,10 @@ async fn chat_completions_handler(
   // 构建 Kiro payload
   let kiro_payload = match build_kiro_payload(&request, profile_arn) {
     Ok(p) => p,
-    Err(e) => return error_response(StatusCode::BAD_REQUEST, &e),
+    Err(e) => {
+      METRICS.record_request("/v1/chat/completions", 400, start_time.elapsed().as_millis() as f64, &model, is_stream, "openai");
+      return error_response(StatusCode::BAD_REQUEST, &e);
+    }
   };
 
   // 根据 region 选择 API host
@@ -221,23 +241,132 @@ async fn chat_completions_handler(
     .await
   {
     Ok(r) => r,
-    Err(e) => return error_response(StatusCode::BAD_GATEWAY, &format!("请求 Kiro API 失败: {}", e)),
+    Err(e) => {
+      METRICS.record_request("/v1/chat/completions", 502, start_time.elapsed().as_millis() as f64, &model, is_stream, "openai");
+      return error_response(StatusCode::BAD_GATEWAY, &format!("请求 Kiro API 失败: {}", e));
+    }
   };
 
   if !resp.status().is_success() {
     let status = resp.status();
     let text = resp.text().await.unwrap_or_default();
+    METRICS.record_request("/v1/chat/completions", status.as_u16(), start_time.elapsed().as_millis() as f64, &model, is_stream, "openai");
     return error_response(
       StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
       &format!("Kiro API 错误: {}", text),
     );
   }
 
+  // 记录成功请求
+  METRICS.record_request("/v1/chat/completions", 200, start_time.elapsed().as_millis() as f64, &model, is_stream, "openai");
+
   // 处理响应
   if request.stream {
     stream_response(resp, &request.model).await
   } else {
     non_stream_response(resp, &request.model).await
+  }
+}
+
+// ============================================================
+// Anthropic Messages API 端点
+// ============================================================
+
+async fn anthropic_messages_handler(
+  State(state): State<Arc<ServerState>>,
+  headers: HeaderMap,
+  Json(request): Json<AnthropicMessagesRequest>,
+) -> Response {
+  let start_time = std::time::Instant::now();
+  let model = request.model.clone();
+  let is_stream = request.stream;
+
+  // 验证 API Key（支持 x-api-key 和 Authorization 两种方式）
+  let verify_result = match verify_anthropic_api_key(&headers, &state.proxy_api_key) {
+    Ok(result) => result,
+    Err(e) => {
+      METRICS.record_request("/v1/messages", 401, start_time.elapsed().as_millis() as f64, &model, is_stream, "anthropic");
+      return anthropic_error_response(StatusCode::UNAUTHORIZED, "authentication_error", &e);
+    }
+  };
+
+  // 构建 TokenConfig
+  let config = TokenConfig {
+    refresh_token: verify_result.refresh_token.clone(),
+    auth_method: verify_result.auth_method.clone(),
+    profile_arn: verify_result.profile_arn.clone(),
+    client_id: verify_result.client_id.clone(),
+    client_secret: verify_result.client_secret.clone(),
+    region: verify_result.region.clone(),
+  };
+
+  // 获取 TokenManager
+  let token_manager = state.auth_cache.get_or_create(&verify_result.refresh_token, config).await;
+  
+  // 获取 access_token
+  let access_token = match token_manager.get_access_token().await {
+    Ok(token) => token,
+    Err(e) => {
+      METRICS.record_request("/v1/messages", 401, start_time.elapsed().as_millis() as f64, &model, is_stream, "anthropic");
+      return anthropic_error_response(StatusCode::UNAUTHORIZED, "authentication_error", &e);
+    }
+  };
+
+  let profile_arn = token_manager.get_profile_arn().await;
+
+  // 转换为 OpenAI 格式，复用现有逻辑
+  let openai_request = anthropic_to_openai(&request);
+
+  // 构建 Kiro payload
+  let kiro_payload = match build_kiro_payload(&openai_request, profile_arn) {
+    Ok(p) => p,
+    Err(e) => {
+      METRICS.record_request("/v1/messages", 400, start_time.elapsed().as_millis() as f64, &model, is_stream, "anthropic");
+      return anthropic_error_response(StatusCode::BAD_REQUEST, "invalid_request_error", &e);
+    }
+  };
+
+  // 根据 region 选择 API host
+  let region = verify_result.region.as_deref().unwrap_or("us-east-1");
+  let api_host = format!("https://codewhisperer.{}.amazonaws.com", region);
+  let url = format!("{}/generateAssistantResponse", api_host);
+
+  // 发送请求
+  let resp = match state.http_client
+    .post(&url)
+    .header("Authorization", format!("Bearer {}", access_token))
+    .header("Content-Type", "application/json")
+    .header("Accept", "application/vnd.amazon.eventstream")
+    .json(&kiro_payload)
+    .send()
+    .await
+  {
+    Ok(r) => r,
+    Err(e) => {
+      METRICS.record_request("/v1/messages", 502, start_time.elapsed().as_millis() as f64, &model, is_stream, "anthropic");
+      return anthropic_error_response(StatusCode::BAD_GATEWAY, "api_error", &format!("请求 Kiro API 失败: {}", e));
+    }
+  };
+
+  if !resp.status().is_success() {
+    let status = resp.status();
+    let text = resp.text().await.unwrap_or_default();
+    METRICS.record_request("/v1/messages", status.as_u16(), start_time.elapsed().as_millis() as f64, &model, is_stream, "anthropic");
+    return anthropic_error_response(
+      StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
+      "api_error",
+      &format!("Kiro API 错误: {}", text),
+    );
+  }
+
+  // 记录成功请求
+  METRICS.record_request("/v1/messages", 200, start_time.elapsed().as_millis() as f64, &model, is_stream, "anthropic");
+
+  // 处理响应（转换为 Anthropic 格式）
+  if request.stream {
+    anthropic_stream_response(resp, &request.model).await
+  } else {
+    anthropic_non_stream_response(resp, &request.model).await
   }
 }
 
@@ -612,4 +741,240 @@ fn extract_json(s: &str) -> Option<String> {
   }
   
   None
+}
+
+// ============================================================
+// Anthropic API 辅助函数
+// ============================================================
+
+/// 验证 Anthropic API Key（支持 x-api-key 和 Authorization）
+fn verify_anthropic_api_key(headers: &HeaderMap, proxy_api_key: &str) -> Result<VerifyResult, String> {
+  // 优先检查 x-api-key（Anthropic 标准）
+  if let Some(x_api_key) = headers.get("x-api-key").and_then(|v| v.to_str().ok()) {
+    return verify_token_string(x_api_key, proxy_api_key);
+  }
+  
+  // 回退到 Authorization（兼容 OpenAI 格式）
+  if let Some(auth_header) = headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok()) {
+    let token = if auth_header.starts_with("Bearer ") {
+      &auth_header[7..]
+    } else {
+      auth_header
+    };
+    return verify_token_string(token, proxy_api_key);
+  }
+  
+  Err("缺少 x-api-key 或 Authorization 头".to_string())
+}
+
+/// 验证 token 字符串（复用逻辑）
+fn verify_token_string(token: &str, proxy_api_key: &str) -> Result<VerifyResult, String> {
+  // 多租户格式：PROXY_API_KEY:REFRESH_TOKEN
+  if token.contains(':') {
+    let parts: Vec<&str> = token.splitn(2, ':').collect();
+    if parts.len() != 2 {
+      return Err("API Key 格式无效".to_string());
+    }
+    if parts[0] != proxy_api_key {
+      return Err("API Key 无效".to_string());
+    }
+    return Ok(VerifyResult {
+      refresh_token: parts[1].to_string(),
+      auth_method: "social".to_string(),
+      profile_arn: None,
+      client_id: None,
+      client_secret: None,
+      region: Some("us-east-1".to_string()),
+    });
+  }
+  
+  // 用户 API Key 格式：sk-{48位十六进制}
+  if token.starts_with("sk-") && token.len() == 51 {
+    match find_token_by_api_key(token) {
+      Some(kiro_token) => return Ok(VerifyResult {
+        refresh_token: kiro_token.refresh_token,
+        auth_method: if kiro_token.auth_method.is_empty() { "social".to_string() } else { kiro_token.auth_method },
+        profile_arn: kiro_token.profile_arn,
+        client_id: kiro_token.client_id,
+        client_secret: kiro_token.client_secret,
+        region: kiro_token.region.or(Some("us-east-1".to_string())),
+      }),
+      None => return Err("API Key 无效或已过期".to_string()),
+    }
+  }
+  
+  // 传统格式
+  if token == proxy_api_key {
+    return Err("传统模式需要服务器配置全局 REFRESH_TOKEN".to_string());
+  }
+  
+  Err("API Key 格式无效".to_string())
+}
+
+/// Anthropic 格式的错误响应
+fn anthropic_error_response(status: StatusCode, error_type: &str, message: &str) -> Response {
+  let body = Json(serde_json::json!({
+    "type": "error",
+    "error": {
+      "type": error_type,
+      "message": message
+    }
+  }));
+  (status, body).into_response()
+}
+
+/// Anthropic 非流式响应
+async fn anthropic_non_stream_response(resp: reqwest::Response, model: &str) -> Response {
+  let id = format!("msg_{}", uuid::Uuid::new_v4().to_string().replace("-", "")[..24].to_string());
+  
+  let bytes = match resp.bytes().await {
+    Ok(b) => b,
+    Err(e) => return anthropic_error_response(StatusCode::BAD_GATEWAY, "api_error", &format!("读取响应失败: {}", e)),
+  };
+
+  let text = String::from_utf8_lossy(&bytes);
+  let mut content = String::new();
+  
+  // 解析所有事件
+  let mut remaining = text.as_ref();
+  while let Some(start) = remaining.find('{') {
+    remaining = &remaining[start..];
+    if let Some(json_str) = extract_json(remaining) {
+      let json_len = json_str.len();
+      if let Some(c) = parse_kiro_event(&json_str) {
+        content.push_str(&c);
+      }
+      remaining = &remaining[json_len..];
+    } else {
+      break;
+    }
+  }
+
+  let response = AnthropicMessagesResponse {
+    id,
+    response_type: "message".to_string(),
+    role: "assistant".to_string(),
+    content: vec![AnthropicContentBlock {
+      block_type: "text".to_string(),
+      text: Some(content),
+      id: None,
+      name: None,
+      input: None,
+    }],
+    model: model.to_string(),
+    stop_reason: Some("end_turn".to_string()),
+    stop_sequence: None,
+    usage: AnthropicUsage {
+      input_tokens: 0,
+      output_tokens: 0,
+    },
+  };
+
+  Json(response).into_response()
+}
+
+/// Anthropic 流式响应
+async fn anthropic_stream_response(resp: reqwest::Response, model: &str) -> Response {
+  let model = model.to_string();
+  let id = format!("msg_{}", uuid::Uuid::new_v4().to_string().replace("-", "")[..24].to_string());
+
+  let stream = async_stream::stream! {
+    let mut bytes_stream = resp.bytes_stream();
+    let mut buffer = String::new();
+    let mut sent_start = false;
+    let content_index = 0;
+    let mut last_content: Option<String> = None;
+    
+    use futures::StreamExt;
+    
+    while let Some(chunk_result) = bytes_stream.next().await {
+      match chunk_result {
+        Ok(bytes) => {
+          buffer.push_str(&String::from_utf8_lossy(&bytes));
+          
+          while let Some(start) = buffer.find('{') {
+            let remaining = &buffer[start..];
+            if let Some(json_str) = extract_json(remaining) {
+              let json_len = json_str.len();
+              
+              if let Some(content) = parse_kiro_content(&json_str, &mut last_content) {
+                // 发送 message_start（仅第一次）
+                if !sent_start {
+                  let event = serde_json::json!({
+                    "type": "message_start",
+                    "message": {
+                      "id": id,
+                      "type": "message",
+                      "role": "assistant",
+                      "content": [],
+                      "model": model,
+                      "stop_reason": null,
+                      "stop_sequence": null,
+                      "usage": { "input_tokens": 0, "output_tokens": 0 }
+                    }
+                  });
+                  yield Ok::<_, Infallible>(format!("event: message_start\ndata: {}\n\n", serde_json::to_string(&event).unwrap()));
+                  
+                  // 发送 content_block_start
+                  let block_start = serde_json::json!({
+                    "type": "content_block_start",
+                    "index": content_index,
+                    "content_block": { "type": "text", "text": "" }
+                  });
+                  yield Ok::<_, Infallible>(format!("event: content_block_start\ndata: {}\n\n", serde_json::to_string(&block_start).unwrap()));
+                  
+                  sent_start = true;
+                }
+                
+                // 发送 content_block_delta
+                let delta = serde_json::json!({
+                  "type": "content_block_delta",
+                  "index": content_index,
+                  "delta": { "type": "text_delta", "text": content }
+                });
+                yield Ok::<_, Infallible>(format!("event: content_block_delta\ndata: {}\n\n", serde_json::to_string(&delta).unwrap()));
+              }
+              
+              buffer = buffer[start + json_len..].to_string();
+            } else {
+              break;
+            }
+          }
+        }
+        Err(e) => {
+          eprintln!("Stream error: {}", e);
+          break;
+        }
+      }
+    }
+    
+    // 发送结束事件
+    if sent_start {
+      // content_block_stop
+      let block_stop = serde_json::json!({
+        "type": "content_block_stop",
+        "index": content_index
+      });
+      yield Ok::<_, Infallible>(format!("event: content_block_stop\ndata: {}\n\n", serde_json::to_string(&block_stop).unwrap()));
+      
+      // message_delta
+      let msg_delta = serde_json::json!({
+        "type": "message_delta",
+        "delta": { "stop_reason": "end_turn", "stop_sequence": null },
+        "usage": { "output_tokens": 0 }
+      });
+      yield Ok::<_, Infallible>(format!("event: message_delta\ndata: {}\n\n", serde_json::to_string(&msg_delta).unwrap()));
+      
+      // message_stop
+      let msg_stop = serde_json::json!({ "type": "message_stop" });
+      yield Ok::<_, Infallible>(format!("event: message_stop\ndata: {}\n\n", serde_json::to_string(&msg_stop).unwrap()));
+    }
+  };
+
+  Response::builder()
+    .status(StatusCode::OK)
+    .header(header::CONTENT_TYPE, "text/event-stream")
+    .header(header::CACHE_CONTROL, "no-cache")
+    .body(axum::body::Body::from_stream(stream))
+    .unwrap()
 }

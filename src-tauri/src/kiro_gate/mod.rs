@@ -5,5 +5,6 @@ pub mod server;
 pub mod models;
 pub mod converter;
 pub mod auth;
+pub mod metrics;
 
 pub use server::{start_server, stop_server, get_server_status, ServerStatus};

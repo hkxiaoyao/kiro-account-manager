@@ -46,6 +46,163 @@ pub fn get_available_models() -> Vec<ModelInfo> {
   }).collect()
 }
 
+// ============================================================
+// Anthropic -> OpenAI 转换（复用 OpenAI -> Kiro 逻辑）
+// ============================================================
+
+/// 将 Anthropic 请求转换为 OpenAI 格式
+pub fn anthropic_to_openai(request: &AnthropicMessagesRequest) -> ChatCompletionRequest {
+  // 转换消息
+  let mut messages: Vec<ChatMessage> = Vec::new();
+  
+  // 处理 system 消息
+  if let Some(system) = &request.system {
+    let system_text = match system {
+      serde_json::Value::String(s) => s.clone(),
+      serde_json::Value::Array(arr) => {
+        arr.iter()
+          .filter_map(|item| {
+            if let serde_json::Value::Object(obj) = item {
+              if obj.get("type").and_then(|v| v.as_str()) == Some("text") {
+                return obj.get("text").and_then(|v| v.as_str()).map(|s| s.to_string());
+              }
+            }
+            None
+          })
+          .collect::<Vec<_>>()
+          .join("\n")
+      }
+      _ => String::new(),
+    };
+    
+    if !system_text.is_empty() {
+      messages.push(ChatMessage {
+        role: "system".to_string(),
+        content: Some(serde_json::Value::String(system_text)),
+        tool_calls: None,
+        tool_call_id: None,
+      });
+    }
+  }
+  
+  // 转换消息列表
+  for msg in &request.messages {
+    let content = convert_anthropic_content(&msg.content);
+    let tool_calls = extract_anthropic_tool_calls(&msg.content);
+    let tool_call_id = extract_anthropic_tool_result_id(&msg.content);
+    
+    messages.push(ChatMessage {
+      role: msg.role.clone(),
+      content: Some(content),
+      tool_calls: if tool_calls.is_empty() { None } else { Some(tool_calls) },
+      tool_call_id,
+    });
+  }
+  
+  // 转换 tools
+  let tools = request.tools.as_ref().map(|tools| {
+    tools.iter().map(|t| Tool {
+      tool_type: "function".to_string(),
+      function: ToolFunction {
+        name: t.name.clone(),
+        description: t.description.clone(),
+        parameters: Some(t.input_schema.clone()),
+      },
+    }).collect()
+  });
+  
+  ChatCompletionRequest {
+    model: request.model.clone(),
+    messages,
+    stream: request.stream,
+    max_tokens: Some(request.max_tokens),
+    temperature: request.temperature,
+    top_p: request.top_p,
+    stop: request.stop_sequences.clone(),
+    tools,
+    tool_choice: request.tool_choice.clone(),
+  }
+}
+
+// 转换 Anthropic 内容为 OpenAI 格式
+fn convert_anthropic_content(content: &serde_json::Value) -> serde_json::Value {
+  match content {
+    serde_json::Value::String(s) => serde_json::Value::String(s.clone()),
+    serde_json::Value::Array(arr) => {
+      // 提取文本内容
+      let text: String = arr.iter()
+        .filter_map(|item| {
+          if let serde_json::Value::Object(obj) = item {
+            if obj.get("type").and_then(|v| v.as_str()) == Some("text") {
+              return obj.get("text").and_then(|v| v.as_str()).map(|s| s.to_string());
+            }
+            // tool_result 的内容
+            if obj.get("type").and_then(|v| v.as_str()) == Some("tool_result") {
+              if let Some(c) = obj.get("content") {
+                if let Some(s) = c.as_str() {
+                  return Some(s.to_string());
+                }
+              }
+            }
+          }
+          None
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+      
+      if text.is_empty() {
+        // 返回原始数组（可能包含 tool_use 等）
+        content.clone()
+      } else {
+        serde_json::Value::String(text)
+      }
+    }
+    _ => content.clone(),
+  }
+}
+
+// 从 Anthropic 内容中提取 tool_calls
+fn extract_anthropic_tool_calls(content: &serde_json::Value) -> Vec<ToolCall> {
+  let mut tool_calls = Vec::new();
+  
+  if let serde_json::Value::Array(arr) = content {
+    for item in arr {
+      if let serde_json::Value::Object(obj) = item {
+        if obj.get("type").and_then(|v| v.as_str()) == Some("tool_use") {
+          let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+          let name = obj.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
+          let input = obj.get("input").cloned().unwrap_or(serde_json::json!({}));
+          
+          tool_calls.push(ToolCall {
+            id,
+            call_type: "function".to_string(),
+            function: ToolCallFunction {
+              name,
+              arguments: serde_json::to_string(&input).unwrap_or_default(),
+            },
+          });
+        }
+      }
+    }
+  }
+  
+  tool_calls
+}
+
+// 从 Anthropic 内容中提取 tool_result 的 tool_use_id
+fn extract_anthropic_tool_result_id(content: &serde_json::Value) -> Option<String> {
+  if let serde_json::Value::Array(arr) = content {
+    for item in arr {
+      if let serde_json::Value::Object(obj) = item {
+        if obj.get("type").and_then(|v| v.as_str()) == Some("tool_result") {
+          return obj.get("tool_use_id").and_then(|v| v.as_str()).map(|s| s.to_string());
+        }
+      }
+    }
+  }
+  None
+}
+
 // 提取文本内容
 fn extract_text_content(content: &Option<serde_json::Value>) -> String {
   match content {

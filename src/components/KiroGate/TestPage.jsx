@@ -12,6 +12,8 @@ function TestPage() {
   const [apiKey, setApiKey] = useState('')
   const [message, setMessage] = useState('你好，请介绍一下你自己。')
   const [model, setModel] = useState('claude-sonnet-4-5')
+  const [apiFormat, setApiFormat] = useState('openai') // 'openai' | 'anthropic'
+  const [stream, setStream] = useState(false)
   const [response, setResponse] = useState('')
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -57,21 +59,37 @@ function TestPage() {
     setResponse('')
 
     try {
+      // 根据 API 格式选择端点和请求头
+      const endpoint = apiFormat === 'openai' ? '/v1/chat/completions' : '/v1/messages'
+      const headers = {
+        'Content-Type': 'application/json'
+      }
+      
+      if (apiFormat === 'openai') {
+        headers['Authorization'] = `Bearer ${apiKey}`
+      } else {
+        headers['x-api-key'] = apiKey
+        headers['anthropic-version'] = '2023-06-01'
+      }
+
+      // 根据 API 格式构建请求体
+      const body = apiFormat === 'openai' ? {
+        model: model,
+        messages: [{ role: 'user', content: message }],
+        stream: stream,
+        max_tokens: 1000
+      } : {
+        model: model,
+        messages: [{ role: 'user', content: message }],
+        stream: stream,
+        max_tokens: 1000
+      }
+
       // 使用 Tauri HTTP 插件发请求，绕过 CORS
-      const resp = await fetch(`${serverUrl}/v1/chat/completions`, {
+      const resp = await fetch(`${serverUrl}${endpoint}`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: model,
-          messages: [
-            { role: 'user', content: message }
-          ],
-          stream: false,
-          max_tokens: 1000
-        })
+        headers,
+        body: JSON.stringify(body)
       })
 
       const text = await resp.text()
@@ -80,11 +98,12 @@ function TestPage() {
         throw new Error(`HTTP ${resp.status}: ${text}`)
       }
 
-      try {
-        const data = JSON.parse(text)
-        setResponse(data.choices?.[0]?.message?.content || `无响应内容，原始数据: ${text}`)
-      } catch {
-        setResponse(`解析响应失败，原始数据: ${text}`)
+      if (stream) {
+        // 解析 SSE 格式的响应
+        parseStreamResponse(text)
+      } else {
+        // 解析普通响应
+        parseNormalResponse(text)
       }
     } catch (error) {
       setResponse(`错误: ${error?.message || error || '未知错误'}`)
@@ -93,70 +112,52 @@ function TestPage() {
     }
   }
 
-  const testStreamApi = async () => {
-    if (!apiKey.trim() || !message.trim()) {
-      alert('请填写 API Key 和消息内容')
-      return
-    }
-
-    setLoading(true)
-    setResponse('')
-
+  const parseNormalResponse = (text) => {
     try {
-      // 使用 Tauri HTTP 插件发请求
-      const resp = await fetch(`${serverUrl}/v1/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: model,
-          messages: [
-            { role: 'user', content: message }
-          ],
-          stream: true,
-          max_tokens: 1000
-        })
-      })
-
-      if (!resp.ok) {
-        const errorText = await resp.text()
-        throw new Error(`HTTP ${resp.status}: ${errorText}`)
+      const data = JSON.parse(text)
+      if (apiFormat === 'openai') {
+        setResponse(data.choices?.[0]?.message?.content || `无响应内容，原始数据: ${text}`)
+      } else {
+        const content = data.content?.find(c => c.type === 'text')?.text
+        setResponse(content || `无响应内容，原始数据: ${text}`)
       }
+    } catch {
+      setResponse(`解析响应失败，原始数据: ${text}`)
+    }
+  }
 
-      // Tauri HTTP 插件可能不支持流式读取，尝试直接读取全部内容
-      const text = await resp.text()
+  const parseStreamResponse = (text) => {
+    let content = ''
+    const lines = text.split('\n')
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim()
       
-      // 解析 SSE 格式的响应
-      let content = ''
-      const lines = text.split('\n')
-      for (const line of lines) {
+      if (apiFormat === 'openai') {
         if (line.startsWith('data: ')) {
           const data = line.slice(6).trim()
           if (data === '[DONE]') continue
-          
           try {
             const parsed = JSON.parse(data)
             const chunk = parsed.choices?.[0]?.delta?.content
-            if (chunk) {
-              content += chunk
-              setResponse(content)
-            }
-          } catch {
-            // 忽略解析错误
+            if (chunk) content += chunk
+          } catch {}
+        }
+      } else {
+        if (line.startsWith('event: content_block_delta')) {
+          const nextLine = lines[i + 1]
+          if (nextLine && nextLine.trim().startsWith('data: ')) {
+            try {
+              const data = JSON.parse(nextLine.trim().slice(6))
+              const chunk = data.delta?.text
+              if (chunk) content += chunk
+            } catch {}
           }
         }
       }
-      
-      if (!content) {
-        setResponse(`无内容，原始响应: ${text.slice(0, 500)}...`)
-      }
-    } catch (error) {
-      setResponse(`错误: ${error?.message || error || '未知错误'}`)
-    } finally {
-      setLoading(false)
     }
+    
+    setResponse(content || `无内容，原始响应: ${text.slice(0, 500)}...`)
   }
 
   const copyResponse = async () => {
@@ -195,6 +196,37 @@ function TestPage() {
           </div>
         </div>
 
+        {/* API 格式选择 */}
+        <div className="mb-4">
+          <label className={`block text-sm mb-2 ${colors.textMuted}`}>API 格式</label>
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input 
+                type="radio" 
+                name="apiFormat" 
+                value="openai"
+                checked={apiFormat === 'openai'}
+                onChange={(e) => setApiFormat(e.target.value)}
+                className="w-4 h-4 accent-blue-500"
+              />
+              <span className={`text-sm ${colors.text}`}>OpenAI 格式</span>
+              <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">/v1/chat/completions</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input 
+                type="radio" 
+                name="apiFormat" 
+                value="anthropic"
+                checked={apiFormat === 'anthropic'}
+                onChange={(e) => setApiFormat(e.target.value)}
+                className="w-4 h-4 accent-purple-500"
+              />
+              <span className={`text-sm ${colors.text}`}>Anthropic 格式</span>
+              <span className="text-xs px-2 py-0.5 rounded bg-purple-500/20 text-purple-400">/v1/messages</span>
+            </label>
+          </div>
+        </div>
+
         <div className="mb-4">
           <div className="flex items-center justify-between mb-2">
             <label className={`text-sm ${colors.textMuted}`}>API Key</label>
@@ -224,7 +256,16 @@ function TestPage() {
           />
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input 
+              type="checkbox" 
+              checked={stream}
+              onChange={(e) => setStream(e.target.checked)}
+              className="w-4 h-4 accent-blue-500 rounded"
+            />
+            <span className={`text-sm ${colors.text}`}>流式输出</span>
+          </label>
           <button 
             onClick={testApi}
             disabled={loading}
@@ -233,17 +274,7 @@ function TestPage() {
             } text-white`}
           >
             {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-            普通请求
-          </button>
-          <button 
-            onClick={testStreamApi}
-            disabled={loading}
-            className={`flex-1 py-2.5 rounded-xl font-medium flex items-center justify-center gap-2 transition-all ${
-              loading ? 'bg-gray-500 cursor-not-allowed' : 'bg-gradient-to-r from-green-500 to-teal-600 hover:opacity-90'
-            } text-white`}
-          >
-            {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-            流式请求
+            发送请求
           </button>
         </div>
       </div>
@@ -284,11 +315,9 @@ function TestPage() {
       <div className={`${colors.card} rounded-2xl p-5 border ${colors.cardBorder}`}>
         <h3 className={`font-semibold ${colors.text} mb-3`}>使用说明</h3>
         <div className={`text-sm ${colors.textMuted} space-y-2`}>
-          <p>• 确保 KiroGate 服务器已启动</p>
-          <p>• 在「Token 管理」页生成 API Key 后，点击「从本地加载」自动填入</p>
-          <p>• 普通请求：一次性返回完整响应</p>
-          <p>• 流式请求：实时显示生成过程，体验更好</p>
-          <p>• 支持所有 Claude 模型，可以切换测试不同模型的效果</p>
+          <p>• 确保 KiroGate 服务器已启动（在「服务器」Tab 启动）</p>
+          <p>• API Key 会自动加载，也可点击「重新加载」手动刷新</p>
+          <p>• 勾选「流式输出」可测试流式响应</p>
         </div>
       </div>
     </div>

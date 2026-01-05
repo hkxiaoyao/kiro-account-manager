@@ -58,8 +58,16 @@ const parseJsonInput = (input) => {
 }
 
 const PLACEHOLDER = `[
-  { "name": "Google账号", "refreshToken": "aor..." },
-  { "name": "BuilderId", "refreshToken": "aor...", "clientId": "xxx", "clientSecret": "xxx" }
+  {
+    "name": "Google账号",
+    "refreshToken": "aor..."
+  },
+  {
+    "name": "BuilderId",
+    "refreshToken": "aor...",
+    "clientId": "xxx",
+    "clientSecret": "xxx"
+  }
 ]`
 
 function TokenModal({ show, onClose, onBatchSave }) {
