@@ -39,12 +39,19 @@
   "provider": "Google"
 }
 
-或数组格式：
-[
-  { "accessToken": "...", "refreshToken": "...", "provider": "Google" },
-  { "accessToken": "...", "refreshToken": "...", "provider": "Github" }
-]'></textarea>
-    <p class="hint">支持字段：accessToken, refreshToken, provider (Google/Github/BuilderId), machineId (可选)</p>
+IdC 类型（BuilderId/Enterprise）需要额外字段：
+{
+  "accessToken": "...",
+  "refreshToken": "...",
+  "provider": "BuilderId",
+  "clientId": "...",
+  "clientSecret": "...",
+  "region": "us-east-1"
+}'></textarea>
+    <p class="hint">
+      Social 类型 (Google/Github)：accessToken, refreshToken, provider<br>
+      IdC 类型 (BuilderId/Enterprise)：accessToken, refreshToken, provider, clientId, clientSecret, region(可选)
+    </p>
   </div>
 
   <div class="card">
@@ -91,7 +98,7 @@
         const results = []
         
         for (const acc of accounts) {
-          const idp = acc.provider || acc.idp || 'Google'
+          const provider = acc.provider || acc.idp || 'Google'
           const accessToken = acc.accessToken || acc.access_token
           
           if (!accessToken) {
@@ -99,13 +106,18 @@
             continue
           }
 
+          // 判断认证类型
+          const isIdC = ['BuilderId', 'Enterprise', 'idc'].includes(provider)
+          const body = { accessToken, authMethod: isIdC ? 'idc' : 'social' }
+          if (!isIdC) body.idp = provider
+
           const res = await fetch('/api/usage', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ accessToken, idp })
+            body: JSON.stringify(body)
           })
           const data = await res.json()
-          results.push({ status: res.status, idp, data })
+          results.push({ status: res.status, provider, authMethod: body.authMethod, data })
         }
 
         $('result').className = 'success'
@@ -123,6 +135,7 @@
         const results = []
         
         for (const acc of accounts) {
+          const provider = acc.provider || 'Google'
           const refreshToken = acc.refreshToken || acc.refresh_token
           const machineId = acc.machineId || acc.machine_id
           
@@ -131,16 +144,40 @@
             continue
           }
 
-          const body = { refreshToken }
-          if (machineId) body.machineId = machineId
+          // 判断认证类型
+          const isIdC = ['BuilderId', 'Enterprise', 'idc'].includes(provider)
+          
+          if (isIdC) {
+            // IdC 需要 clientId 和 clientSecret
+            const clientId = acc.clientId || acc.client_id
+            const clientSecret = acc.clientSecret || acc.client_secret
+            const region = acc.region || 'us-east-1'
+            
+            if (!clientId || !clientSecret) {
+              results.push({ error: 'IdC 类型需要 clientId 和 clientSecret', account: acc })
+              continue
+            }
 
-          const res = await fetch('/api/refresh', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-          })
-          const data = await res.json()
-          results.push({ status: res.status, data })
+            const res = await fetch('/api/refresh', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ refreshToken, authMethod: 'idc', clientId, clientSecret, region })
+            })
+            const data = await res.json()
+            results.push({ status: res.status, provider, authMethod: 'idc', data })
+          } else {
+            // Social 类型
+            const body = { refreshToken, authMethod: 'social' }
+            if (machineId) body.machineId = machineId
+
+            const res = await fetch('/api/refresh', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body)
+            })
+            const data = await res.json()
+            results.push({ status: res.status, provider, authMethod: 'social', data })
+          }
         }
 
         $('result').className = 'success'

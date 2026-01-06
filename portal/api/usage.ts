@@ -11,28 +11,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end()
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
-  const { accessToken, idp } = req.body
+  // authMethod: 'social' | 'idc'
+  // social 需要: accessToken, idp
+  // idc 需要: accessToken
+  const { accessToken, idp, authMethod = 'social' } = req.body
   
-  if (!accessToken || !idp) {
-    return res.status(400).json({ error: 'Missing required fields: accessToken, idp' })
+  if (!accessToken) {
+    return res.status(400).json({ error: 'Missing required field: accessToken' })
+  }
+  
+  if (authMethod === 'social' && !idp) {
+    return res.status(400).json({ error: 'Missing required field: idp (for social auth)' })
   }
 
   try {
     const url = `${KIRO_WEB_PORTAL}/service/KiroWebPortalService/operation/GetUserUsageAndLimits`
-    const cookie = `Idp=${idp}; AccessToken=${accessToken}`
-    // encode 返回 Buffer，转成 Uint8Array 兼容 fetch body
     const encoded = encode({ isEmailRequired: true, origin: 'KIRO_IDE' })
     const body = new Uint8Array(encoded)
 
+    // Social 用 Cookie 认证，IdC 只用 Bearer token
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/cbor',
+      'Accept': 'application/cbor',
+      'smithy-protocol': 'rpc-v2-cbor',
+      'authorization': `Bearer ${accessToken}`
+    }
+    
+    if (authMethod === 'social') {
+      headers['Cookie'] = `Idp=${idp}; AccessToken=${accessToken}`
+    }
+
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/cbor',
-        'Accept': 'application/cbor',
-        'smithy-protocol': 'rpc-v2-cbor',
-        'authorization': `Bearer ${accessToken}`,
-        'Cookie': cookie
-      },
+      headers,
       body
     })
 
