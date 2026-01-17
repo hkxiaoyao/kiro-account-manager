@@ -67,7 +67,7 @@
 - **Steering 规则** - 查看、编辑
 
 ### ⚡ API 代理服务
-- 需要 OpenAI 兼容 API？请使用独立项目 **[kiro-gate](https://github.com/hj01857655/kiro-gate)**
+- 需要 OpenAI 兼容 API？请使用独立项目 **[kiro-gateway](https://github.com/hj01857655/kiro-gateway)**
 - 功能更强大：多账号轮询、Token 自动刷新、流式响应、工具调用
 - 支持 OpenAI 和 Anthropic 格式接口
 
@@ -141,7 +141,7 @@ A: 网络超时，手动再刷新一次或换个网络试试。
 
 ## 🔗 相关项目
 
-- **[kiro-gate](https://github.com/hj01857655/kiro-gate)** - Kiro API 网关，提供 OpenAI/Anthropic 兼容接口
+- **[kiro-gateway](https://github.com/hj01857655/kiro-gateway)** - Kiro API 网关，提供 OpenAI/Anthropic 兼容接口
 
 ---
 
