@@ -284,7 +284,7 @@ function Editor({ file, editState, hasChanges, saving, inclusionOptions, onConte
             data={inclusionOptions.map(opt => ({ value: opt.value, label: opt.label }))}
             size="xs"
             classNames={{
-              input: `${colors.text} ${colors.input} focus:outline-none focus:ring-1 focus:ring-blue-500/30`
+              input: `${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-1 transition-all`
             }}
             styles={{ input: { minWidth: '120px' } }}
           />
@@ -298,7 +298,7 @@ function Editor({ file, editState, hasChanges, saving, inclusionOptions, onConte
               placeholder="**/*.jsx"
               size="xs"
               classNames={{
-                input: `${colors.text} ${colors.input} focus:outline-none focus:ring-1 focus:ring-blue-500/30`
+                input: `${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-1 transition-all`
               }}
               styles={{ input: { width: '128px' } }}
             />
@@ -311,7 +311,7 @@ function Editor({ file, editState, hasChanges, saving, inclusionOptions, onConte
           onChange={(e) => onContentChange(e.target.value)}
           placeholder={t('steering.contentPlaceholder')}
           classNames={{
-            input: `w-full h-full p-4 rounded-xl border ${colors.cardBorder} ${isLightTheme ? 'bg-gray-50' : 'bg-white/5'} ${colors.text} text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/30`
+            input: `w-full h-full p-4 rounded-xl border ${colors.cardBorder} ${isLightTheme ? 'bg-gray-50' : 'bg-white/5'} ${colors.text} text-sm font-mono resize-none ${colors.inputFocus} focus:ring-2 transition-all`
           }}
           styles={{ input: { minHeight: '100%' } }}
         />
@@ -333,14 +333,14 @@ function CreateModal({ inclusionOptions, onCreate, onClose, isLightTheme, colors
         onClick={e => e.stopPropagation()}
         style={{ animation: 'dialogIn 0.2s ease-out' }}
       >
-        <div className={`flex items-center justify-between px-5 py-4 ${isLightTheme ? 'bg-gray-50/50' : 'bg-white/[0.02]'}`}>
+        <div className={`flex items-center justify-between px-5 py-4 ${isLightTheme ? 'bg-gray-50/50' : 'bg-white/5'}`}>
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-xl ${isLightTheme ? 'bg-blue-50' : 'bg-blue-500/15'} flex items-center justify-center`}>
               <FileText size={20} className="text-blue-500" />
             </div>
             <h2 className={`text-base font-semibold ${colors.text}`}>{t('steering.newSteering')}</h2>
           </div>
-          <button onClick={onClose} className={`p-1.5 rounded-lg transition-colors ${isLightTheme ? 'hover:bg-black/5' : 'hover:bg-white/10'}`}>
+          <button onClick={onClose} className={`p-1.5 rounded-lg transition-colors ${isLightTheme ? 'hover:bg-gray-100' : 'hover:bg-white/10'}`}>
             <X size={18} className={colors.textMuted} />
           </button>
         </div>

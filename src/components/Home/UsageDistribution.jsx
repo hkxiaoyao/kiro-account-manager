@@ -1,3 +1,4 @@
+import { Card, Group, Stack, Text, Progress } from '@mantine/core'
 import { PieChart, BarChart2 } from 'lucide-react'
 import { usePrivacy } from '../../contexts/PrivacyContext'
 import { formatUsage } from '../../utils/accountStats'
@@ -41,58 +42,94 @@ function UsageDistribution({ tokens, isLightTheme, colors, t }) {
   return (
     <div className="grid grid-cols-2 gap-6 mt-6">
       {/* 使用率分布 */}
-      <div className={`card-glow ${colors.card} rounded-2xl shadow-sm border ${colors.cardBorder} p-5 animate-scale-in`}>
-        <div className="flex items-center gap-2 mb-4">
+      <Card
+        className="card-glow animate-scale-in"
+        shadow="sm"
+        padding="lg"
+        radius="xl"
+        withBorder
+        style={{ 
+          background: isLightTheme ? 'white' : 'rgba(30, 30, 50, 0.8)',
+          borderColor: isLightTheme ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)'
+        }}
+      >
+        <Group gap="xs" mb="md">
           <PieChart size={18} className="text-blue-500" />
-          <h3 className={`font-semibold ${colors.text}`}>{t('stats.usageDistribution')}</h3>
-        </div>
-        <div className="space-y-3">
+          <Text fw={600} className={colors.text}>{t('stats.usageDistribution')}</Text>
+        </Group>
+        <Stack gap="md">
           {[
-            { label: t('stats.lowUsage'), value: usageGroups.low, color: 'bg-green-500', desc: '< 30%' },
-            { label: t('stats.mediumUsage'), value: usageGroups.medium, color: 'bg-yellow-500', desc: '30-70%' },
-            { label: t('stats.highUsage'), value: usageGroups.high, color: 'bg-red-500', desc: '> 70%' }
+            { label: t('stats.lowUsage'), value: usageGroups.low, color: 'green', desc: '< 30%' },
+            { label: t('stats.mediumUsage'), value: usageGroups.medium, color: 'yellow', desc: '30-70%' },
+            { label: t('stats.highUsage'), value: usageGroups.high, color: 'red', desc: '> 70%' }
           ].map((item, i) => {
             const percent = tokens.length > 0 ? (item.value / tokens.length * 100) : 0
             return (
               <div key={i}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className={`text-sm ${colors.text}`}>{item.label} <span className={colors.textMuted}>({item.desc})</span></span>
-                  <span className={`text-sm font-medium ${colors.text}`}>{item.value} {t('stats.accounts')}</span>
-                </div>
-                <div className={`h-3 rounded-full ${isLightTheme ? 'bg-gray-100' : 'bg-white/10'} overflow-hidden`}>
-                  <div className={`h-full ${item.color} rounded-full transition-all duration-500`} style={{ width: `${percent}%` }} />
-                </div>
+                <Group justify="space-between" mb={4}>
+                  <Text size="sm" className={colors.text}>
+                    {item.label} <Text span c="dimmed">({item.desc})</Text>
+                  </Text>
+                  <Text size="sm" fw={500} className={colors.text}>
+                    {item.value} {t('stats.accounts')}
+                  </Text>
+                </Group>
+                <Progress
+                  value={percent}
+                  color={item.color}
+                  size="sm"
+                  radius="xl"
+                  animated
+                />
               </div>
             )
           })}
-        </div>
-      </div>
+        </Stack>
+      </Card>
 
       {/* 账号配额排行 */}
-      <div className={`card-glow ${colors.card} rounded-2xl shadow-sm border ${colors.cardBorder} p-5 animate-scale-in`}>
-        <div className="flex items-center gap-2 mb-4">
+      <Card
+        className="card-glow animate-scale-in"
+        shadow="sm"
+        padding="lg"
+        radius="xl"
+        withBorder
+        style={{ 
+          background: isLightTheme ? 'white' : 'rgba(30, 30, 50, 0.8)',
+          borderColor: isLightTheme ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)'
+        }}
+      >
+        <Group gap="xs" mb="md">
           <BarChart2 size={18} className="text-indigo-500" />
-          <h3 className={`font-semibold ${colors.text}`}>{t('stats.accountUsage')}</h3>
-        </div>
-        <div className="space-y-2.5">
+          <Text fw={600} className={colors.text}>{t('stats.accountUsage')}</Text>
+        </Group>
+        <Stack gap="sm">
           {topAccounts.map((account, i) => {
-            const usageColor = account.percent < 30 ? 'from-green-400 to-green-500'
-              : account.percent < 70 ? 'from-yellow-400 to-yellow-500'
-              : 'from-red-400 to-red-500'
+            const progressColor = account.percent < 30 ? 'green'
+              : account.percent < 70 ? 'yellow'
+              : 'red'
             return (
               <div key={i}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className={`text-xs ${colors.text} truncate max-w-[140px]`}>{maskEmail(account.email).split('@')[0]}</span>
-                  <span className={`text-xs ${colors.textMuted}`}>{account.usedStr}/{account.limitStr} ({account.percent}%)</span>
-                </div>
-                <div className={`h-2 rounded-full ${isLightTheme ? 'bg-gray-100' : 'bg-white/10'} overflow-hidden`}>
-                  <div className={`h-full bg-gradient-to-r ${usageColor} rounded-full transition-all duration-500`} style={{ width: `${account.percent}%` }} />
-                </div>
+                <Group justify="space-between" mb={4}>
+                  <Text size="xs" className={colors.text} truncate style={{ maxWidth: 140 }}>
+                    {maskEmail(account.email).split('@')[0]}
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    {account.usedStr}/{account.limitStr} ({account.percent}%)
+                  </Text>
+                </Group>
+                <Progress
+                  value={account.percent}
+                  color={progressColor}
+                  size="xs"
+                  radius="xl"
+                  animated
+                />
               </div>
             )
           })}
-        </div>
-      </div>
+        </Stack>
+      </Card>
     </div>
   )
 }

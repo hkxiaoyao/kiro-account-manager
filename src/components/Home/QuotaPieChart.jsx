@@ -1,4 +1,5 @@
 // 配额分布饼图组件
+import { Card, Group, Stack, Text } from '@mantine/core'
 import { PieChart } from 'lucide-react'
 import { useMemo } from 'react'
 import { useApp } from '../../hooks/useApp'
@@ -53,13 +54,23 @@ export default function QuotaPieChart({ accounts }) {
   if (accounts.length === 0) return null
 
   return (
-    <div className={`card-glow ${colors.card} rounded-2xl shadow-sm border ${colors.cardBorder} p-5 animate-scale-in`}>
-      <div className="flex items-center gap-2 mb-4">
+    <Card
+      className="card-glow animate-scale-in"
+      shadow="sm"
+      padding="lg"
+      radius="xl"
+      withBorder
+      style={{ 
+        background: isLightTheme ? 'white' : 'rgba(30, 30, 50, 0.8)',
+        borderColor: isLightTheme ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)'
+      }}
+    >
+      <Group gap="xs" mb="md">
         <PieChart size={18} className="text-blue-500" />
-        <h3 className={`font-semibold ${colors.text}`}>{t('stats.quotaDistribution')}</h3>
-      </div>
+        <Text fw={600} className={colors.text}>{t('stats.quotaDistribution')}</Text>
+      </Group>
 
-      <div className="flex items-center gap-6">
+      <Group align="flex-start" gap="xl">
         {/* SVG 饼图 */}
         <div className="relative w-36 h-36 flex-shrink-0">
           <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90">
@@ -86,16 +97,20 @@ export default function QuotaPieChart({ accounts }) {
         </div>
 
         {/* 图例 */}
-        <div className="flex-1 space-y-1.5 max-h-36 overflow-y-auto">
+        <Stack gap={6} style={{ flex: 1, maxHeight: 144, overflowY: 'auto' }}>
           {pieSlices.map((slice, i) => (
-            <div key={i} className="flex items-center gap-2 text-xs">
+            <Group key={i} gap="xs" wrap="nowrap">
               <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: slice.color }} />
-              <span className={`truncate ${colors.text}`}>{maskEmail(slice.email).split('@')[0]}</span>
-              <span className={`ml-auto ${colors.textMuted}`}>{slice.percentage}%</span>
-            </div>
+              <Text size="xs" className={colors.text} truncate style={{ flex: 1 }}>
+                {maskEmail(slice.email).split('@')[0]}
+              </Text>
+              <Text size="xs" c="dimmed" className="flex-shrink-0">
+                {slice.percentage}%
+              </Text>
+            </Group>
           ))}
-        </div>
-      </div>
-    </div>
+        </Stack>
+      </Group>
+    </Card>
   )
 }

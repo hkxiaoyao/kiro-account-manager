@@ -1,4 +1,5 @@
 // 使用量趋势图组件
+import { Card, Group, Stack, Text, Badge } from '@mantine/core'
 import { useState, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { Calendar } from 'lucide-react'
@@ -48,11 +49,21 @@ export default function UsageTrendChart({ accounts, stats }) {
   const maxUsed = Math.max(...usageHistory.map(h => h.totalUsed), 1)
 
   return (
-    <div className={`card-glow ${colors.card} rounded-2xl shadow-sm border ${colors.cardBorder} p-5 animate-scale-in`}>
-      <div className="flex items-center gap-2 mb-4">
+    <Card
+      className="card-glow animate-scale-in"
+      shadow="sm"
+      padding="lg"
+      radius="xl"
+      withBorder
+      style={{ 
+        background: isLightTheme ? 'white' : 'rgba(30, 30, 50, 0.8)',
+        borderColor: isLightTheme ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)'
+      }}
+    >
+      <Group gap="xs" mb="md">
         <Calendar size={18} className="text-cyan-500" />
-        <h3 className={`font-semibold ${colors.text}`}>{t('stats.usageTrend')}</h3>
-      </div>
+        <Text fw={600} className={colors.text}>{t('stats.usageTrend')}</Text>
+      </Group>
 
       {/* SVG 折线图 */}
       <div className="relative h-40">
@@ -153,12 +164,12 @@ export default function UsageTrendChart({ accounts, stats }) {
       </div>
 
       {/* 图例 */}
-      <div className="flex items-center justify-center gap-4 mt-2">
-        <div className="flex items-center gap-2">
+      <Group justify="center" gap="md" mt="xs">
+        <Group gap="xs">
           <div className="w-3 h-3 rounded-full bg-blue-500" />
-          <span className={`text-xs ${colors.textMuted}`}>{t('stats.totalUsed')}</span>
-        </div>
-      </div>
-    </div>
+          <Text size="xs" c="dimmed">{t('stats.totalUsed')}</Text>
+        </Group>
+      </Group>
+    </Card>
   )
 }

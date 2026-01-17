@@ -67,9 +67,9 @@ function MCPServerCard({ name, config, onToggle, onEdit, onDelete }) {
                 : 'bg-green-500'
             }`}
           >
-            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+            <div className={`absolute top-1 w-4 h-4 rounded-full transition-transform ${
               isDisabled ? 'left-1' : 'left-6'
-            }`} />
+            } ${isLightTheme ? 'bg-white' : 'bg-gray-200'}`} />
           </button>
           
           <button

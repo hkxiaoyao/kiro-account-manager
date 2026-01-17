@@ -138,7 +138,7 @@ function AccountTable({
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 340,
+    estimateSize: () => 360,
     overscan: 1, // 减少预渲染行数
   })
 

@@ -82,10 +82,10 @@ function ConfirmDialog({
       <div 
         className={`
           relative overflow-hidden
-          ${isLightTheme ? 'bg-white' : 'bg-[#1a1a1a]'} 
+          ${isLightTheme ? 'bg-white' : 'bg-[#1a1a2e]'} 
           rounded-2xl w-full max-w-[400px] 
           shadow-2xl ${isLightTheme ? 'shadow-gray-200/50' : 'shadow-black/50'}
-          border ${isLightTheme ? 'border-gray-200' : 'border-white/10'}
+          border ${colors.cardBorder}
         `}
         onClick={e => e.stopPropagation()}
         style={{ animation: 'dialogSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)' }}
@@ -173,7 +173,7 @@ function ConfirmDialog({
               onClick={onCancel}
               className={`
                 px-5 py-2.5 text-sm font-medium rounded-xl 
-                ${isLightTheme ? 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-200' : 'bg-white/5 hover:bg-white/10 text-white/80 border border-white/10'}
+                ${isLightTheme ? 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300' : 'bg-white/5 hover:bg-white/10 text-white/80 border border-white/10'}
                 transition-all duration-200 active:scale-[0.98]
               `}
             >

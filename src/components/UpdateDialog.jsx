@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { X, Download, RefreshCw, Sparkles, CheckCircle2, FileText } from 'lucide-react'
+import { Modal, Stack, Group, Text, Button, Progress, Alert } from '@mantine/core'
 import { useApp } from '../hooks/useApp'
 
 function UpdateDialog({ updateInfo, update, onClose }) {
@@ -77,118 +78,135 @@ function UpdateDialog({ updateInfo, update, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={handleClose}>
-      <div
-        className={`${colors.card} rounded-xl w-[480px] shadow-2xl overflow-hidden border ${colors.cardBorder}`}
-        onClick={e => e.stopPropagation()}
-      >
-        {/* 顶部横幅 */}
-        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-5 relative">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur">
-              <Sparkles size={28} className="text-white" />
-            </div>
-            <div className="text-white">
-              <h2 className="text-xl font-bold">{t('update.newVersionAvailable')}</h2>
-              <p className="text-white/80 text-sm mt-0.5">
-                v{updateInfo?.version} {t('update.readyToInstall')}
-              </p>
-            </div>
+    <Modal
+      opened={true}
+      onClose={handleClose}
+      centered
+      withCloseButton={false}
+      size="lg"
+      padding={0}
+      radius="md"
+      styles={{
+        content: { overflow: 'hidden' },
+        body: { backgroundColor: 'transparent' }
+      }}
+      classNames={{
+        content: colors.card
+      }}
+    >
+      {/* 顶部横幅 */}
+      <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-5 relative">
+        <Group gap="md">
+          <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur">
+            <Sparkles size={28} className="text-white" />
           </div>
-          {!installing && !downloadComplete && (
-            <button
-              onClick={handleClose}
-              className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-white/20 transition-colors"
-            >
-              <X size={20} className="text-white/80" />
-            </button>
-          )}
-        </div>
-
-        <div className="p-6">
-          {downloadComplete ? (
-            <div className="space-y-5">
-              <div className="flex items-center gap-3 text-emerald-500">
-                <CheckCircle2 size={24} />
-                <span className="text-lg font-medium">{t('update.downloadComplete')}</span>
-              </div>
-              <p className={`text-sm ${colors.textMuted}`}>{t('update.restartToInstall')}</p>
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={onClose}
-                  className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium border transition-colors ${colors.card} ${colors.cardHover} ${colors.text} border ${colors.cardBorder}`}
-                >
-                  {t('update.installLater')}
-                </button>
-                <button
-                  onClick={doRelaunch}
-                  className="flex-1 px-4 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors"
-                >
-                  <RefreshCw size={16} />
-                  {t('update.restartNow')}
-                </button>
-              </div>
-            </div>
-          ) : installing && downloadProgress ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between text-sm">
-                <span className={colors.text}>{t('update.downloading')}...</span>
-                <span className="text-blue-500 font-medium">{downloadProgress.percent}%</span>
-              </div>
-              <div className={`h-2 rounded-full overflow-hidden ${colors.cardSecondary}`}>
-                <div
-                  className="h-full bg-blue-500 rounded-full transition-all duration-200"
-                  style={{ width: `${downloadProgress.percent}%` }}
-                />
-              </div>
-              <div className={`flex justify-between text-xs ${colors.textMuted}`}>
-                <span>{formatBytes(downloadProgress.downloaded)} / {formatBytes(downloadProgress.total)}</span>
-                <span>{formatSpeed(downloadSpeed)}</span>
-              </div>
-              <p className={`text-xs ${colors.textMuted} flex items-center gap-1.5`}>
-                <RefreshCw size={12} className="animate-spin" />
-                {t('update.doNotClose')}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {updateInfo?.body && (
-                <div>
-                  <div className={`flex items-center gap-2 text-sm font-medium ${colors.text} mb-2`}>
-                    <FileText size={16} />
-                    {t('update.releaseNotes')}
-                  </div>
-                  <div className={`text-sm ${colors.textMuted} max-h-40 overflow-y-auto p-3 rounded-lg whitespace-pre-wrap leading-relaxed ${colors.cardSecondary}`}>
-                    {updateInfo.body}
-                  </div>
-                </div>
-              )}
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={onClose}
-                  className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium border transition-colors ${colors.card} ${colors.cardHover} ${colors.text} border ${colors.cardBorder}`}
-                >
-                  {t('update.later')}
-                </button>
-                <button
-                  onClick={doUpdate}
-                  className="flex-1 px-4 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors"
-                >
-                  <Download size={16} />
-                  {t('update.updateNow')}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {error && (
-            <div className={`mt-4 text-sm text-red-500 p-3 rounded-lg ${colors.error}`}>
-              {error}
-            </div>
-          )}
-        </div>
+          <Stack gap={2}>
+            <Text size="xl" fw={700} c="white">{t('update.newVersionAvailable')}</Text>
+            <Text size="sm" c="white" opacity={0.8}>
+              v{updateInfo?.version} {t('update.readyToInstall')}
+            </Text>
+          </Stack>
+        </Group>
+        {!installing && !downloadComplete && (
+          <button
+            onClick={handleClose}
+            className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-black/10 transition-colors"
+          >
+            <X size={20} className="text-white/80" />
+          </button>
+        )}
       </div>
-    </div>
+
+      <div className="p-6">
+        {downloadComplete ? (
+          <Stack gap="md">
+            <Group gap="sm">
+              <CheckCircle2 size={24} className="text-emerald-500" />
+              <Text size="lg" fw={500} c="teal">{t('update.downloadComplete')}</Text>
+            </Group>
+            <Text size="sm" className={colors.textMuted}>{t('update.restartToInstall')}</Text>
+            <Group gap="sm" grow>
+              <Button
+                onClick={onClose}
+                variant="outline"
+                classNames={{
+                  root: `border ${colors.cardBorder}`,
+                  label: colors.text
+                }}
+              >
+                {t('update.installLater')}
+              </Button>
+              <Button
+                onClick={doRelaunch}
+                leftSection={<RefreshCw size={16} />}
+                variant="filled"
+                color="blue"
+              >
+                {t('update.restartNow')}
+              </Button>
+            </Group>
+          </Stack>
+        ) : installing && downloadProgress ? (
+          <Stack gap="md">
+            <Group justify="space-between">
+              <Text size="sm" className={colors.text}>{t('update.downloading')}...</Text>
+              <Text size="sm" fw={500} c="blue">{downloadProgress.percent}%</Text>
+            </Group>
+            <Progress value={downloadProgress.percent} color="blue" size="sm" radius="xl" />
+            <Group justify="space-between">
+              <Text size="xs" className={colors.textMuted}>
+                {formatBytes(downloadProgress.downloaded)} / {formatBytes(downloadProgress.total)}
+              </Text>
+              <Text size="xs" className={colors.textMuted}>{formatSpeed(downloadSpeed)}</Text>
+            </Group>
+            <Group gap="xs">
+              <RefreshCw size={12} className="animate-spin text-blue-500" />
+              <Text size="xs" className={colors.textMuted}>{t('update.doNotClose')}</Text>
+            </Group>
+          </Stack>
+        ) : (
+          <Stack gap="md">
+            {updateInfo?.body && (
+              <Stack gap="xs">
+                <Group gap="xs">
+                  <FileText size={16} className={colors.text} />
+                  <Text size="sm" fw={500} className={colors.text}>{t('update.releaseNotes')}</Text>
+                </Group>
+                <div className={`text-sm ${colors.textMuted} max-h-40 overflow-y-auto p-3 rounded-lg whitespace-pre-wrap leading-relaxed ${isLightTheme ? 'bg-gray-50' : 'bg-white/5'}`}>
+                  {updateInfo.body}
+                </div>
+              </Stack>
+            )}
+            <Group gap="sm" grow>
+              <Button
+                onClick={onClose}
+                variant="outline"
+                classNames={{
+                  root: `border ${colors.cardBorder}`,
+                  label: colors.text
+                }}
+              >
+                {t('update.later')}
+              </Button>
+              <Button
+                onClick={doUpdate}
+                leftSection={<Download size={16} />}
+                variant="filled"
+                color="blue"
+              >
+                {t('update.updateNow')}
+              </Button>
+            </Group>
+          </Stack>
+        )}
+
+        {error && (
+          <Alert color="red" mt="md" radius="md">
+            {error}
+          </Alert>
+        )}
+      </div>
+    </Modal>
   )
 }
 

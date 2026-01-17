@@ -1,9 +1,4 @@
-import { RefreshCw } from 'lucide-react'
-
-// 骨架屏单元
-function Skeleton({ className }) {
-  return <div className={`skeleton ${className}`} />
-}
+import { Card, Group, Stack, Skeleton } from '@mantine/core'
 
 // 骨架屏加载状态
 function LoadingSkeleton({ colors }) {
@@ -14,59 +9,89 @@ function LoadingSkeleton({ colors }) {
       
       <div className="max-w-5xl mx-auto p-8 relative">
         {/* Header 骨架 */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <Skeleton className="w-12 h-12 rounded-2xl" />
-            <Skeleton className="w-64 h-8 rounded-lg" />
-          </div>
-          <Skeleton className="w-80 h-5 rounded-lg mt-3" />
-        </div>
+        <Stack gap="md" mb="xl">
+          <Group gap="md">
+            <Skeleton width={48} height={48} radius="xl" />
+            <Skeleton width={256} height={32} radius="lg" />
+          </Group>
+          <Skeleton width={320} height={20} radius="lg" />
+        </Stack>
 
         {/* 统计卡片骨架 */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className={`${colors.card} rounded-2xl p-5 border ${colors.cardBorder}`}>
-              <div className="flex items-center justify-between mb-3">
-                <Skeleton className="w-12 h-12 rounded-xl" />
-                <Skeleton className="w-12 h-10 rounded-lg" />
-              </div>
-              <Skeleton className="w-20 h-4 rounded" />
-            </div>
+        <Group gap="md" mb="xl" grow>
+          {[...Array(5)].map((_, i) => (
+            <Card
+              key={i}
+              shadow="sm"
+              padding="md"
+              radius="xl"
+              withBorder
+              style={{ 
+                background: colors.card,
+                borderColor: colors.cardBorder
+              }}
+            >
+              <Group gap="md" wrap="nowrap">
+                <Skeleton width={36} height={36} radius="lg" />
+                <Stack gap="xs" style={{ flex: 1 }}>
+                  <Skeleton width="60%" height={28} />
+                  <Skeleton width="80%" height={16} />
+                </Stack>
+              </Group>
+            </Card>
           ))}
-        </div>
+        </Group>
 
         {/* 主内容骨架 */}
-        <div className="grid grid-cols-2 gap-6">
-          <div className={`${colors.card} rounded-2xl border ${colors.cardBorder} overflow-hidden`}>
+        <Group gap="xl" align="flex-start" grow>
+          <Card
+            shadow="sm"
+            padding={0}
+            radius="xl"
+            withBorder
+            style={{ 
+              background: colors.card,
+              borderColor: colors.cardBorder
+            }}
+          >
             <div className={`px-6 py-4 border-b ${colors.cardBorder}`}>
-              <Skeleton className="w-32 h-5 rounded" />
+              <Skeleton width={128} height={20} />
             </div>
-            <div className="p-6 space-y-4">
-              <div className="flex items-center gap-4">
-                <Skeleton className="w-16 h-16 rounded-2xl" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="w-24 h-5 rounded" />
-                  <Skeleton className="w-16 h-4 rounded" />
-                </div>
-              </div>
-              <Skeleton className="w-full h-24 rounded-xl" />
-            </div>
-          </div>
+            <Stack gap="md" p="xl">
+              <Group gap="md">
+                <Skeleton width={64} height={64} radius="xl" />
+                <Stack gap="xs" style={{ flex: 1 }}>
+                  <Skeleton width="40%" height={20} />
+                  <Skeleton width="30%" height={16} />
+                </Stack>
+              </Group>
+              <Skeleton width="100%" height={96} radius="xl" />
+            </Stack>
+          </Card>
           
-          <div className={`${colors.card} rounded-2xl border ${colors.cardBorder} overflow-hidden`}>
+          <Card
+            shadow="sm"
+            padding={0}
+            radius="xl"
+            withBorder
+            style={{ 
+              background: colors.card,
+              borderColor: colors.cardBorder
+            }}
+          >
             <div className={`px-6 py-4 border-b ${colors.cardBorder}`}>
-              <Skeleton className="w-24 h-5 rounded" />
+              <Skeleton width={96} height={20} />
             </div>
-            <div className="p-6 space-y-4">
-              <Skeleton className="w-full h-16 rounded-xl" />
-              <div className="grid grid-cols-3 gap-3">
+            <Stack gap="md" p="xl">
+              <Skeleton width="100%" height={64} radius="xl" />
+              <Group gap="md" grow>
                 {[...Array(3)].map((_, i) => (
-                  <Skeleton key={i} className="h-20 rounded-xl" />
+                  <Skeleton key={i} height={80} radius="xl" />
                 ))}
-              </div>
-            </div>
-          </div>
-        </div>
+              </Group>
+            </Stack>
+          </Card>
+        </Group>
       </div>
     </div>
   )

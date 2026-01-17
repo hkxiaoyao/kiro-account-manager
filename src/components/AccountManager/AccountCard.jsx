@@ -106,7 +106,7 @@ const AccountCard = memo(function AccountCard({
   return (
     <div
       onContextMenu={handleContextMenu}
-      className={`relative rounded-2xl border transition-all duration-200 hover:shadow-lg flex flex-col min-h-[320px] ${glowColor} ${
+      className={`relative rounded-2xl border transition-all duration-200 hover:shadow-lg flex flex-col ${glowColor} ${
       isSelected 
         ? (isLightTheme ? 'border-purple-400 bg-purple-50' : 'border-purple-500 bg-purple-500/10') 
         : isCurrentAccount
@@ -116,7 +116,9 @@ const AccountCard = memo(function AccountCard({
             : !isNormal
               ? (isLightTheme ? 'border-orange-300 bg-orange-50/50' : 'border-orange-500/50 bg-orange-500/5')
               : (isLightTheme ? 'border-gray-200 bg-white hover:border-gray-300' : 'border-gray-700 bg-gray-800/50 hover:border-gray-600')
-    }`}>
+    }`}
+      style={{ height: '100%', minHeight: '320px' }}
+    >
       {/* 右键菜单 - 懒加载 */}
       {contextMenu && (
         <ContextMenu

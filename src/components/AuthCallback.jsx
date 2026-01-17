@@ -3,7 +3,8 @@ import { invoke } from '@tauri-apps/api/core'
 import { useApp } from '../hooks/useApp'
 
 export default function AuthCallback() {
-  const { t } = useApp()
+  const { t, theme, colors } = useApp()
+  const isLightTheme = theme === 'light'
   const [status, setStatus] = useState('loading')
   const [message, setMessage] = useState('')
 
@@ -87,8 +88,8 @@ export default function AuthCallback() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full">
+    <div className={`min-h-screen flex items-center justify-center p-4 ${isLightTheme ? 'bg-gradient-to-br from-blue-50 to-indigo-100' : 'bg-gradient-to-br from-gray-900 to-gray-800'}`}>
+      <div className={`${isLightTheme ? 'bg-white' : 'bg-[#1a1a2e]'} rounded-2xl shadow-xl p-8 max-w-md w-full border ${colors.cardBorder}`}>
         {getStatusIcon()}
         
         <h1 className={`text-2xl font-bold text-center mb-4 ${getStatusColor()}`}>
@@ -97,13 +98,13 @@ export default function AuthCallback() {
           {(status === 'loading' || status === 'processing') && t('callback.processingTitle')}
         </h1>
         
-        <p className="text-gray-600 text-center mb-6 leading-relaxed">
+        <p className={`${colors.textMuted} text-center mb-6 leading-relaxed`}>
           {message}
         </p>
 
         {status === 'success' && (
           <div className="text-center">
-            <p className="text-sm text-gray-500 mb-4">
+            <p className={`text-sm ${colors.textMuted} mb-4`}>
               {t('callback.autoCloseHint')}
             </p>
             <button
@@ -119,7 +120,7 @@ export default function AuthCallback() {
           <div className="text-center">
             <button
               onClick={() => window.close()}
-              className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+              className={`px-6 py-2 ${isLightTheme ? 'bg-gray-500 hover:bg-gray-600' : 'bg-gray-700 hover:bg-gray-600'} text-white rounded-lg transition-colors`}
             >
               {t('callback.closeWindow')}
             </button>

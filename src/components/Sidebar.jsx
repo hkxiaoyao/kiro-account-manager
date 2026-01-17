@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { getVersion } from '@tauri-apps/api/app'
 import { User, Sun, Moon, Palette } from 'lucide-react'
+import { NavLink, Menu, Tooltip, Text, Group, Stack, Box, ActionIcon, Paper, Indicator } from '@mantine/core'
 import { themes } from '../contexts/ThemeContext'
 import { useApp } from '../hooks/useApp'
 import { routes } from '../routes'
@@ -18,7 +19,6 @@ function useMenuItems() {
 
 function Sidebar({ activeMenu, onMenuChange }) {
   const [localToken, setLocalToken] = useState(null)
-  const [showThemeMenu, setShowThemeMenu] = useState(false)
   const [version, setVersion] = useState('')
   const [collapsed, setCollapsed] = useState(false)
   const { t, theme, colors, setTheme } = useApp()
@@ -43,126 +43,233 @@ function Sidebar({ activeMenu, onMenuChange }) {
   const ThemeIcon = themeIcons[theme] || Sun
 
   return (
-    <div className={`${collapsed ? 'w-16' : 'w-56'} ${colors.sidebar} ${colors.sidebarText} flex flex-col relative transition-all duration-300`}>
+    <Box
+      className={colors.sidebar}
+      style={{
+        width: collapsed ? 64 : 224,
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'relative',
+        transition: 'width 300ms ease',
+      }}
+    >
       {/* Logo - 双击折叠 */}
-      <div 
-        className={`p-5 pb-4 ${collapsed ? 'px-3' : ''} cursor-pointer select-none`}
-        onDoubleClick={toggleCollapsed}
-        title={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
-      >
-        <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-2.5'} mb-1 animate-fade-in-up`} style={{ animationDelay: '0.1s' }}>
-          <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm transition-transform hover:scale-110 hover:rotate-3 flex-shrink-0">
-            <svg width="24" height="24" viewBox="0 0 40 40" fill="none">
-              <path d="M20 4C12 4 6 10 6 18C6 22 8 25 8 25C8 25 7 28 7 30C7 32 8 34 10 34C11 34 12 33 13 32C14 33 16 34 20 34C24 34 26 33 27 32C28 33 29 34 30 34C32 34 33 32 33 30C33 28 32 25 32 25C32 25 34 22 34 18C34 10 28 4 20 4ZM14 20C12.5 20 11 18.5 11 17C11 15.5 12.5 14 14 14C15.5 14 17 15.5 17 17C17 18.5 15.5 20 14 20ZM26 20C24.5 20 23 18.5 23 17C23 15.5 24.5 14 26 14C27.5 14 29 15.5 29 17C29 18.5 27.5 20 26 20Z" fill="white"/>
-            </svg>
-          </div>
-          {!collapsed && (
-            <div>
-              <span className="font-bold text-lg tracking-wide">KIRO</span>
-              <p className={`text-xs ${colors.sidebarMuted}`}>Account Manager</p>
-            </div>
-          )}
-        </div>
-      </div>
+      <Tooltip label={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')} position="right">
+        <Box
+          p={collapsed ? 'xs' : 'md'}
+          pb="sm"
+          style={{ cursor: 'pointer', userSelect: 'none' }}
+          onDoubleClick={toggleCollapsed}
+        >
+          <Group
+            gap={collapsed ? 0 : 'sm'}
+            justify={collapsed ? 'center' : 'flex-start'}
+            mb="xs"
+            style={{
+              animation: 'fadeInUp 0.5s ease-out',
+              animationDelay: '0.1s',
+              animationFillMode: 'both',
+            }}
+          >
+            <Box
+              style={{
+                width: 40,
+                height: 40,
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                borderRadius: 12,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backdropFilter: 'blur(8px)',
+                transition: 'transform 200ms ease',
+                flexShrink: 0,
+              }}
+              className="hover-scale"
+            >
+              <svg width="24" height="24" viewBox="0 0 40 40" fill="none">
+                <path d="M20 4C12 4 6 10 6 18C6 22 8 25 8 25C8 25 7 28 7 30C7 32 8 34 10 34C11 34 12 33 13 32C14 33 16 34 20 34C24 34 26 33 27 32C28 33 29 34 30 34C32 34 33 32 33 30C33 28 32 25 32 25C32 25 34 22 34 18C34 10 28 4 20 4ZM14 20C12.5 20 11 18.5 11 17C11 15.5 12.5 14 14 14C15.5 14 17 15.5 17 17C17 18.5 15.5 20 14 20ZM26 20C24.5 20 23 18.5 23 17C23 15.5 24.5 14 26 14C27.5 14 29 15.5 29 17C29 18.5 27.5 20 26 20Z" fill="white"/>
+              </svg>
+            </Box>
+            {!collapsed && (
+              <Stack gap={0}>
+                <Text fw={700} size="lg" style={{ letterSpacing: '0.05em', color: 'rgba(255, 255, 255, 0.95)' }}>
+                  KIRO
+                </Text>
+                <Text size="xs" style={{ color: 'rgba(255, 255, 255, 0.6)' }}>
+                  Account Manager
+                </Text>
+              </Stack>
+            )}
+          </Group>
+        </Box>
+      </Tooltip>
 
       {/* Menu */}
-      <nav className={`flex-1 ${collapsed ? 'px-2' : 'px-3'} space-y-1`}>
+      <Stack
+        gap="xs"
+        px={collapsed ? 'xs' : 'sm'}
+        style={{ flex: 1, overflow: 'auto' }}
+      >
         {menuItems.map((item, index) => {
           const Icon = item.icon
           const isActive = activeMenu === item.id
           return (
-            <button
-              key={item.id}
-              onClick={() => onMenuChange(item.id)}
-              title={collapsed ? item.label : undefined}
-              className={`w-full flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-2.5 text-left transition-all rounded-xl group animate-slide-in-left ${
-                isActive ? `${colors.sidebarActive} font-medium shadow-sm` : `${colors.sidebarText} ${colors.sidebarHover}`
-              }`}
-              style={{ animationDelay: `${0.15 + index * 0.05}s` }}
-            >
-              <div className={`transition-transform ${isActive ? '' : 'group-hover:scale-110'} flex-shrink-0`}>
-                <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
-              </div>
-              {!collapsed && (
-                <div className="flex-1 min-w-0">
-                  <span className="text-sm">{item.label}</span>
-                  {item.desc && <p className={`text-xs ${colors.sidebarMuted} truncate`}>{item.desc}</p>}
-                </div>
-              )}
-              {isActive && !collapsed && (
-                <div className="w-1.5 h-1.5 rounded-full bg-white/80 animate-pulse" />
-              )}
-            </button>
+            <Tooltip key={item.id} label={collapsed ? item.label : null} position="right" disabled={!collapsed}>
+              <NavLink
+                onClick={() => onMenuChange(item.id)}
+                active={isActive}
+                label={!collapsed && item.label}
+                description={!collapsed && item.desc}
+                leftSection={<Icon size={18} strokeWidth={isActive ? 2.5 : 2} />}
+                rightSection={
+                  isActive && !collapsed && (
+                    <Box
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                        animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                      }}
+                    />
+                  )
+                }
+                className={isActive ? colors.sidebarActive : colors.sidebarHover}
+                style={{
+                  borderRadius: 12,
+                  animation: 'slideInLeft 0.5s ease-out',
+                  animationDelay: `${0.15 + index * 0.05}s`,
+                  animationFillMode: 'both',
+                  fontWeight: isActive ? 500 : 400,
+                }}
+                styles={{
+                  root: {
+                    color: 'rgba(255, 255, 255, 0.9)',
+                    '&:hover': {
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    },
+                  },
+                  label: {
+                    color: 'rgba(255, 255, 255, 0.9)',
+                  },
+                  description: {
+                    color: 'rgba(255, 255, 255, 0.6)',
+                  },
+                  section: {
+                    color: 'rgba(255, 255, 255, 0.9)',
+                  },
+                }}
+              />
+            </Tooltip>
           )
         })}
-      </nav>
+      </Stack>
 
       {/* Kiro IDE 本地连接状态 */}
       {localToken && !collapsed && (
-        <div className={`mx-3 mb-3 ${colors.sidebarCard} rounded-xl p-3 animate-fade-in-up card-glow`} style={{ animationDelay: '0.5s' }}>
-          <div className={`text-xs ${colors.sidebarMuted} mb-2 flex items-center gap-1.5`}>
-            <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></div>
-            {t('nav.kiroConnected')}
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center text-sm font-medium text-green-300 transition-transform hover:scale-110">
+        <Paper
+          className={colors.sidebarCard}
+          radius="md"
+          p="sm"
+          mx="sm"
+          mb="sm"
+          style={{
+            animation: 'fadeInUp 0.5s ease-out',
+            animationDelay: '0.5s',
+            animationFillMode: 'both',
+          }}
+        >
+          <Group gap="xs" mb="xs">
+            <Indicator color="green" processing size={6} />
+            <Text size="xs" style={{ color: 'rgba(255, 255, 255, 0.6)' }}>
+              {t('nav.kiroConnected')}
+            </Text>
+          </Group>
+          <Group gap="sm">
+            <Box
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'rgb(134, 239, 172)',
+                transition: 'transform 200ms ease',
+              }}
+              className="hover-scale"
+            >
               <User size={14} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-xs font-medium truncate">{localToken.provider || 'Local'}</div>
-              <div className={`text-xs ${colors.sidebarMuted}`}>
+            </Box>
+            <Stack gap={0} style={{ flex: 1, minWidth: 0 }}>
+              <Text size="xs" fw={500} truncate style={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+                {localToken.provider || 'Local'}
+              </Text>
+              <Text size="xs" style={{ color: 'rgba(255, 255, 255, 0.6)' }}>
                 {localToken.expiresAt ? new Date(localToken.expiresAt).toLocaleTimeString() : ''}
-              </div>
-            </div>
-          </div>
-        </div>
+              </Text>
+            </Stack>
+          </Group>
+        </Paper>
       )}
 
       {/* 折叠状态下的连接指示器 */}
       {localToken && collapsed && (
-        <div className="mx-2 mb-3 flex justify-center">
-          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" title={t('nav.kiroConnected')} />
-        </div>
+        <Tooltip label={t('nav.kiroConnected')} position="right">
+          <Box mx="xs" mb="sm" style={{ display: 'flex', justifyContent: 'center' }}>
+            <Indicator color="green" processing size={8} />
+          </Box>
+        </Tooltip>
       )}
 
       {/* Theme & Version */}
-      <div className={`px-3 pb-3 flex items-center ${collapsed ? 'flex-col gap-2' : 'justify-between gap-2'}`}>
+      <Group
+        px="sm"
+        pb="sm"
+        gap="xs"
+        justify={collapsed ? 'center' : 'space-between'}
+        style={{ flexDirection: collapsed ? 'column' : 'row' }}
+      >
         {/* 主题切换 */}
-        <div className="relative">
-          <button
-            onClick={() => setShowThemeMenu(!showThemeMenu)}
-            className={`flex items-center gap-1.5 px-2 py-1.5 ${colors.sidebarCard} rounded-lg text-xs ${colors.sidebarMuted} hover:text-white transition-all hover:scale-105`}
-          >
-            <ThemeIcon size={14} />
-          </button>
-          
-          {showThemeMenu && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowThemeMenu(false)} />
-              <div className={`absolute bottom-full ${collapsed ? 'left-full ml-2' : 'left-0'} mb-2 ${colors.card} rounded-xl shadow-xl border ${colors.cardBorder} py-1 min-w-[100px] z-50 animate-scale-in`}>
-                {Object.entries(themes).map(([key, themeConfig]) => {
-                  const TIcon = themeIcons[key] || Sun
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => { setTheme(key); setShowThemeMenu(false) }}
-                      className={`w-full flex items-center gap-2 px-3 py-2 text-sm ${colors.menuHover} transition-colors ${
-                        theme === key ? `${colors.primary} font-medium` : colors.text
-                      }`}
-                    >
-                      <TIcon size={14} />
-                      {t(themeConfig.nameKey)}
-                    </button>
-                  )
-                })}
-              </div>
-            </>
-          )}
-        </div>
+        <Menu position={collapsed ? 'right' : 'top'} shadow="md">
+          <Menu.Target>
+            <ActionIcon
+              variant="subtle"
+              className={`${colors.sidebarCard} hover-scale`}
+              radius="md"
+              size="md"
+              style={{
+                transition: 'transform 200ms ease',
+              }}
+            >
+              <ThemeIcon size={16} />
+            </ActionIcon>
+          </Menu.Target>
+          <Menu.Dropdown className={`${colors.card} ${colors.cardBorder}`}>
+            {Object.entries(themes).map(([key, themeConfig]) => {
+              const TIcon = themeIcons[key] || Sun
+              return (
+                <Menu.Item
+                  key={key}
+                  leftSection={<TIcon size={16} />}
+                  onClick={() => setTheme(key)}
+                  className={theme === key ? colors.primary : ''}
+                >
+                  {t(themeConfig.nameKey)}
+                </Menu.Item>
+              )
+            })}
+          </Menu.Dropdown>
+        </Menu>
         
-        {!collapsed && <span className={`text-xs ${colors.sidebarMuted} ml-auto`}>v{version || '...'}</span>}
-      </div>
-    </div>
+        {!collapsed && (
+          <Text size="xs" style={{ marginLeft: 'auto', color: 'rgba(255, 255, 255, 0.6)' }}>
+            v{version || '...'}
+          </Text>
+        )}
+      </Group>
+    </Box>
   )
 }
 

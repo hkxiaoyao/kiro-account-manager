@@ -24,7 +24,7 @@ const compareVersions = (v1, v2) => {
 
 export default function AnnouncementModal() {
   const { t, theme, colors } = useApp()
-  const isLightTheme = theme === 'light' || theme === 'purple'
+  const isLightTheme = theme === 'light'
   const [show, setShow] = useState(false)
   const [announcement, setAnnouncement] = useState(null)
   const [forceUpdate, setForceUpdate] = useState(null)
@@ -120,7 +120,7 @@ export default function AnnouncementModal() {
     return (
       <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm">
         <div className={`relative w-[420px] max-w-[90vw] rounded-2xl shadow-2xl border ${
-          isLightTheme ? 'bg-white border-gray-200' : 'bg-gray-900 border-gray-700'
+          isLightTheme ? 'bg-white border-gray-200' : 'bg-[#1a1a2e] border-gray-700'
         } overflow-hidden`}>
           <div className="bg-gradient-to-r from-red-500 to-orange-500 px-6 py-4 flex items-center gap-3">
             <AlertTriangle size={24} className="text-white" />
@@ -144,14 +144,14 @@ export default function AnnouncementModal() {
             <button
               onClick={handleUpdate}
               disabled={updating}
-              className="w-full py-3 rounded-xl font-medium bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full py-3 rounded-xl font-medium bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50 transition-opacity"
             >
               {updating ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
               {updating ? '更新中...' : '立即更新'}
             </button>
             <button
               onClick={handleDownload}
-              className={`w-full py-2 rounded-xl text-sm ${colors.textMuted} hover:underline`}
+              className={`w-full py-2 rounded-xl text-sm ${colors.textMuted} hover:underline transition-all`}
             >
               手动下载
             </button>
@@ -167,7 +167,7 @@ export default function AnnouncementModal() {
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className={`relative w-[480px] max-w-[90vw] rounded-2xl shadow-2xl border ${
-        isLightTheme ? 'bg-white border-gray-200' : 'bg-gray-900 border-gray-700'
+        isLightTheme ? 'bg-white border-gray-200' : 'bg-[#1a1a2e] border-gray-700'
       } overflow-hidden animate-fade-in-up`}>
         {/* 顶部警告条 */}
         <div className="bg-gradient-to-r from-red-500 to-orange-500 px-6 py-4 flex items-center gap-3">

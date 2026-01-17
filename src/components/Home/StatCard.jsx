@@ -1,30 +1,42 @@
+import { Card, Badge, Group, Stack, Text } from '@mantine/core'
+
 // 统计卡片组件 - 紧凑版
 function StatCard({ icon: Icon, iconBg, value, label, delay, isLightTheme, onClick, warning }) {
-  const cardClass = onClick ? 'cursor-pointer hover:scale-105 transition-transform' : ''
-  const warningClass = warning ? 'ring-2 ring-orange-500/50' : ''
-  
   return (
-    <div 
+    <Card
       onClick={onClick}
-      className={`card-glow rounded-xl p-3 shadow-sm border animate-scale-in ${delay} ${cardClass} ${warningClass}`}
+      className={`card-glow animate-scale-in ${delay} ${onClick ? 'cursor-pointer hover:scale-105 transition-transform' : ''}`}
+      shadow="sm"
+      padding="md"
+      radius="xl"
+      withBorder
       style={{ 
         background: isLightTheme ? 'white' : 'rgba(30, 30, 50, 0.8)',
-        borderColor: isLightTheme ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)'
+        borderColor: warning ? 'rgba(249, 115, 22, 0.5)' : (isLightTheme ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)'),
+        borderWidth: warning ? '2px' : '1px'
       }}
     >
-      <div className="flex items-center gap-3">
-        <div className={`w-9 h-9 ${iconBg} rounded-lg flex items-center justify-center relative`}>
+      <Group gap="md" wrap="nowrap">
+        <div className={`w-9 h-9 ${iconBg} rounded-lg flex items-center justify-center relative flex-shrink-0`}>
           <Icon size={18} className={!isLightTheme ? 'text-current' : ''} />
           {warning && (
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full animate-pulse" />
+            <Badge
+              size="xs"
+              circle
+              color="orange"
+              className="absolute -top-1 -right-1 animate-pulse"
+              style={{ width: 12, height: 12, padding: 0 }}
+            />
           )}
         </div>
-        <div>
-          <span className={`text-xl font-bold stat-number ${isLightTheme ? 'text-gray-900' : 'text-white'}`}>{value}</span>
-          <div className={`text-xs ${isLightTheme ? 'text-gray-500' : 'text-gray-400'}`}>{label}</div>
-        </div>
-      </div>
-    </div>
+        <Stack gap={0}>
+          <Text size="xl" fw={700} className={`stat-number ${isLightTheme ? 'text-gray-900' : 'text-white'}`}>
+            {value}
+          </Text>
+          <Text size="xs" c="dimmed">{label}</Text>
+        </Stack>
+      </Group>
+    </Card>
   )
 }
 

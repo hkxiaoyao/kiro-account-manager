@@ -410,3 +410,16 @@ body:not(.dark) .bg-glow {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+/* ===== Hover 缩放效果 ===== */
+.hover-scale {
+  transition: transform 0.2s ease;
+}
+
+.hover-scale:hover {
+  transform: scale(1.1);
+}
+
+.hover-scale:active {
+  transform: scale(0.95);
+}
