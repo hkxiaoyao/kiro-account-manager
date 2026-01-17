@@ -1,6 +1,7 @@
 import { memo, useState, useCallback, useMemo } from 'react'
 import { RefreshCw, Eye, Trash2, Copy, Check, Clock, Repeat, Edit2, UserX } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { Checkbox } from '@mantine/core'
 import { useTheme } from '../../contexts/ThemeContext'
 import { usePrivacy } from '../../contexts/PrivacyContext'
 import { getUsagePercent, getProgressBarColor } from './hooks/useAccountStats'
@@ -126,13 +127,21 @@ const AccountCard = memo(function AccountCard({
           isLightTheme={isLightTheme}
         />
       )}
-      {/* 选择框和当前使用标记 */}
-      <div className="absolute top-3 left-3 flex items-center gap-2">
-        <input 
-          type="checkbox" 
-          checked={isSelected} 
-          onChange={(e) => onSelect(e.target.checked)} 
-          className="w-4 h-4 rounded transition-transform hover:scale-110 cursor-pointer" 
+      {/* 选择框 */}
+      <div className="absolute top-3 left-3 z-10">
+        <Checkbox
+          checked={isSelected}
+          onChange={(e) => onSelect(e.currentTarget.checked)}
+          size="sm"
+          styles={{
+            root: { cursor: 'pointer' },
+            input: { 
+              cursor: 'pointer',
+              backgroundColor: isSelected ? undefined : (isLightTheme ? 'white' : 'rgba(255, 255, 255, 0.1)'),
+              borderColor: isSelected ? undefined : (isLightTheme ? '#d1d5db' : 'rgba(255, 255, 255, 0.2)'),
+            },
+          }}
+          aria-label={t('accountCard.selectAccount')}
         />
       </div>
       

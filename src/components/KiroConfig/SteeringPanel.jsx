@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { useApp } from '../../hooks/useApp'
 import { useDialog } from '../../contexts/DialogContext'
 import { FileText, RefreshCw, Trash2, Save, Plus, X } from 'lucide-react'
+import { TextInput, Select, Textarea } from '@mantine/core'
 
 // 解析 front-matter
 const parseFrontMatter = (content) => {
@@ -277,33 +278,42 @@ function Editor({ file, editState, hasChanges, saving, inclusionOptions, onConte
       <div className={`px-4 py-3 border-b ${colors.cardBorder} flex items-center gap-4`}>
         <div className="flex items-center gap-2">
           <span className={`text-xs ${colors.textMuted}`}>{t('steering.inclusionMode')}:</span>
-          <select
+          <Select
             value={editState.inclusion}
-            onChange={(e) => onInclusionChange(e.target.value)}
-            className={`px-2 py-1 border rounded-lg text-xs ${colors.text} ${colors.input} focus:outline-none focus:ring-1 focus:ring-blue-500/30`}
-          >
-            {inclusionOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-          </select>
+            onChange={onInclusionChange}
+            data={inclusionOptions.map(opt => ({ value: opt.value, label: opt.label }))}
+            size="xs"
+            classNames={{
+              input: `${colors.text} ${colors.input} focus:outline-none focus:ring-1 focus:ring-blue-500/30`
+            }}
+            styles={{ input: { minWidth: '120px' } }}
+          />
         </div>
         {editState.inclusion === 'fileMatch' && (
           <div className="flex items-center gap-2">
             <span className={`text-xs ${colors.textMuted}`}>{t('steering.filePattern')}:</span>
-            <input
-              type="text"
+            <TextInput
               value={editState.filePattern}
               onChange={(e) => onFilePatternChange(e.target.value)}
               placeholder="**/*.jsx"
-              className={`px-2 py-1 border rounded-lg text-xs w-32 ${colors.text} ${isLightTheme ? 'bg-white border-gray-200' : 'bg-white/5 border-white/10'} focus:outline-none focus:ring-1 focus:ring-blue-500/30`}
+              size="xs"
+              classNames={{
+                input: `${colors.text} ${colors.input} focus:outline-none focus:ring-1 focus:ring-blue-500/30`
+              }}
+              styles={{ input: { width: '128px' } }}
             />
           </div>
         )}
       </div>
       <div className="flex-1 p-4">
-        <textarea
+        <Textarea
           value={editState.content}
           onChange={(e) => onContentChange(e.target.value)}
-          className={`w-full h-full p-4 rounded-xl border ${colors.cardBorder} ${isLightTheme ? 'bg-gray-50' : 'bg-white/5'} ${colors.text} text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/30`}
           placeholder={t('steering.contentPlaceholder')}
+          classNames={{
+            input: `w-full h-full p-4 rounded-xl border ${colors.cardBorder} ${isLightTheme ? 'bg-gray-50' : 'bg-white/5'} ${colors.text} text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/30`
+          }}
+          styles={{ input: { minHeight: '100%' } }}
         />
       </div>
     </>
@@ -338,36 +348,45 @@ function CreateModal({ inclusionOptions, onCreate, onClose, isLightTheme, colors
         <div className="p-5 space-y-4">
           <div>
             <label className={`block text-xs font-medium ${colors.textMuted} mb-1.5`}>{t('steering.fileName')}</label>
-            <input
-              type="text"
+            <TextInput
               placeholder={t('steering.fileNamePlaceholder')}
               value={fileName}
               onChange={(e) => setFileName(e.target.value)}
-              className={`w-full px-4 py-3 border rounded-xl text-sm ${colors.text} ${isLightTheme ? 'bg-white border-gray-200' : 'bg-white/5 border-white/10'} focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all`}
+              size="md"
+              classNames={{
+                input: `${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 transition-all`
+              }}
             />
             <p className={`text-xs ${colors.textMuted} mt-1`}>{t('steering.fileNameHint')}</p>
           </div>
 
           <div>
             <label className={`block text-xs font-medium ${colors.textMuted} mb-1.5`}>{t('steering.inclusionMode')}</label>
-            <select
+            <Select
               value={inclusion}
-              onChange={(e) => setInclusion(e.target.value)}
-              className={`w-full px-4 py-3 border rounded-xl text-sm ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 transition-all`}
-            >
-              {inclusionOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label} - {opt.desc}</option>)}
-            </select>
+              onChange={setInclusion}
+              data={inclusionOptions.map(opt => ({ 
+                value: opt.value, 
+                label: `${opt.label} - ${opt.desc}` 
+              }))}
+              size="md"
+              classNames={{
+                input: `${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 transition-all`
+              }}
+            />
           </div>
 
           {inclusion === 'fileMatch' && (
             <div>
               <label className={`block text-xs font-medium ${colors.textMuted} mb-1.5`}>{t('steering.filePattern')}</label>
-              <input
-                type="text"
+              <TextInput
                 placeholder={t('steering.filePatternPlaceholder')}
                 value={filePattern}
                 onChange={(e) => setFilePattern(e.target.value)}
-                className={`w-full px-4 py-3 border rounded-xl text-sm ${colors.text} ${isLightTheme ? 'bg-white border-gray-200' : 'bg-white/5 border-white/10'} focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all`}
+                size="md"
+                classNames={{
+                  input: `${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 transition-all`
+                }}
               />
             </div>
           )}

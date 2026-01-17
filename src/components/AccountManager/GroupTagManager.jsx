@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { X, Tag, Plus, Trash2, Edit2, Check, Folder } from 'lucide-react'
+import { TextInput, ColorInput } from '@mantine/core'
 import { useApp } from '../../hooks/useApp'
 import { useDialog } from '../../contexts/DialogContext'
 import { getTags, getGroups } from '../../api/groupTag'
@@ -105,14 +106,22 @@ export function TagSelector({ selectedTagIds, onChange, allTags }) {
       {/* 搜索/添加标签 - 合并输入框 */}
       <div className="flex gap-2">
         <div className="flex-1 relative">
-          <input
-            type="text"
+          <TextInput
             value={newTagName}
             onChange={(e) => setNewTagName(e.target.value)}
             onFocus={() => setShowDropdown(true)}
             onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
             placeholder={t('tags.searchOrCreate') || '搜索或输入新标签...'}
-            className={`w-full px-3 py-1.5 border ${colors.cardBorder} rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${colors.input} ${colors.text}`}
+            classNames={{
+              input: `${colors.input} ${colors.text} border-${colors.cardBorder}`
+            }}
+            styles={{
+              input: {
+                fontSize: '0.875rem',
+                padding: '0.375rem 0.75rem',
+                borderRadius: '0.5rem'
+              }
+            }}
           />
           {/* 搜索建议下拉 - 聚焦就显示 */}
           {showDropdown && unselectedTags.length > 0 && (
@@ -299,19 +308,37 @@ function GroupTagManager({ onClose, onSuccess, defaultTab = 'tags' }) {
         {/* 添加新项 */}
         <div className={`px-5 py-4 border-b ${colors.cardBorder}`}>
           <div className="flex gap-2">
-            <input
-              type="text"
+            <TextInput
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
               placeholder={isTagMode ? (t('tags.newTagPlaceholder') || '输入新标签...') : (t('groups.newGroupPlaceholder') || '输入新分组...')}
-              className={`flex-1 px-3 py-2 border ${colors.cardBorder} rounded-lg text-sm focus:outline-none focus:ring-2 ${isTagMode ? 'focus:ring-purple-500/20' : 'focus:ring-blue-500/20'} ${colors.input} ${colors.text}`}
+              classNames={{
+                input: `${colors.input} ${colors.text}`
+              }}
+              styles={{
+                root: { flex: 1 },
+                input: {
+                  fontSize: '0.875rem',
+                  padding: '0.5rem 0.75rem',
+                  borderRadius: '0.5rem'
+                }
+              }}
             />
-            <input
-              type="color"
+            <ColorInput
               value={newColor}
-              onChange={(e) => setNewColor(e.target.value)}
-              className="w-10 h-10 rounded-lg cursor-pointer border-0"
+              onChange={setNewColor}
+              format="hex"
+              swatches={PRESET_COLORS}
+              styles={{
+                input: {
+                  width: '40px',
+                  height: '40px',
+                  padding: 0,
+                  borderRadius: '0.5rem',
+                  cursor: 'pointer'
+                }
+              }}
             />
             <button
               onClick={handleAdd}
@@ -351,18 +378,35 @@ function GroupTagManager({ onClose, onSuccess, defaultTab = 'tags' }) {
                 >
                   {editingId === item.id ? (
                     <>
-                      <input
-                        type="color"
+                      <ColorInput
                         value={editForm.color}
-                        onChange={(e) => setEditForm({ ...editForm, color: e.target.value })}
-                        className="w-8 h-8 rounded cursor-pointer border-0"
+                        onChange={(color) => setEditForm({ ...editForm, color })}
+                        format="hex"
+                        styles={{
+                          input: {
+                            width: '32px',
+                            height: '32px',
+                            padding: 0,
+                            borderRadius: '0.25rem',
+                            cursor: 'pointer'
+                          }
+                        }}
                       />
-                      <input
-                        type="text"
+                      <TextInput
                         value={editForm.name}
                         onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                         onKeyDown={(e) => e.key === 'Enter' && saveEdit()}
-                        className={`flex-1 px-2 py-1 border ${colors.cardBorder} rounded text-sm ${colors.input} ${colors.text}`}
+                        classNames={{
+                          input: `${colors.input} ${colors.text}`
+                        }}
+                        styles={{
+                          root: { flex: 1 },
+                          input: {
+                            fontSize: '0.875rem',
+                            padding: '0.25rem 0.5rem',
+                            borderRadius: '0.25rem'
+                          }
+                        }}
                         autoFocus
                       />
                       <button onClick={saveEdit} className="p-1.5 text-green-500 hover:bg-green-500/10 rounded">

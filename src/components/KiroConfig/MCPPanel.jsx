@@ -2,27 +2,26 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { useApp } from '../../hooks/useApp'
 import { useDialog } from '../../contexts/DialogContext'
-import { Server, Plus, Edit2, Trash2, Terminal, Search, X } from 'lucide-react'
+import { Server, Plus, Edit2, Trash2, Terminal } from 'lucide-react'
+import { TextInput } from '@mantine/core'
 import AddMCPModal from '../MCPManager/AddMCPModal'
 import EditMCPModal from '../MCPManager/EditMCPModal'
 
 // 搜索框组件
-function SearchInput({ value, onChange, onClear, placeholder, colors, isLightTheme }) {
+function SearchInput({ value, onChange, placeholder, colors }) {
   return (
-    <div className="flex-1 max-w-xs relative">
-      <Search size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 ${colors.textMuted}`} />
-      <input
-        type="text"
+    <div className="flex-1 max-w-xs">
+      <TextInput
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={`w-full pl-9 pr-8 py-1.5 text-sm border rounded-lg ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-1 transition-all`}
+        size="sm"
+        leftSection={<span className="text-sm">🔍</span>}
+        rightSection={value ? <button onClick={() => onChange('')} className="text-sm">✕</button> : null}
+        classNames={{
+          input: `${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-1 transition-all`
+        }}
       />
-      {value && (
-        <button onClick={onClear} className={`absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded ${isLightTheme ? 'hover:bg-gray-200' : 'hover:bg-white/20'}`}>
-          <X size={14} className={colors.textMuted} />
-        </button>
-      )}
     </div>
   )
 }
@@ -89,10 +88,8 @@ function MCPPanel({ onCountChange }) {
         <SearchInput
           value={searchQuery}
           onChange={setSearchQuery}
-          onClear={() => setSearchQuery('')}
           placeholder={t('common.search')}
           colors={colors}
-          isLightTheme={isLightTheme}
         />
         <div className="flex items-center gap-3">
           <span className={`text-sm ${colors.textMuted}`}>{filteredServers.length}/{serverList.length}</span>

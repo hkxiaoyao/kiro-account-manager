@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { X, Copy, Check, RefreshCw, User, CreditCard, Shield } from 'lucide-react'
+import { TextInput } from '@mantine/core'
 import { useApp } from '../hooks/useApp'
 import { useDialog } from '../contexts/DialogContext'
 import { formatUsage } from '../utils/accountStats'
@@ -260,17 +261,28 @@ function AccountDetailModal({ account, onClose }) {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className={`block text-xs font-medium ${colors.textMuted} mb-1.5`}>{t('detail.emailAddress')}</label>
-                  <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={`w-full px-3 py-2 border ${colors.cardBorder} rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${colors.input} ${colors.text}`} required />
+                  <TextInput
+                    label={t('detail.emailAddress')}
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    required
+                    classNames={{
+                      label: `text-xs font-medium ${colors.textMuted}`,
+                      input: `px-3 py-2 border rounded-lg text-sm ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 transition-all`
+                    }}
+                  />
                 </div>
                 <div>
-                  <label className={`block text-xs font-medium ${colors.textMuted} mb-1.5`}>{t('detail.remarkLabel')}</label>
-                  <input 
-                    type="text" 
-                    value={form.label} 
+                  <TextInput
+                    label={t('detail.remarkLabel')}
+                    value={form.label}
                     readOnly
-                    placeholder={t('common.none')} 
-                    className={`w-full px-3 py-2 border ${colors.cardBorder} rounded-lg text-sm ${colors.input} ${colors.text} opacity-60`} 
+                    placeholder={t('common.none')}
+                    classNames={{
+                      label: `text-xs font-medium ${colors.textMuted}`,
+                      input: `px-3 py-2 border rounded-lg text-sm ${colors.text} ${colors.input} opacity-60`
+                    }}
                   />
                 </div>
               </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { X, Tag, Plus } from 'lucide-react'
+import { TextInput } from '@mantine/core'
 import { useApp } from '../../hooks/useApp'
 import { useDialog } from '../../contexts/DialogContext'
 import { getTags, setAccountTags } from '../../api/groupTag'
@@ -150,7 +151,9 @@ function BatchTagModal({ accountIds, accounts = [], onClose, onSuccess }) {
             <label className={`block text-sm font-medium ${colors.textMuted} mb-2`}>{t('tags.addOrSelect')}</label>
             <div className="flex gap-2">
               <div className="flex-1 relative" ref={inputContainerRef}>
-                <input type="text" value={newTagName} onChange={(e) => setNewTagName(e.target.value)}
+                <TextInput
+                  value={newTagName}
+                  onChange={(e) => setNewTagName(e.target.value)}
                   onFocus={() => setShowDropdown(true)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
@@ -163,7 +166,16 @@ function BatchTagModal({ accountIds, accounts = [], onClose, onSuccess }) {
                     }
                   }}
                   placeholder={t('tags.searchOrCreate') || '搜索或输入新标签...'}
-                  className={`w-full px-3 py-2 border ${colors.cardBorder} rounded-lg text-sm ${colors.input} ${colors.text}`}
+                  classNames={{
+                    input: `${colors.input} ${colors.text}`
+                  }}
+                  styles={{
+                    input: {
+                      fontSize: '0.875rem',
+                      padding: '0.5rem 0.75rem',
+                      borderRadius: '0.5rem'
+                    }
+                  }}
                 />
                 {/* 搜索建议下拉 - 聚焦就显示 */}
                 {showDropdown && availableTags.length > 0 && (

@@ -1,22 +1,20 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import { X, Copy, Check, Folder, Plus } from 'lucide-react'
+import { Modal, TextInput, Textarea, Button, Stack, Group, Select, ActionIcon, CopyButton, Tooltip } from '@mantine/core'
+import { Copy, Check, Folder, Plus, X } from 'lucide-react'
 import { useApp } from '../../hooks/useApp'
 import { useDialog } from '../../contexts/DialogContext'
 import { setAccountTags, setAccountGroup, getGroups, addGroup } from '../../api/groupTag'
 import { TagSelector } from './GroupTagManager'
 import { TokenJsonView } from './TokenJsonView'
 
-// 预设颜色
 const PRESET_COLORS = [
   '#3b82f6', '#10b981', '#f59e0b', '#ef4444', 
   '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'
 ]
 
-// 分组选择器（支持直接创建）
 function GroupSelector({ groups, value, onChange, onGroupsChange }) {
-  const { t, theme, colors } = useApp()
-  const isLightTheme = theme === 'light'
+  const { t } = useApp()
   const [newGroupName, setNewGroupName] = useState('')
   const [showInput, setShowInput] = useState(false)
 
@@ -39,71 +37,47 @@ function GroupSelector({ groups, value, onChange, onGroupsChange }) {
     }
   }
 
+  if (showInput) {
+    return (
+      <Group gap="xs">
+        <TextInput
+          value={newGroupName}
+          onChange={(e) => setNewGroupName(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleAddGroup()}
+          placeholder={t('groups.newGroupPlaceholder') || '输入新分组名...'}
+          style={{ flex: 1 }}
+        />
+        <ActionIcon color="blue" onClick={handleAddGroup} disabled={!newGroupName.trim()}>
+          <Check size={16} />
+        </ActionIcon>
+        <ActionIcon onClick={() => { setShowInput(false); setNewGroupName('') }}>
+          <X size={16} />
+        </ActionIcon>
+      </Group>
+    )
+  }
+
   return (
-    <div>
-      <label className={`block text-sm font-medium ${colors.textMuted} mb-2 flex items-center gap-1.5`}>
-        <Folder size={14} />
-        {t('groups.title') || '分组'}
-      </label>
-      <div className="flex gap-2">
-        {showInput ? (
-          <>
-            <input
-              type="text"
-              value={newGroupName}
-              onChange={(e) => setNewGroupName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddGroup()}
-              placeholder={t('groups.newGroupPlaceholder') || '输入新分组名...'}
-              autoFocus
-              className={`flex-1 px-3 py-2 border ${colors.cardBorder} rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${colors.input} ${colors.text}`}
-            />
-            <button
-              type="button"
-              onClick={handleAddGroup}
-              disabled={!newGroupName.trim()}
-              className="px-3 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 disabled:opacity-50"
-            >
-              <Check size={16} />
-            </button>
-            <button
-              type="button"
-              onClick={() => { setShowInput(false); setNewGroupName('') }}
-              className={`px-3 py-2 ${isLightTheme ? 'hover:bg-gray-100' : 'hover:bg-white/10'} rounded-lg`}
-            >
-              <X size={16} className={colors.textMuted} />
-            </button>
-          </>
-        ) : (
-          <>
-            <select
-              value={value}
-              onChange={(e) => onChange(e.target.value)}
-              className={`flex-1 px-3 py-2 border ${colors.cardBorder} rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${colors.input} ${colors.text}`}
-            >
-              <option value="">{t('groups.noGroup') || '无分组'}</option>
-              {groups.map(g => (
-                <option key={g.id} value={g.id}>{g.name}</option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={() => setShowInput(true)}
-              className={`px-3 py-2 ${isLightTheme ? 'bg-gray-100 hover:bg-gray-200' : 'bg-white/10 hover:bg-white/20'} rounded-lg`}
-              title={t('common.add') || '添加'}
-            >
-              <Plus size={16} className="text-blue-500" />
-            </button>
-          </>
-        )}
-      </div>
-    </div>
+    <Group gap="xs">
+      <Select
+        value={value}
+        onChange={onChange}
+        data={[
+          { value: '', label: t('groups.noGroup') || '无分组' },
+          ...groups.map(g => ({ value: g.id, label: g.name }))
+        ]}
+        style={{ flex: 1 }}
+      />
+      <ActionIcon color="blue" onClick={() => setShowInput(true)}>
+        <Plus size={16} />
+      </ActionIcon>
+    </Group>
   )
 }
 
 function EditAccountModal({ account, onClose, onSuccess }) {
-  const { t, theme, colors } = useApp()
+  const { t } = useApp()
   const { showError } = useDialog()
-  const isLightTheme = theme === 'light'
   
   const [form, setForm] = useState({
     label: account.label || '',
@@ -113,36 +87,14 @@ function EditAccountModal({ account, onClose, onSuccess }) {
     clientSecret: account.clientSecret || '',
     machineId: account.machineId || '',
   })
-  // 从 tagLinks 中提取 tagId 列表
   const [selectedTagIds, setSelectedTagIds] = useState((account.tagLinks || []).map(link => link.tagId))
   const [selectedGroupId, setSelectedGroupId] = useState(account.groupId || '')
   const [groups, setGroups] = useState([])
   const [saving, setSaving] = useState(false)
-  const [copied, setCopied] = useState(null)
-  const copiedTimerRef = useRef(null)
 
-  // 加载分组列表
   useEffect(() => {
     getGroups().then(setGroups).catch(() => {})
   }, [])
-
-  // 清理timer
-  useEffect(() => {
-    return () => {
-      if (copiedTimerRef.current) {
-        clearTimeout(copiedTimerRef.current)
-      }
-    }
-  }, [])
-
-  const handleCopy = (text, field) => {
-    navigator.clipboard.writeText(text).catch(e => console.error('Copy failed:', e))
-    setCopied(field)
-    if (copiedTimerRef.current) {
-      clearTimeout(copiedTimerRef.current)
-    }
-    copiedTimerRef.current = setTimeout(() => setCopied(null), 1500)
-  }
 
   const handleSave = async () => {
     setSaving(true)
@@ -154,15 +106,12 @@ function EditAccountModal({ account, onClose, onSuccess }) {
         refreshToken: form.refreshToken || null,
         machineId: form.machineId || null,
       }
-      // BuilderId 专用字段
       if (account.provider === 'BuilderId') {
         params.clientId = form.clientId || null
         params.clientSecret = form.clientSecret || null
       }
       await invoke('update_account', params)
-      // 保存分组关联
       await setAccountGroup(account.id, selectedGroupId || null)
-      // 保存标签关联
       await setAccountTags(account.id, selectedTagIds)
       onSuccess?.()
       onClose()
@@ -174,140 +123,114 @@ function EditAccountModal({ account, onClose, onSuccess }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div 
-        className={`${isLightTheme ? 'bg-white' : 'bg-[#1a1a2e]'} rounded-xl w-full max-w-lg shadow-2xl max-h-[85vh] overflow-hidden flex flex-col`}
-        onClick={e => e.stopPropagation()}
-      >
-        <div className={`flex items-center justify-between px-5 py-4 border-b ${colors.cardBorder}`}>
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-              account.provider === 'Google' ? (isLightTheme ? 'bg-red-100' : 'bg-red-500/20') :
-              account.provider === 'Github' ? (isLightTheme ? 'bg-gray-200' : 'bg-gray-600') :
-              (isLightTheme ? 'bg-blue-100' : 'bg-blue-500/20')
-            }`}>
-              <span className="text-sm font-bold">{account.email[0].toUpperCase()}</span>
-            </div>
-            <div>
-              <h3 className={`font-medium ${colors.text}`}>{t('editAccount.title')}</h3>
-              <p className={`text-xs ${colors.textMuted}`}>{account.email}</p>
-            </div>
-          </div>
-          <button onClick={onClose} className={`p-1.5 ${isLightTheme ? 'hover:bg-gray-100' : 'hover:bg-white/10'} rounded-lg`}>
-            <X size={18} className={colors.textMuted} />
-          </button>
+    <Modal
+      opened
+      onClose={onClose}
+      title={
+        <div>
+          <div className="font-medium">{t('editAccount.title')}</div>
+          <div className="text-xs text-gray-500">{account.email}</div>
         </div>
-        
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          {/* 备注标签 */}
-          <div>
-            <label className={`block text-sm font-medium ${colors.textMuted} mb-2`}>{t('accounts.remark')}</label>
-            <input
-              type="text"
-              value={form.label}
-              onChange={(e) => setForm({ ...form, label: e.target.value })}
-              placeholder={t('editAccount.labelPlaceholder')}
-              className={`w-full px-3 py-2 border ${colors.cardBorder} rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${colors.input} ${colors.text}`}
+      }
+      size="lg"
+      centered
+    >
+      <Stack gap="md">
+        <TextInput
+          label={t('accounts.remark')}
+          placeholder={t('editAccount.labelPlaceholder')}
+          value={form.label}
+          onChange={(e) => setForm({ ...form, label: e.target.value })}
+        />
+
+        <TextInput
+          label={t('addAccount.machineId')}
+          placeholder={t('addAccount.machineIdPlaceholder')}
+          value={form.machineId}
+          onChange={(e) => setForm({ ...form, machineId: e.target.value })}
+          rightSection={
+            <CopyButton value={form.machineId}>
+              {({ copied, copy }) => (
+                <Tooltip label={copied ? '已复制' : '复制'}>
+                  <ActionIcon onClick={copy} variant="subtle">
+                    {copied ? <Check size={16} /> : <Copy size={16} />}
+                  </ActionIcon>
+                </Tooltip>
+              )}
+            </CopyButton>
+          }
+        />
+
+        {account.provider === 'BuilderId' && (
+          <>
+            <TextInput
+              label="Client ID"
+              placeholder="刷新 Token 需要"
+              value={form.clientId}
+              onChange={(e) => setForm({ ...form, clientId: e.target.value })}
+              rightSection={
+                <CopyButton value={form.clientId}>
+                  {({ copied, copy }) => (
+                    <Tooltip label={copied ? '已复制' : '复制'}>
+                      <ActionIcon onClick={copy} variant="subtle">
+                        {copied ? <Check size={16} /> : <Copy size={16} />}
+                      </ActionIcon>
+                    </Tooltip>
+                  )}
+                </CopyButton>
+              }
             />
+            <Textarea
+              label="Client Secret"
+              placeholder="刷新 Token 需要"
+              value={form.clientSecret}
+              onChange={(e) => setForm({ ...form, clientSecret: e.target.value })}
+              rows={2}
+              rightSection={
+                <CopyButton value={form.clientSecret}>
+                  {({ copied, copy }) => (
+                    <Tooltip label={copied ? '已复制' : '复制'}>
+                      <ActionIcon onClick={copy} variant="subtle">
+                        {copied ? <Check size={16} /> : <Copy size={16} />}
+                      </ActionIcon>
+                    </Tooltip>
+                  )}
+                </CopyButton>
+              }
+            />
+          </>
+        )}
+
+        <div>
+          <div className="text-sm font-medium mb-2 flex items-center gap-1.5">
+            <Folder size={14} />
+            {t('groups.title') || '分组'}
           </div>
-
-          {/* 机器码 */}
-          <div>
-            <label className={`block text-sm font-medium ${colors.textMuted} mb-2`}>{t('addAccount.machineId')}</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={form.machineId}
-                onChange={(e) => setForm({ ...form, machineId: e.target.value })}
-                placeholder={t('addAccount.machineIdPlaceholder')}
-                className={`flex-1 px-3 py-2 border ${colors.cardBorder} rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${colors.input} ${colors.text}`}
-              />
-              <button
-                type="button"
-                onClick={() => handleCopy(form.machineId, 'machineId')}
-                className={`px-3 py-2 ${isLightTheme ? 'hover:bg-gray-100' : 'hover:bg-white/10'} rounded-lg transition-colors`}
-              >
-                {copied === 'machineId' ? <Check size={16} className="text-green-500" /> : <Copy size={16} className={colors.textMuted} />}
-              </button>
-            </div>
-          </div>
-
-          {/* BuilderId 专用字段 */}
-          {account.provider === 'BuilderId' && (
-            <>
-              <div>
-                <label className={`block text-sm font-medium ${colors.textMuted} mb-2`}>Client ID</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={form.clientId}
-                    onChange={(e) => setForm({ ...form, clientId: e.target.value })}
-                    placeholder="刷新 Token 需要"
-                    className={`flex-1 px-3 py-2 border ${colors.cardBorder} rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${colors.input} ${colors.text}`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleCopy(form.clientId, 'clientId')}
-                    className={`px-3 py-2 ${isLightTheme ? 'hover:bg-gray-100' : 'hover:bg-white/10'} rounded-lg transition-colors`}
-                  >
-                    {copied === 'clientId' ? <Check size={16} className="text-green-500" /> : <Copy size={16} className={colors.textMuted} />}
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label className={`block text-sm font-medium ${colors.textMuted} mb-2`}>Client Secret</label>
-                <div className="flex gap-2">
-                  <textarea
-                    value={form.clientSecret}
-                    onChange={(e) => setForm({ ...form, clientSecret: e.target.value })}
-                    placeholder="刷新 Token 需要"
-                    rows={2}
-                    className={`flex-1 px-3 py-2 border ${colors.cardBorder} rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${colors.input} ${colors.text} resize-none`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleCopy(form.clientSecret, 'clientSecret')}
-                    className={`px-3 py-2 ${isLightTheme ? 'hover:bg-gray-100' : 'hover:bg-white/10'} rounded-lg transition-colors self-start`}
-                  >
-                    {copied === 'clientSecret' ? <Check size={16} className="text-green-500" /> : <Copy size={16} className={colors.textMuted} />}
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* 分组选择 - 支持直接创建 */}
           <GroupSelector
             groups={groups}
             value={selectedGroupId}
             onChange={setSelectedGroupId}
             onGroupsChange={setGroups}
           />
-
-          {/* 标签管理 */}
-          <TagSelector 
-            selectedTagIds={selectedTagIds} 
-            onChange={setSelectedTagIds} 
-          />
-
-          {/* Token 凭证 JSON 视图（只读） */}
-          <TokenJsonView account={account} defaultExpanded={false} />
         </div>
-        
-        <div className={`flex justify-end gap-3 px-5 py-4 border-t ${colors.cardBorder}`}>
-          <button onClick={onClose} className={`px-4 py-2 ${isLightTheme ? 'hover:bg-gray-100' : 'hover:bg-white/10'} rounded-lg text-sm ${colors.text}`}>
+
+        <TagSelector 
+          selectedTagIds={selectedTagIds} 
+          onChange={setSelectedTagIds} 
+        />
+
+        <TokenJsonView account={account} defaultExpanded={false} />
+
+        <Group justify="flex-end" mt="md">
+          <Button variant="subtle" onClick={onClose}>
             {t('common.cancel')}
-          </button>
-          <button 
-            onClick={handleSave} 
-            disabled={saving}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 disabled:opacity-50"
-          >
-            {saving ? t('settings.saving') : t('common.save')}
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+          <Button onClick={handleSave} loading={saving}>
+            {t('common.save')}
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
   )
 }
 

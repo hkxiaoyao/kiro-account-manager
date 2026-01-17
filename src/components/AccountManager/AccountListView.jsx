@@ -1,6 +1,7 @@
 import { useRef, useMemo, memo, useState, useCallback } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Users, Plus, RefreshCw, Repeat, Eye, Edit2, Trash2, Copy, UserX, ChevronUp, ChevronDown } from 'lucide-react'
+import { Checkbox } from '@mantine/core'
 import { useApp } from '../../hooks/useApp'
 import { usePrivacy } from '../../contexts/PrivacyContext'
 import { getQuota, getUsed, formatUsage } from '../../utils/accountStats'
@@ -66,7 +67,19 @@ const ListRow = memo(function ListRow({
       {contextMenu && (
         <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)} items={getMenuItems()} isLightTheme={isLightTheme} />
       )}
-      <input type="checkbox" checked={isSelected} onChange={(e) => onSelectOne(account.id, e.target.checked)} className="w-4 h-4 rounded shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
+      <Checkbox 
+        checked={isSelected} 
+        onChange={(e) => onSelectOne(account.id, e.currentTarget.checked)} 
+        onClick={(e) => e.stopPropagation()}
+        className="shrink-0"
+        styles={{
+          input: {
+            cursor: 'pointer',
+            backgroundColor: isSelected ? undefined : (isLightTheme ? '#ffffff' : 'rgba(255, 255, 255, 0.05)'),
+            borderColor: isLightTheme ? '#d1d5db' : 'rgba(255, 255, 255, 0.1)',
+          }
+        }}
+      />
       
       {/* 邮箱 */}
       <div className="w-48 shrink-0">
@@ -230,7 +243,17 @@ function AccountListView({
     <div className="flex-1 flex flex-col overflow-hidden p-6">
       <div className="flex items-center justify-between mb-2 px-1 shrink-0">
         <label className="flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" checked={selectedIds.length === accounts.length && accounts.length > 0} onChange={(e) => onSelectAll(e.target.checked)} className="w-4 h-4 rounded" />
+          <Checkbox 
+            checked={selectedIds.length === accounts.length && accounts.length > 0} 
+            onChange={(e) => onSelectAll(e.currentTarget.checked)}
+            styles={{
+              input: {
+                cursor: 'pointer',
+                backgroundColor: (selectedIds.length === accounts.length && accounts.length > 0) ? undefined : (isLightTheme ? '#ffffff' : 'rgba(255, 255, 255, 0.05)'),
+                borderColor: isLightTheme ? '#d1d5db' : 'rgba(255, 255, 255, 0.1)',
+              }
+            }}
+          />
           <span className={`text-sm ${colors.textMuted}`}>{selectedIds.length > 0 ? `${t('common.selected')} ${selectedIds.length}` : t('common.selectAll')}</span>
         </label>
         <span className={`text-sm ${colors.textMuted}`}>{accounts.length === totalCount ? `共 ${totalCount} 个账号` : `${accounts.length} / ${totalCount} 个账号`}</span>

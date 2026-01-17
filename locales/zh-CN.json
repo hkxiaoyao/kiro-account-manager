@@ -481,6 +481,7 @@
   "accountCard.tokenExpired": "已过期",
   "accountCard.rightClickTip": "右键查看更多操作",
   "accountCard.copyJson": "复制 JSON",
+  "accountCard.selectAccount": "选择账号",
   "accountCard.daysRemaining": "订阅剩余 {{days}} 天",
 
   "refresh.title": "刷新账号",

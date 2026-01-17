@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, Terminal, AlertCircle, Wand2 } from 'lucide-react'
 import { invoke } from '@tauri-apps/api/core'
+import { Textarea } from '@mantine/core'
 import { useApp } from '../../hooks/useApp'
 
 function EditMCPModal({ name, config, onClose, onSuccess }) {
@@ -124,13 +125,26 @@ function EditMCPModal({ name, config, onClose, onSuccess }) {
                 格式化
               </button>
             </div>
-            <textarea
+            <Textarea
               value={jsonConfig}
               onChange={e => setJsonConfig(e.target.value)}
               rows={16}
-              className={`w-full px-3 py-2.5 border rounded-lg ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 transition-all text-sm font-mono resize-none ${parseError ? 'border-red-500/50' : ''}`}
               spellCheck={false}
+              styles={{
+                input: {
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                  fontSize: '0.875rem',
+                  borderColor: parseError ? 'rgba(239, 68, 68, 0.5)' : undefined
+                }
+              }}
+              classNames={{
+                input: `${colors.text} ${colors.input} ${colors.inputFocus}`
+              }}
             />
+            <p className={`text-xs ${colors.textMuted} mt-2 flex items-start gap-1.5`}>
+              <span className="text-purple-500 font-medium">💡</span>
+              <span>autoApprove 支持通配符 <code className="px-1.5 py-0.5 bg-purple-500/10 text-purple-500 rounded">["*"]</code> 自动批准该服务器的所有工具</span>
+            </p>
           </div>
 
           {/* 错误提示 */}

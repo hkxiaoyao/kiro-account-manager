@@ -1,6 +1,10 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@import "@mantine/core/styles.css";
+
+@theme {
+  --color-primary: #4361ee;
+  --color-sidebar: #4361ee;
+}
 
 * {
   margin: 0;

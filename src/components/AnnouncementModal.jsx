@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { AlertTriangle, ExternalLink, MessageCircle, Download, Loader2 } from 'lucide-react'
+import { Checkbox } from '@mantine/core'
 import { check } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { useApp } from '../hooks/useApp'
@@ -280,12 +281,20 @@ export default function AnnouncementModal() {
 
         {/* 底部按钮 */}
         <div className="px-6 pb-6">
-          <label className={`flex items-center gap-2 mb-4 cursor-pointer select-none ${colors.text}`}>
-            <input
-              type="checkbox"
+          <label className={`flex items-center gap-3 mb-4 cursor-pointer select-none ${colors.text}`}>
+            <Checkbox
               checked={agreed}
-              onChange={(e) => setAgreed(e.target.checked)}
-              className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+              onChange={(e) => setAgreed(e.currentTarget.checked)}
+              classNames={{
+                input: 'cursor-pointer',
+              }}
+              styles={{
+                input: {
+                  backgroundColor: agreed ? undefined : (isLightTheme ? '#f3f4f6' : 'rgba(255, 255, 255, 0.05)'),
+                  borderColor: agreed ? undefined : (isLightTheme ? '#d1d5db' : 'rgba(255, 255, 255, 0.2)'),
+                  cursor: 'pointer',
+                },
+              }}
             />
             <span className="text-sm">我已阅读并知晓以上内容</span>
           </label>

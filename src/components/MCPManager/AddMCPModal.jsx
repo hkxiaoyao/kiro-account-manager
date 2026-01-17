@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, Terminal, AlertCircle, Wand2, ClipboardPaste, Check, AlertTriangle } from 'lucide-react'
 import { invoke } from '@tauri-apps/api/core'
+import { Textarea } from '@mantine/core'
 import { useApp } from '../../hooks/useApp'
 import { MCP_TEMPLATES } from './MCPTemplates'
 
@@ -220,12 +221,21 @@ function AddMCPModal({ onClose, onSuccess }) {
                 </button>
               </div>
             </div>
-            <textarea
+            <Textarea
               value={jsonConfig}
               onChange={e => setJsonConfig(e.target.value)}
               rows={12}
-              className={`w-full px-3 py-2.5 border rounded-lg ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 transition-all text-sm font-mono resize-none ${parseResult?.error ? 'border-red-500/50' : ''}`}
               spellCheck={false}
+              styles={{
+                input: {
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                  fontSize: '0.875rem',
+                  borderColor: parseResult?.error ? 'rgba(239, 68, 68, 0.5)' : undefined
+                }
+              }}
+              classNames={{
+                input: `${colors.text} ${colors.input} ${colors.inputFocus}`
+              }}
             />
             <div className={`text-xs ${colors.textMuted} mt-1.5`}>
               支持 {`{ "name": config }`} 或 {`{ "mcpServers": { ... } }`} 格式

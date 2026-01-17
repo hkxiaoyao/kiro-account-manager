@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { emit } from '@tauri-apps/api/event'
 import { Lock, Copy, Sun, Moon, Palette, Check, RefreshCw, Settings as SettingsIcon, Clock, Globe, Search, Shield, Download, Upload, Shuffle, AlertTriangle, Eye, EyeOff, Repeat } from 'lucide-react'
+import { Select, Switch, TextInput, Textarea, NumberInput, Button, ActionIcon } from '@mantine/core'
 import { useApp } from '../hooks/useApp'
 import { useDialog } from '../contexts/DialogContext'
 import { useAppSettings } from '../contexts/AppSettingsContext'
@@ -548,34 +549,30 @@ function Settings() {
 
                     {/* AI 模型 */}
                     <div className="mb-4">
-                        <label className={`block text-sm ${colors.textMuted} mb-2`}>{t('settings.aiModel')} {savingModel && <span className="text-blue-500 text-xs ml-2">{t('settings.saving')}</span>}</label>
-                        <div className="relative">
-                            <select
-                                value={aiModel}
-                                onChange={(e) => handleApplyModel(e.target.value)}
-                                disabled={savingModel}
-                                className={`w-full px-4 pr-10 py-3 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 appearance-none cursor-pointer disabled:opacity-50 transition-all`}
-                            >
-                                <option value="claude-sonnet-4.5">Claude Sonnet 4.5 - 1.3x (⭐ {t('common.recommended')})</option>
-                                <option value="claude-sonnet-4">Claude Sonnet 4 - 1.3x</option>
-                                <option value="claude-haiku-4.5">Claude Haiku 4.5 - 0.4x</option>
-                                <option value="claude-opus-4.5">Claude Opus 4.5 - 2.2x</option>
-                            </select>
-                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                                    <path d="M2.5 4.5L6 8L9.5 4.5" stroke={isLightTheme ? '#666' : '#888'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                            </div>
-                        </div>
+                        <Select
+                            label={<span className={colors.textMuted}>{t('settings.aiModel')} {savingModel && <span className="text-blue-500 text-xs ml-2">{t('settings.saving')}</span>}</span>}
+                            value={aiModel}
+                            onChange={handleApplyModel}
+                            disabled={savingModel}
+                            data={[
+                                { value: 'claude-sonnet-4.5', label: `Claude Sonnet 4.5 - 1.3x (⭐ ${t('common.recommended')})` },
+                                { value: 'claude-sonnet-4', label: 'Claude Sonnet 4 - 1.3x' },
+                                { value: 'claude-haiku-4.5', label: 'Claude Haiku 4.5 - 0.4x' },
+                                { value: 'claude-opus-4.5', label: 'Claude Opus 4.5 - 2.2x' }
+                            ]}
+                            classNames={{
+                                input: `${colors.text} ${colors.input}`,
+                                label: 'text-sm mb-2'
+                            }}
+                        />
                     </div>
 
                     {/* 锁定模型 */}
                     <label className={`flex items-start gap-3 cursor-pointer ${colors.cardSecondary} ${colors.cardHover} rounded-xl p-4 transition-all hover:scale-[1.01] mb-4`}>
-                        <input
-                            type="checkbox"
+                        <Switch
                             checked={lockModel}
-                            onChange={(e) => handleLockModelChange(e.target.checked)}
-                            className="mt-0.5 w-4 h-4 rounded-lg border-gray-300 text-blue-500 focus:ring-blue-500"
+                            onChange={(e) => handleLockModelChange(e.currentTarget.checked)}
+                            classNames={{ track: 'cursor-pointer' }}
                         />
                         <Lock size={16} className={`${colors.textMuted} mt-0.5 flex-shrink-0`} />
                         <div>
@@ -586,50 +583,47 @@ function Settings() {
 
                     {/* Agent 自主模式 */}
                     <div className="mb-4">
-                        <label className={`block text-sm ${colors.textMuted} mb-2`}>{t('settings.agentAutonomy')}</label>
-                        <div className="relative">
-                            <select
-                                value={agentAutonomy}
-                                onChange={(e) => handleAgentAutonomyChange(e.target.value)}
-                                className={`w-full px-4 py-3 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 appearance-none cursor-pointer transition-all`}
-                            >
-                                <option value="Supervised">{t('settings.agentSupervised')}</option>
-                                <option value="Autopilot">{t('settings.agentAutopilot')}</option>
-                            </select>
-                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                                    <path d="M2.5 4.5L6 8L9.5 4.5" stroke={isLightTheme ? '#666' : '#888'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                            </div>
-                        </div>
+                        <Select
+                            label={<span className={colors.textMuted}>{t('settings.agentAutonomy')}</span>}
+                            value={agentAutonomy}
+                            onChange={handleAgentAutonomyChange}
+                            data={[
+                                { value: 'Supervised', label: t('settings.agentSupervised') },
+                                { value: 'Autopilot', label: t('settings.agentAutopilot') }
+                            ]}
+                            classNames={{
+                                input: `${colors.text} ${colors.input}`,
+                                label: 'text-sm mb-2'
+                            }}
+                        />
                     </div>
 
                     {/* 信任命令 */}
                     <div className="mb-4">
-                        <label className={`block text-sm ${colors.textMuted} mb-2`}>{t('settings.trustedCommands')}</label>
-                        <div className="relative">
-                            <select
-                                value={trustedCommandsMode}
-                                onChange={(e) => handleTrustedCommandsModeChange(e.target.value)}
-                                className={`w-full px-4 py-3 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 appearance-none cursor-pointer transition-all`}
-                            >
-                                <option value="none">{t('settings.trustedCommandsNone')}</option>
-                                <option value="common">{t('settings.trustedCommandsCommon')}</option>
-                                <option value="all">{t('settings.trustedCommandsAll')}</option>
-                            </select>
-                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                                    <path d="M2.5 4.5L6 8L9.5 4.5" stroke={isLightTheme ? '#666' : '#888'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                            </div>
-                        </div>
+                        <Select
+                            label={<span className={colors.textMuted}>{t('settings.trustedCommands')}</span>}
+                            value={trustedCommandsMode}
+                            onChange={handleTrustedCommandsModeChange}
+                            data={[
+                                { value: 'none', label: t('settings.trustedCommandsNone') },
+                                { value: 'common', label: t('settings.trustedCommandsCommon') },
+                                { value: 'all', label: t('settings.trustedCommandsAll') }
+                            ]}
+                            classNames={{
+                                input: `${colors.text} ${colors.input}`,
+                                label: 'text-sm mb-2'
+                            }}
+                        />
                         {trustedCommandsMode === 'common' && (
-                            <textarea
+                            <Textarea
                                 value={customTrustedCommands}
-                                onChange={(e) => handleCustomTrustedCommandsChange(e.target.value)}
+                                onChange={(e) => handleCustomTrustedCommandsChange(e.currentTarget.value)}
                                 placeholder="npm *&#10;git *&#10;cargo *"
-                                className={`w-full mt-3 px-4 py-3 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 resize-none font-mono text-sm`}
+                                classNames={{
+                                    input: `${colors.text} ${colors.input} font-mono text-sm mt-3`
+                                }}
                                 rows={4}
+                                autosize={false}
                             />
                         )}
                         <p className={`text-xs ${colors.textMuted} mt-2`}>{t('settings.trustedCommandsDesc')}</p>
@@ -638,47 +632,42 @@ function Settings() {
                     {/* 功能开关 - 2列布局 */}
                     <div className="grid grid-cols-2 gap-2 mb-4">
                         <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg ${colors.cardSecondary} ${colors.cardHover} transition-all`}>
-                            <input
-                                type="checkbox"
+                            <Switch
                                 checked={enableCodebaseIndexing}
-                                onChange={(e) => handleCodebaseIndexingChange(e.target.checked)}
-                                className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                                onChange={(e) => handleCodebaseIndexingChange(e.currentTarget.checked)}
+                                size="sm"
                             />
                             <span className={`text-sm ${colors.text}`}>{t('settings.enableCodebaseIndexing')}</span>
                         </label>
                         <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg ${colors.cardSecondary} ${colors.cardHover} transition-all`}>
-                            <input
-                                type="checkbox"
+                            <Switch
                                 checked={enableTabAutocomplete}
-                                onChange={(e) => handleTabAutocompleteChange(e.target.checked)}
-                                className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                                onChange={(e) => handleTabAutocompleteChange(e.currentTarget.checked)}
+                                size="sm"
                             />
                             <span className={`text-sm ${colors.text}`}>{t('settings.enableTabAutocomplete')}</span>
                         </label>
                         <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg ${colors.cardSecondary} ${colors.cardHover} transition-all`}>
-                            <input
-                                type="checkbox"
+                            <Switch
                                 checked={usageSummary}
-                                onChange={(e) => handleUsageSummaryChange(e.target.checked)}
-                                className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                                onChange={(e) => handleUsageSummaryChange(e.currentTarget.checked)}
+                                size="sm"
                             />
                             <span className={`text-sm ${colors.text}`}>{t('settings.usageSummary')}</span>
                         </label>
                         <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg ${colors.cardSecondary} ${colors.cardHover} transition-all`}>
-                            <input
-                                type="checkbox"
+                            <Switch
                                 checked={codeReferences}
-                                onChange={(e) => handleCodeReferencesChange(e.target.checked)}
-                                className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                                onChange={(e) => handleCodeReferencesChange(e.currentTarget.checked)}
+                                size="sm"
                             />
                             <span className={`text-sm ${colors.text}`}>{t('settings.codeReferences')}</span>
                         </label>
                         <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg ${colors.cardSecondary} ${colors.cardHover} transition-all`}>
-                            <input
-                                type="checkbox"
+                            <Switch
                                 checked={enableDebugLogs}
-                                onChange={(e) => handleDebugLogsChange(e.target.checked)}
-                                className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                                onChange={(e) => handleDebugLogsChange(e.currentTarget.checked)}
+                                size="sm"
                             />
                             <span className={`text-sm ${colors.text}`}>{t('settings.enableDebugLogs')}</span>
                         </label>
@@ -689,38 +678,34 @@ function Settings() {
                         <span className={`text-sm ${colors.textMuted} mb-3 block`}>{t('settings.notifications')}</span>
                         <div className="grid grid-cols-2 gap-2">
                             <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg ${colors.cardSecondary} ${colors.cardHover} transition-all`}>
-                                <input
-                                    type="checkbox"
+                                <Switch
                                     checked={notifyActionRequired}
-                                    onChange={(e) => handleNotificationChange('kiroAgent.notifications.agent.actionRequired', e.target.checked, setNotifyActionRequired)}
-                                    className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                                    onChange={(e) => handleNotificationChange('kiroAgent.notifications.agent.actionRequired', e.currentTarget.checked, setNotifyActionRequired)}
+                                    size="sm"
                                 />
                                 <span className={`text-sm ${colors.text}`}>{t('settings.notifyActionRequired')}</span>
                             </label>
                             <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg ${colors.cardSecondary} ${colors.cardHover} transition-all`}>
-                                <input
-                                    type="checkbox"
+                                <Switch
                                     checked={notifyFailure}
-                                    onChange={(e) => handleNotificationChange('kiroAgent.notifications.agent.failure', e.target.checked, setNotifyFailure)}
-                                    className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                                    onChange={(e) => handleNotificationChange('kiroAgent.notifications.agent.failure', e.currentTarget.checked, setNotifyFailure)}
+                                    size="sm"
                                 />
                                 <span className={`text-sm ${colors.text}`}>{t('settings.notifyFailure')}</span>
                             </label>
                             <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg ${colors.cardSecondary} ${colors.cardHover} transition-all`}>
-                                <input
-                                    type="checkbox"
+                                <Switch
                                     checked={notifySuccess}
-                                    onChange={(e) => handleNotificationChange('kiroAgent.notifications.agent.success', e.target.checked, setNotifySuccess)}
-                                    className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                                    onChange={(e) => handleNotificationChange('kiroAgent.notifications.agent.success', e.currentTarget.checked, setNotifySuccess)}
+                                    size="sm"
                                 />
                                 <span className={`text-sm ${colors.text}`}>{t('settings.notifySuccess')}</span>
                             </label>
                             <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg ${colors.cardSecondary} ${colors.cardHover} transition-all`}>
-                                <input
-                                    type="checkbox"
+                                <Switch
                                     checked={notifyBilling}
-                                    onChange={(e) => handleNotificationChange('kiroAgent.notifications.billing', e.target.checked, setNotifyBilling)}
-                                    className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                                    onChange={(e) => handleNotificationChange('kiroAgent.notifications.billing', e.currentTarget.checked, setNotifyBilling)}
+                                    size="sm"
                                 />
                                 <span className={`text-sm ${colors.text}`}>{t('settings.notifyBilling')}</span>
                             </label>
@@ -731,12 +716,14 @@ function Settings() {
                     <div className={`mt-5 pt-5 border-t border-dashed ${colors.cardBorder}`}>
                         <label className={`block text-sm ${colors.textMuted} mb-2`}>{t('settings.httpProxy')}</label>
                         <div className="flex gap-3">
-                            <input
-                                type="text"
+                            <TextInput
                                 value={httpProxy}
-                                onChange={(e) => setHttpProxy(e.target.value)}
+                                onChange={(e) => setHttpProxy(e.currentTarget.value)}
                                 placeholder="http://127.0.0.1:7897"
-                                className={`flex-1 px-4 py-3 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 transition-all`}
+                                classNames={{
+                                    input: `${colors.text} ${colors.input}`
+                                }}
+                                className="flex-1"
                             />
                             <button
                                 onClick={handleDetectProxy}
@@ -774,33 +761,30 @@ function Settings() {
                             ? 'bg-blue-500/20 border-blue-500/50 text-blue-500'
                             : `${colors.card} ${colors.cardHover} border ${colors.cardBorder} ${colors.text}`
                             }`} title={t('settings.autoRefreshDesc')}>
-                            <input
-                                type="checkbox"
+                            <Switch
                                 checked={autoRefresh}
-                                onChange={(e) => handleAutoRefreshChange(e.target.checked)}
-                                className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                                onChange={(e) => handleAutoRefreshChange(e.currentTarget.checked)}
+                                size="sm"
                             />
                             <Clock size={16} />
                             <span className="text-sm font-medium whitespace-nowrap">{t('settings.autoRefresh')}</span>
                         </label>
                         <div className="relative flex-1">
-                            <select
-                                value={autoRefreshInterval}
-                                onChange={(e) => handleAutoRefreshIntervalChange(e.target.value)}
+                            <Select
+                                value={String(autoRefreshInterval)}
+                                onChange={(value) => handleAutoRefreshIntervalChange(value)}
                                 disabled={!autoRefresh}
-                                className={`w-full px-4 py-3 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 appearance-none ${!autoRefresh ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} transition-all`}
-                            >
-                                <option value="10">10 {t('common.minutes')}</option>
-                                <option value="20">20 {t('common.minutes')}</option>
-                                <option value="30">30 {t('common.minutes')}</option>
-                                <option value="40">40 {t('common.minutes')}</option>
-                                <option value="50">50 {t('common.minutes')} ({t('common.recommended')})</option>
-                            </select>
-                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                                    <path d="M2.5 4.5L6 8L9.5 4.5" stroke={isLightTheme ? '#666' : '#888'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                            </div>
+                                data={[
+                                    { value: '10', label: `10 ${t('common.minutes')}` },
+                                    { value: '20', label: `20 ${t('common.minutes')}` },
+                                    { value: '30', label: `30 ${t('common.minutes')}` },
+                                    { value: '40', label: `40 ${t('common.minutes')}` },
+                                    { value: '50', label: `50 ${t('common.minutes')} (${t('common.recommended')})` }
+                                ]}
+                                classNames={{
+                                    input: `${colors.text} ${colors.input}`
+                                }}
+                            />
                         </div>
                     </div>
 
@@ -810,30 +794,27 @@ function Settings() {
                             ? 'bg-blue-500/20 border-blue-500/50 text-blue-500'
                             : `${colors.card} ${colors.cardHover} border ${colors.cardBorder} ${colors.text}`
                             }`} title={t('settings.autoChangeMachineIdDesc')}>
-                            <input
-                                type="checkbox"
+                            <Switch
                                 checked={autoChangeMachineId}
-                                onChange={(e) => handleAutoChangeMachineIdChange(e.target.checked)}
-                                className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                                onChange={(e) => handleAutoChangeMachineIdChange(e.currentTarget.checked)}
+                                size="sm"
                             />
                             <Shuffle size={16} />
                             <span className="text-sm font-medium whitespace-nowrap">{t('settings.autoChangeMachineId')}</span>
                         </label>
                         <div className="relative flex-1">
-                            <select
+                            <Select
                                 value={machineIdMode}
-                                onChange={(e) => handleMachineIdModeChange(e.target.value)}
+                                onChange={handleMachineIdModeChange}
                                 disabled={!autoChangeMachineId}
-                                className={`w-full px-4 py-3 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 appearance-none ${!autoChangeMachineId ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} transition-all`}
-                            >
-                                <option value="bind">{t('settings.machineIdBind')} ({t('common.recommended')})</option>
-                                <option value="random">{t('settings.machineIdRandom')}</option>
-                            </select>
-                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                                    <path d="M2.5 4.5L6 8L9.5 4.5" stroke={isLightTheme ? '#666' : '#888'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                            </div>
+                                data={[
+                                    { value: 'bind', label: `${t('settings.machineIdBind')} (${t('common.recommended')})` },
+                                    { value: 'random', label: t('settings.machineIdRandom') }
+                                ]}
+                                classNames={{
+                                    input: `${colors.text} ${colors.input}`
+                                }}
+                            />
                         </div>
                     </div>
 
@@ -842,11 +823,10 @@ function Settings() {
                         ? 'bg-blue-500/20 border-blue-500/50 text-blue-500'
                         : `${colors.card} ${colors.cardHover} border ${colors.cardBorder} ${colors.text}`
                         }`} title={t('settings.privacyModeDesc')}>
-                        <input
-                            type="checkbox"
+                        <Switch
                             checked={privacyMode}
-                            onChange={(e) => setPrivacyMode(e.target.checked)}
-                            className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                            onChange={(e) => setPrivacyMode(e.currentTarget.checked)}
+                            size="sm"
                         />
                         {privacyMode ? <EyeOff size={16} /> : <Eye size={16} />}
                         <span className="text-sm font-medium whitespace-nowrap">{t('settings.privacyMode')}</span>
@@ -859,46 +839,44 @@ function Settings() {
                             ? 'bg-blue-500/20 border-blue-500/50 text-blue-500'
                             : `${colors.card} ${colors.cardHover} border ${colors.cardBorder} ${colors.text}`
                             }`} title={t('settings.autoSwitchDesc')}>
-                            <input
-                                type="checkbox"
+                            <Switch
                                 checked={autoSwitchEnabled}
-                                onChange={(e) => handleAutoSwitchEnabledChange(e.target.checked)}
-                                className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                                onChange={(e) => handleAutoSwitchEnabledChange(e.currentTarget.checked)}
+                                size="sm"
                             />
                             <Repeat size={16} />
                             <span className="text-sm font-medium whitespace-nowrap">{t('settings.autoSwitch')}</span>
                         </label>
                         <div className="flex items-center gap-2">
                             <span className={`text-sm ${colors.textMuted} whitespace-nowrap`}>{t('settings.autoSwitchThreshold')}</span>
-                            <input
-                                type="number"
+                            <NumberInput
                                 value={autoSwitchThreshold}
-                                onChange={(e) => handleAutoSwitchThresholdChange(e.target.value)}
+                                onChange={handleAutoSwitchThresholdChange}
                                 disabled={!autoSwitchEnabled}
-                                min="0"
-                                step="0.1"
-                                className={`w-20 px-3 py-3 border rounded-xl text-center ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 ${!autoSwitchEnabled ? 'cursor-not-allowed opacity-50' : ''} transition-all`}
+                                min={0}
+                                step={0.1}
+                                classNames={{
+                                    input: `${colors.text} ${colors.input} text-center w-20`
+                                }}
                             />
                         </div>
                         <div className="relative flex-1">
-                            <select
-                                value={autoSwitchInterval}
-                                onChange={(e) => handleAutoSwitchIntervalChange(e.target.value)}
+                            <Select
+                                value={String(autoSwitchInterval)}
+                                onChange={(value) => handleAutoSwitchIntervalChange(value)}
                                 disabled={!autoSwitchEnabled}
-                                className={`w-full px-4 py-3 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 appearance-none ${!autoSwitchEnabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} transition-all`}
-                            >
-                                <option value="1">1 {t('common.minutes')}</option>
-                                <option value="3">3 {t('common.minutes')}</option>
-                                <option value="5">5 {t('common.minutes')}</option>
-                                <option value="10">10 {t('common.minutes')}</option>
-                                <option value="15">15 {t('common.minutes')}</option>
-                                <option value="30">30 {t('common.minutes')}</option>
-                            </select>
-                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                                    <path d="M2.5 4.5L6 8L9.5 4.5" stroke={isLightTheme ? '#666' : '#888'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                            </div>
+                                data={[
+                                    { value: '1', label: `1 ${t('common.minutes')}` },
+                                    { value: '3', label: `3 ${t('common.minutes')}` },
+                                    { value: '5', label: `5 ${t('common.minutes')}` },
+                                    { value: '10', label: `10 ${t('common.minutes')}` },
+                                    { value: '15', label: `15 ${t('common.minutes')}` },
+                                    { value: '30', label: `30 ${t('common.minutes')}` }
+                                ]}
+                                classNames={{
+                                    input: `${colors.text} ${colors.input}`
+                                }}
+                            />
                         </div>
                     </div>
                 </section>
@@ -916,12 +894,14 @@ function Settings() {
                     <div className="mb-3">
                         <label className={`block text-sm ${colors.textMuted} mb-2`}>{t('settings.browserPath')}</label>
                         <div className="flex gap-3">
-                            <input
-                                type="text"
+                            <TextInput
                                 value={browserPath}
-                                onChange={(e) => setBrowserPath(e.target.value)}
+                                onChange={(e) => setBrowserPath(e.currentTarget.value)}
                                 placeholder={t('settings.browserPlaceholder')}
-                                className={`flex-1 px-4 py-3 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 transition-all`}
+                                classNames={{
+                                    input: `${colors.text} ${colors.input}`
+                                }}
+                                className="flex-1"
                             />
                             <button
                                 onClick={handleDetectBrowsers}

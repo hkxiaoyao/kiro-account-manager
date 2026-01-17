@@ -2,6 +2,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { Toaster } from 'react-hot-toast'
+import { MantineProvider } from '@mantine/core'
 import Sidebar from './components/Sidebar'
 import UpdateChecker from './components/UpdateChecker'
 import AnnouncementModal from './components/AnnouncementModal'
@@ -173,27 +174,29 @@ function App() {
   }
 
   return (
-    <PrivacyProvider>
-      <AccountProvider>
-        <div className={`flex h-screen ${colors.main}`}>
-          <Sidebar 
-            activeMenu={activeMenu} 
-            onMenuChange={setActiveMenu}
-            user={user}
-            onLogout={handleLogout}
-          />
-          <main className="flex-1 overflow-hidden">
-            <Suspense fallback={<PageLoading />}>
-              {renderContent()}
-            </Suspense>
-          </main>
-          
-          <UpdateChecker />
-          <AnnouncementModal />
-          <Toaster />
-        </div>
-      </AccountProvider>
-    </PrivacyProvider>
+    <MantineProvider>
+      <PrivacyProvider>
+        <AccountProvider>
+          <div className={`flex h-screen ${colors.main}`}>
+            <Sidebar 
+              activeMenu={activeMenu} 
+              onMenuChange={setActiveMenu}
+              user={user}
+              onLogout={handleLogout}
+            />
+            <main className="flex-1 overflow-hidden">
+              <Suspense fallback={<PageLoading />}>
+                {renderContent()}
+              </Suspense>
+            </main>
+            
+            <UpdateChecker />
+            <AnnouncementModal />
+            <Toaster />
+          </div>
+        </AccountProvider>
+      </PrivacyProvider>
+    </MantineProvider>
   )
 }
 
