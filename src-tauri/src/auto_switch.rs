@@ -70,12 +70,15 @@ impl AccountSwitcher {
             return true;
         }
 
-        if let Some(ref breakdown) = account.usage_breakdown {
-            let total = breakdown.total_limit();
-            let used = breakdown.total_current();
-            if total > 0 {
-                let usage_percent = (used as f32 / total as f32) * 100.0;
-                return usage_percent >= self.threshold as f32;
+        // 从 usage_data 中解析配额信息
+        if let Some(ref data) = account.usage_data {
+            if let Some(usage) = data.get("usage") {
+                let current = usage.get("current").and_then(|v| v.as_i64()).unwrap_or(0);
+                let limit = usage.get("limit").and_then(|v| v.as_i64()).unwrap_or(0);
+                if limit > 0 {
+                    let usage_percent = (current as f32 / limit as f32) * 100.0;
+                    return usage_percent >= self.threshold as f32;
+                }
             }
         }
 
@@ -103,8 +106,19 @@ impl AccountSwitcher {
                 Some(available[self.round_robin_index])
             }
             SwitchStrategy::MostQuota => {
+                // 选择剩余配额最多的账号
                 available.iter()
-                    .max_by_key(|a| a.remaining_quota().unwrap_or(0))
+                    .max_by_key(|a| {
+                        // 从 usage_data 中解析剩余配额
+                        if let Some(ref data) = a.usage_data {
+                            if let Some(usage) = data.get("usage") {
+                                let current = usage.get("current").and_then(|v| v.as_i64()).unwrap_or(0);
+                                let limit = usage.get("limit").and_then(|v| v.as_i64()).unwrap_or(0);
+                                return (limit - current) as i32;
+                            }
+                        }
+                        0i32
+                    })
                     .copied()
             }
             SwitchStrategy::Random => {

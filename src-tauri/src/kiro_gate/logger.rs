@@ -27,23 +27,6 @@ pub fn init_logger(app_handle: AppHandle) {
     }
 }
 
-/// 发送日志到前端
-pub async fn emit_log(level: &str, target: &str, message: &str) {
-    let entry = LogEntry {
-        timestamp: chrono::Utc::now().to_rfc3339(),
-        level: level.to_string(),
-        target: target.to_string(),
-        message: message.to_string(),
-    };
-    
-    if let Some(lock) = APP_HANDLE.get() {
-        let guard = lock.read().await;
-        if let Some(app) = guard.as_ref() {
-            let _ = app.emit("kirogate-log", entry);
-        }
-    }
-}
-
 /// 同步发送日志（用于非异步上下文）
 pub fn emit_log_sync(level: &str, target: &str, message: &str) {
     let entry = LogEntry {

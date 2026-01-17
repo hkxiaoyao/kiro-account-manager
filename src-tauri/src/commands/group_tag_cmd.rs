@@ -66,7 +66,7 @@ pub fn delete_tag(state: State<AppState>, id: String) -> bool {
     // 删除标签时，从所有账号中移除该标签
     let mut store = state.store.lock().unwrap();
     for account in store.accounts.iter_mut() {
-        account.tags.retain(|t| t != &id);
+        account.tag_links.retain(|l| l.tag_id != id);
     }
     store.save_to_file();
     drop(store);
@@ -91,13 +91,17 @@ pub fn set_account_group(state: State<AppState>, account_id: String, group_id: O
 
 #[tauri::command]
 pub fn add_tag_to_account(state: State<AppState>, account_id: String, tag_id: String) -> Result<(), String> {
+    // 先获取标签名
+    let tag_name = {
+        let gt_store = state.group_tag_store.lock().unwrap();
+        gt_store.get_tags().iter().find(|t| t.id == tag_id).map(|t| t.name.clone())
+    };
+    
     let mut store = state.store.lock().unwrap();
     if let Some(account) = store.accounts.iter_mut().find(|a| a.id == account_id) {
-        // 检查是否已存在（兼容旧数据）
-        if !account.tags.contains(&tag_id) && !account.tag_links.iter().any(|l| l.tag_id == tag_id) {
-            account.tag_links.push(AccountTagLink::new(tag_id.clone()));
-            // 同时更新 tags 保持兼容
-            account.tags.push(tag_id);
+        // 检查是否已存在
+        if !account.tag_links.iter().any(|l| l.tag_id == tag_id) {
+            account.tag_links.push(AccountTagLink::new(tag_id, tag_name));
             store.save_to_file();
         }
         Ok(())
@@ -110,7 +114,6 @@ pub fn add_tag_to_account(state: State<AppState>, account_id: String, tag_id: St
 pub fn remove_tag_from_account(state: State<AppState>, account_id: String, tag_id: String) -> Result<(), String> {
     let mut store = state.store.lock().unwrap();
     if let Some(account) = store.accounts.iter_mut().find(|a| a.id == account_id) {
-        account.tags.retain(|t| t != &tag_id);
         account.tag_links.retain(|l| l.tag_id != tag_id);
         store.save_to_file();
         Ok(())
@@ -121,6 +124,12 @@ pub fn remove_tag_from_account(state: State<AppState>, account_id: String, tag_i
 
 #[tauri::command]
 pub fn set_account_tags(state: State<AppState>, account_id: String, tag_ids: Vec<String>) -> Result<(), String> {
+    // 先获取所有标签名
+    let tag_names: std::collections::HashMap<String, String> = {
+        let gt_store = state.group_tag_store.lock().unwrap();
+        gt_store.get_tags().iter().map(|t| (t.id.clone(), t.name.clone())).collect()
+    };
+    
     let mut store = state.store.lock().unwrap();
     if let Some(account) = store.accounts.iter_mut().find(|a| a.id == account_id) {
         // 保留已有的 tag_links（保持时间戳），只添加新的
@@ -130,10 +139,10 @@ pub fn set_account_tags(state: State<AppState>, account_id: String, tag_ids: Vec
         // 添加新的
         for tag_id in &tag_ids {
             if !existing_ids.contains(tag_id) {
-                account.tag_links.push(AccountTagLink::new(tag_id.clone()));
+                let tag_name = tag_names.get(tag_id).cloned();
+                account.tag_links.push(AccountTagLink::new(tag_id.clone(), tag_name));
             }
         }
-        account.tags = tag_ids;
         store.save_to_file();
         Ok(())
     } else {
@@ -145,7 +154,6 @@ pub fn set_account_tags(state: State<AppState>, account_id: String, tag_ids: Vec
 pub fn remove_account_tags(state: State<AppState>, account_id: String, tag_ids: Vec<String>) -> Result<(), String> {
     let mut store = state.store.lock().unwrap();
     if let Some(account) = store.accounts.iter_mut().find(|a| a.id == account_id) {
-        account.tags.retain(|t| !tag_ids.contains(t));
         account.tag_links.retain(|l| !tag_ids.contains(&l.tag_id));
         store.save_to_file();
         Ok(())

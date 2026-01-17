@@ -113,7 +113,8 @@ function EditAccountModal({ account, onClose, onSuccess }) {
     clientSecret: account.clientSecret || '',
     machineId: account.machineId || '',
   })
-  const [selectedTagIds, setSelectedTagIds] = useState(account.tags || [])
+  // 从 tagLinks 中提取 tagId 列表
+  const [selectedTagIds, setSelectedTagIds] = useState((account.tagLinks || []).map(link => link.tagId))
   const [selectedGroupId, setSelectedGroupId] = useState(account.groupId || '')
   const [groups, setGroups] = useState([])
   const [saving, setSaving] = useState(false)

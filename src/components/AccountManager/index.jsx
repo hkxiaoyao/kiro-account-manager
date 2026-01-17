@@ -121,10 +121,10 @@ function AccountManager() {
 
   // 获取所有标签（从标签定义中获取）
   const allTags = useMemo(() => {
-    // 收集账号中使用的标签 ID
+    // 收集账号中使用的标签 ID（从 tagLinks 中提取）
     const usedTagIds = new Set()
     accounts.forEach(a => {
-      if (a.tags) a.tags.forEach(id => usedTagIds.add(id))
+      if (a.tagLinks) a.tagLinks.forEach(link => usedTagIds.add(link.tagId))
     })
     // 返回被使用的标签定义
     return tagDefinitions.filter(t => usedTagIds.has(t.id))
@@ -162,8 +162,8 @@ function AccountManager() {
   const filteredAccounts = useMemo(() => {
     let result = accounts.filter(a => {
       const term = searchTerm.toLowerCase()
-      // 搜索过滤：邮箱、备注、标签名称
-      const tagNames = (a.tags || []).map(id => tagDefinitions.find(t => t.id === id)?.name || '').join(' ').toLowerCase()
+      // 搜索过滤：邮箱、备注、标签名称（从 tagLinks 中提取）
+      const tagNames = (a.tagLinks || []).map(link => tagDefinitions.find(t => t.id === link.tagId)?.name || '').join(' ').toLowerCase()
       const matchSearch = a.email.toLowerCase().includes(term) ||
         a.label.toLowerCase().includes(term) ||
         tagNames.includes(term)
@@ -173,10 +173,11 @@ function AccountManager() {
          selectedGroup === '__has__' ? !!a.groupId :
          a.groupId === selectedGroup)
       // 标签过滤（按 ID，__none__ 表示筛选无标签账号，__has__ 表示筛选有标签账号）
+      const tagIds = (a.tagLinks || []).map(link => link.tagId)
       const matchTag = !selectedTag || 
-        (selectedTag === '__none__' ? (!a.tags || a.tags.length === 0) : 
-         selectedTag === '__has__' ? (a.tags && a.tags.length > 0) :
-         (a.tags && a.tags.includes(selectedTag)))
+        (selectedTag === '__none__' ? tagIds.length === 0 : 
+         selectedTag === '__has__' ? tagIds.length > 0 :
+         tagIds.includes(selectedTag))
       // 状态过滤
       const matchStatus = !selectedStatus || 
         (selectedStatus === 'active' && (a.status === 'active' || a.status === '正常' || a.status === '有效')) ||

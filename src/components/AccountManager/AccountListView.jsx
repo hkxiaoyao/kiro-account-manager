@@ -36,7 +36,9 @@ const ListRow = memo(function ListRow({
       ...(account.clientSecret && { clientSecret: account.clientSecret }),
       ...(account.region && { region: account.region }),
       ...(account.label && { label: account.label }),
-      ...(account.tags?.length && { tags: account.tags }),
+      ...(account.authMethod && { authMethod: account.authMethod }),
+      ...(account.userId && { userId: account.userId }),
+      ...(account.tagLinks?.length && { tagLinks: account.tagLinks }),
       ...(account.machineId && { machineId: account.machineId }),
     }
     onCopy(JSON.stringify(exportData, null, 2), account.id)
@@ -147,15 +149,17 @@ const ListRow = memo(function ListRow({
 
       {/* 标签 */}
       <div className="flex-1 min-w-0">
-        {account.tags?.length > 0 ? (
+        {account.tagLinks?.length > 0 ? (
           <div className="flex items-center gap-1 flex-wrap">
-            {account.tags.slice(0, 3).map(tagId => {
-              const tag = tagDefinitions.find(t => t.id === tagId)
-              const tagLink = account.tagLinks?.find(l => l.tagId === tagId)
-              const linkedAt = tagLink?.linkedAt
-              return tag ? <span key={tagId} className="text-[10px] px-1.5 py-0.5 rounded font-medium truncate max-w-[120px]" style={{ backgroundColor: `${tag.color}20`, color: tag.color }} title={linkedAt ? `${tag.name} (关联于 ${linkedAt})` : tag.name}>{tag.name}</span> : null
+            {account.tagLinks.slice(0, 3).map(tagLink => {
+              const tag = tagDefinitions.find(t => t.id === tagLink.tagId)
+              const linkedAt = tagLink.linkedAt
+              // 优先用标签定义的名称，如果标签被删除则用 tagLink 中存储的名称
+              const tagName = tag?.name || tagLink.tagName || '未知标签'
+              const tagColor = tag?.color || '#888888'
+              return <span key={tagLink.tagId} className="text-[10px] px-1.5 py-0.5 rounded font-medium truncate max-w-[120px]" style={{ backgroundColor: `${tagColor}20`, color: tagColor }} title={linkedAt ? `${tagName} (关联于 ${linkedAt})` : tagName}>{tagName}</span>
             })}
-            {account.tags.length > 3 && <span className={`text-[10px] ${colors.textMuted}`}>+{account.tags.length - 3}</span>}
+            {account.tagLinks.length > 3 && <span className={`text-[10px] ${colors.textMuted}`}>+{account.tagLinks.length - 3}</span>}
           </div>
         ) : <span className={`text-xs ${colors.textMuted}`}>-</span>}
       </div>

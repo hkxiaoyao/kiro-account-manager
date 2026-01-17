@@ -44,10 +44,10 @@ function BatchTagModal({ accountIds, accounts = [], onClose, onSuccess }) {
     const selectedAccounts = accounts.filter(a => accountIds.includes(a.id))
     if (selectedAccounts.length === 0) return
     
-    // 获取所有选中账号的标签交集
-    const firstTags = new Set(selectedAccounts[0]?.tags || [])
+    // 获取所有选中账号的标签交集（从 tagLinks 中提取 tagId）
+    const firstTags = new Set((selectedAccounts[0]?.tagLinks || []).map(link => link.tagId))
     const commonTags = selectedAccounts.slice(1).reduce((common, account) => {
-      const accountTags = new Set(account.tags || [])
+      const accountTags = new Set((account.tagLinks || []).map(link => link.tagId))
       return new Set([...common].filter(t => accountTags.has(t)))
     }, firstTags)
     

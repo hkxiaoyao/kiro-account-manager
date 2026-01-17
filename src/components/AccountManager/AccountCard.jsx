@@ -65,12 +65,14 @@ const AccountCard = memo(function AccountCard({
       provider: account.provider,
       accessToken: account.accessToken,
       refreshToken: account.refreshToken,
+      ...(account.authMethod && { authMethod: account.authMethod }),
       ...(account.clientIdHash && { clientIdHash: account.clientIdHash }),
       ...(account.clientId && { clientId: account.clientId }),
       ...(account.clientSecret && { clientSecret: account.clientSecret }),
       ...(account.region && { region: account.region }),
+      ...(account.userId && { userId: account.userId }),
       ...(account.label && { label: account.label }),
-      ...(account.tags?.length && { tags: account.tags }),
+      ...(account.tagLinks?.length && { tagLinks: account.tagLinks }),
       ...(account.machineId && { machineId: account.machineId }),
     }
     onCopy(JSON.stringify(exportData, null, 2), account.id)
@@ -221,22 +223,22 @@ const AccountCard = memo(function AccountCard({
         )}
 
         {/* 标签 */}
-        {account.tags && account.tags.length > 0 && (
+        {account.tagLinks && account.tagLinks.length > 0 && (
           <div className="flex items-center gap-1.5 mb-3 flex-wrap">
-            {account.tags.map(tagId => {
-              const tag = tagDefinitions.find(t => t.id === tagId)
-              if (!tag) return null
-              // 查找关联时间
-              const tagLink = account.tagLinks?.find(l => l.tagId === tagId)
-              const linkedAt = tagLink?.linkedAt
+            {account.tagLinks.map(tagLink => {
+              const tag = tagDefinitions.find(t => t.id === tagLink.tagId)
+              // 优先用标签定义的名称，如果标签被删除则用 tagLink 中存储的名称
+              const tagName = tag?.name || tagLink.tagName || '未知标签'
+              const tagColor = tag?.color || '#888888'
+              const linkedAt = tagLink.linkedAt
               return (
                 <span 
-                  key={tagId} 
+                  key={tagLink.tagId} 
                   className="text-xs px-2 py-0.5 rounded-full text-white cursor-default"
-                  style={{ backgroundColor: tag.color || '#8b5cf6' }}
+                  style={{ backgroundColor: tagColor }}
                   title={linkedAt ? `关联于 ${linkedAt}` : ''}
                 >
-                  {tag.name}
+                  {tagName}
                 </span>
               )
             })}

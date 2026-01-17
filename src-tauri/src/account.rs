@@ -3,15 +3,6 @@ use serde::{Deserialize, Deserializer, Serialize};
 use uuid::Uuid;
 use std::path::PathBuf;
 
-// 自定义反序列化：处理 null 值转为空 Vec（兼容旧数据）
-fn deserialize_tags<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let opt: Option<Vec<String>> = Option::deserialize(deserializer)?;
-    Ok(opt.unwrap_or_default())
-}
-
 // 自定义反序列化：处理 tag_links 的 null 值
 fn deserialize_tag_links<'de, D>(deserializer: D) -> Result<Vec<AccountTagLink>, D::Error>
 where
@@ -70,69 +61,25 @@ impl AccountTag {
 }
 
 // ============================================================
-// 账号标签关联（带时间戳）
+// 账号标签关联（带时间戳和标签名）
 // ============================================================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountTagLink {
     pub tag_id: String,
+    #[serde(default)]
+    pub tag_name: Option<String>,
     pub linked_at: String,
 }
 
 impl AccountTagLink {
-    pub fn new(tag_id: String) -> Self {
+    pub fn new(tag_id: String, tag_name: Option<String>) -> Self {
         Self {
             tag_id,
+            tag_name,
             linked_at: chrono::Local::now().format("%Y-%m-%d %H:%M").to_string(),
         }
-    }
-}
-
-// ============================================================
-// 详细额度分解
-// ============================================================
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct BonusUsage {
-    pub code: String,
-    pub name: String,
-    pub current: i32,
-    pub limit: i32,
-    pub expires_at: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct UsageBreakdown {
-    pub base_limit: i32,
-    pub base_current: i32,
-    pub free_trial_limit: Option<i32>,
-    pub free_trial_current: Option<i32>,
-    pub free_trial_expiry: Option<String>,
-    pub bonuses: Vec<BonusUsage>,
-    pub next_reset_date: Option<String>,
-}
-
-impl UsageBreakdown {
-    /// 计算总额度
-    pub fn total_limit(&self) -> i32 {
-        self.base_limit
-            + self.free_trial_limit.unwrap_or(0)
-            + self.bonuses.iter().map(|b| b.limit).sum::<i32>()
-    }
-
-    /// 计算总使用量
-    pub fn total_current(&self) -> i32 {
-        self.base_current
-            + self.free_trial_current.unwrap_or(0)
-            + self.bonuses.iter().map(|b| b.current).sum::<i32>()
-    }
-
-    /// 剩余配额
-    pub fn remaining(&self) -> i32 {
-        self.total_limit() - self.total_current()
     }
 }
 
@@ -174,17 +121,12 @@ pub struct Account {
     pub profile_arn: Option<String>,
     // 原始 usage API 响应
     pub usage_data: Option<serde_json::Value>,
-    // 分组与标签
+    // 分组
     #[serde(default)]
     pub group_id: Option<String>,
-    #[serde(default, deserialize_with = "deserialize_tags")]
-    pub tags: Vec<String>,
-    // 标签关联（带时间戳，新版本使用）
+    // 标签关联（带时间戳）
     #[serde(default, deserialize_with = "deserialize_tag_links")]
     pub tag_links: Vec<AccountTagLink>,
-    // 详细额度分解
-    #[serde(default)]
-    pub usage_breakdown: Option<UsageBreakdown>,
     // 绑定的机器码
     #[serde(default)]
     pub machine_id: Option<String>,
@@ -216,28 +158,15 @@ impl Account {
             profile_arn: None,
             usage_data: None,
             group_id: None,
-            tags: Vec::new(),
             tag_links: Vec::new(),
-            usage_breakdown: None,
             machine_id: None,
             password: None,
         }
     }
 
-    /// 判断账号是否可用（未封禁且有剩余配额）
+    /// 判断账号是否可用（未封禁）
     pub fn is_available(&self) -> bool {
-        if self.status == "banned" {
-            return false;
-        }
-        if let Some(ref breakdown) = self.usage_breakdown {
-            return breakdown.remaining() > 0;
-        }
-        true
-    }
-
-    /// 获取剩余配额
-    pub fn remaining_quota(&self) -> Option<i32> {
-        self.usage_breakdown.as_ref().map(|b| b.remaining())
+        self.status != "banned"
     }
 }
 
@@ -331,9 +260,7 @@ impl AccountStore {
                         if account.machine_id.is_none() {
                             account.machine_id = Some(uuid::Uuid::new_v4().to_string().to_lowercase());
                         }
-                        // 清空标签（标签 ID 在不同设备上不通用）
-                        account.tags.clear();
-                        account.tag_links.clear();
+                        // 保留标签数据，不再清空
                         self.accounts.push(account);
                         added += 1;
                     }
@@ -366,7 +293,7 @@ impl AccountStore {
     /// 按标签筛选账号
     pub fn get_accounts_by_tag(&self, tag_id: &str) -> Vec<&Account> {
         self.accounts.iter()
-            .filter(|a| a.tags.contains(&tag_id.to_string()))
+            .filter(|a| a.tag_links.iter().any(|l| l.tag_id == tag_id))
             .collect()
     }
 }

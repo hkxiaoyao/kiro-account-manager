@@ -200,11 +200,7 @@ impl KiroPortalClient {
                 return Err(format!("AUTH_ERROR: {}", error_msg));
             }
             
-            // 其他错误打印日志
-            log::debug!("[KiroPortal] GetUserUsageAndLimits Status: {}", status);
-            log::debug!("[KiroPortal] Response:\n{}", error_msg);
-            
-            // 423 Locked + AccountSuspendedException → 封禁
+            // 423 Locked + AccountSuspendedException → 封禁（不打印日志）
             if status.as_u16() == 423 {
                 if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&error_msg) {
                     let type_field = parsed.get("__type").and_then(|t| t.as_str()).unwrap_or("");
@@ -214,6 +210,10 @@ impl KiroPortalClient {
                     }
                 }
             }
+            
+            // 其他错误打印日志
+            log::debug!("[KiroPortal] GetUserUsageAndLimits Status: {}", status);
+            log::debug!("[KiroPortal] Response:\n{}", error_msg);
             
             // 403 处理
             if status.as_u16() == 403 {
