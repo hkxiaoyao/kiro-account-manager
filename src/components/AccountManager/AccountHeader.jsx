@@ -113,7 +113,7 @@ function AccountHeader({
                       onSortChange(`${key}Desc`)
                     }
                   }}
-                  className={`px-3 py-2 text-sm rounded-lg flex items-center gap-1.5 transition-all ${
+                  className={`px-3 py-2 text-sm rounded-lg flex items-center gap-1.5 ${
                     isActive 
                       ? 'bg-blue-500 text-white shadow-sm' 
                       : `${colors.card} border ${colors.cardBorder} ${colors.cardHover} ${colors.textMuted}`
@@ -131,14 +131,14 @@ function AccountHeader({
           <div className="flex gap-1">
             <button
               onClick={() => onViewModeChange('card')}
-              className={`p-2.5 rounded-lg transition-all ${viewMode === 'card' ? 'bg-blue-500 text-white shadow-sm' : `${colors.card} border ${colors.cardBorder} ${colors.cardHover} ${colors.textMuted}`}`}
+              className={`p-2.5 rounded-lg ${viewMode === 'card' ? 'bg-blue-500 text-white shadow-sm' : `${colors.card} border ${colors.cardBorder} ${colors.cardHover} ${colors.textMuted}`}`}
               title={t('accounts.cardView')}
             >
               <LayoutGrid size={18} />
             </button>
             <button
               onClick={() => onViewModeChange('table')}
-              className={`p-2.5 rounded-lg transition-all ${viewMode === 'table' ? 'bg-blue-500 text-white shadow-sm' : `${colors.card} border ${colors.cardBorder} ${colors.cardHover} ${colors.textMuted}`}`}
+              className={`p-2.5 rounded-lg ${viewMode === 'table' ? 'bg-blue-500 text-white shadow-sm' : `${colors.card} border ${colors.cardBorder} ${colors.cardHover} ${colors.textMuted}`}`}
               title={t('accounts.tableView')}
             >
               <List size={18} />
@@ -162,11 +162,11 @@ function AccountHeader({
           {/* 批量操作 */}
           {selectedCount > 0 && (
             <>
-              <button onClick={onBatchTag} className="px-4 py-2 bg-purple-500 text-white rounded-lg text-sm hover:bg-purple-600 flex items-center gap-2 shadow-sm transition-all">
+              <button onClick={onBatchTag} className="px-4 py-2 bg-purple-500 text-white rounded-lg text-sm hover:bg-purple-600 flex items-center gap-2 shadow-sm">
                 <Tag size={16} />
                 {t('tags.batchSet')} ({selectedCount})
               </button>
-              <button onClick={onBatchDelete} className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 flex items-center gap-2 shadow-sm transition-all">
+              <button onClick={onBatchDelete} className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 flex items-center gap-2 shadow-sm">
                 <Trash2 size={16} />
                 {t('accounts.batchDelete')} ({selectedCount})
               </button>
@@ -177,28 +177,28 @@ function AccountHeader({
           <div className="flex gap-1">
             <button
               onClick={onAdd}
-              className={`p-2.5 rounded-lg ${colors.card} border ${colors.cardBorder} ${colors.cardHover} text-green-500 transition-all`}
+              className={`p-2.5 rounded-lg ${colors.card} border ${colors.cardBorder} ${colors.cardHover} text-green-500`}
               title={t('common.add')}
             >
               <Plus size={18} />
             </button>
             <button
               onClick={onImport}
-              className={`p-2.5 rounded-lg ${colors.card} border ${colors.cardBorder} ${colors.cardHover} text-purple-500 transition-all`}
+              className={`p-2.5 rounded-lg ${colors.card} border ${colors.cardBorder} ${colors.cardHover} text-purple-500`}
               title={t('accounts.import')}
             >
               <Upload size={18} />
             </button>
             <button
               onClick={onExport}
-              className={`p-2.5 rounded-lg ${colors.card} border ${colors.cardBorder} ${colors.cardHover} text-orange-500 transition-all`}
+              className={`p-2.5 rounded-lg ${colors.card} border ${colors.cardBorder} ${colors.cardHover} text-orange-500`}
               title={t('accounts.export')}
             >
               <Download size={18} />
             </button>
             <button
               onClick={onRefresh}
-              className={`p-2.5 rounded-lg ${colors.card} border ${colors.cardBorder} ${colors.cardHover} ${colors.textMuted} transition-all`}
+              className={`p-2.5 rounded-lg ${colors.card} border ${colors.cardBorder} ${colors.cardHover} ${colors.textMuted}`}
               title={t('accounts.refreshList')}
             >
               <RotateCw size={18} />
@@ -206,7 +206,7 @@ function AccountHeader({
             <button
               onClick={onRefreshAll}
               disabled={autoRefreshing}
-              className={`p-2.5 rounded-lg ${colors.card} border ${colors.cardBorder} ${colors.cardHover} text-blue-500 disabled:opacity-50 transition-all`}
+              className={`p-2.5 rounded-lg ${colors.card} border ${colors.cardBorder} ${colors.cardHover} text-blue-500 disabled:opacity-50`}
               title={t('accounts.refreshAll')}
             >
               <RefreshCcw size={18} className={autoRefreshing ? 'animate-spin' : ''} />

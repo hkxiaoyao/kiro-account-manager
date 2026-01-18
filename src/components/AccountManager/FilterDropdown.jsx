@@ -326,18 +326,8 @@ function FilterDropdown({
             </div>
           )}
           
-          {/* 动画样式 */}
+          {/* 自定义滚动条样式 */}
           <style>{`
-            @keyframes slideDown {
-              from {
-                opacity: 0;
-                transform: translateY(-10px);
-              }
-              to {
-                opacity: 1;
-                transform: translateY(0);
-              }
-            }
             .custom-scrollbar::-webkit-scrollbar {
               width: 6px;
             }

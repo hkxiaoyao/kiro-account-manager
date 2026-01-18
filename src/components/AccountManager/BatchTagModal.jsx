@@ -106,7 +106,7 @@ function BatchTagModal({ accountIds, accounts = [], onClose, onSuccess }) {
 
   return (
     <div 
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in" 
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" 
       onClick={onClose}
     >
       <div 
@@ -133,12 +133,12 @@ function BatchTagModal({ accountIds, accounts = [], onClose, onSuccess }) {
               <span className={`text-xs ${colors.textMuted}`}>{accountIds.length} 个账号</span>
             </div>
           </div>
-          <button onClick={onClose} className={`p-2 rounded-lg ${colors.cardHover} transition-all`}>
+          <button onClick={onClose} className={`p-2 rounded-lg ${colors.cardHover}`}>
             <X size={18} className={colors.textMuted} />
           </button>
         </div>
 
-        <div className="relative p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+        <div className="relative p-6 space-y-6 max-h-[60vh] overflow-y-auto">
           {/* 已选标签 - 点击 ❌ 取消 */}
           <div>
             <label className={`block text-sm font-medium ${colors.text} mb-2`}>{t('tags.selected')}</label>
@@ -150,7 +150,7 @@ function BatchTagModal({ accountIds, accounts = [], onClose, onSuccess }) {
                   const tag = tags.find(t => t.id === tagId)
                   if (!tag) return null
                   return (
-                    <span key={tagId} className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-full text-white cursor-pointer hover:opacity-80 transition-all active:scale-95"
+                    <span key={tagId} className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-full text-white cursor-pointer hover:opacity-80"
                       style={{ backgroundColor: tag.color || '#8b5cf6' }}
                       onClick={() => handleToggleTag(tagId)}
                       title={t('common.delete')}
@@ -185,7 +185,7 @@ function BatchTagModal({ accountIds, accounts = [], onClose, onSuccess }) {
                     }
                   }}
                   placeholder={t('tags.searchOrCreate') || '搜索或输入新标签...'}
-                  className={`w-full px-4 py-2.5 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 transition-all`}
+                  className={`w-full px-4 py-2.5 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2`}
                 />
                 {/* 搜索建议下拉 - 聚焦就显示 */}
                 {showDropdown && availableTags.length > 0 && (
@@ -210,7 +210,7 @@ function BatchTagModal({ accountIds, accounts = [], onClose, onSuccess }) {
                 type="button" 
                 onClick={handleAddTag} 
                 disabled={!newTagName.trim()}
-                className="px-3 py-2.5 bg-purple-500 text-white rounded-xl text-sm hover:bg-purple-600 disabled:opacity-50 transition-all active:scale-[0.98]"
+                className="px-3 py-2.5 bg-purple-500 text-white rounded-xl text-sm hover:bg-purple-600 disabled:opacity-50"
                 title={t('tags.addTag')}
               >
                 <Plus size={16} />
@@ -221,10 +221,10 @@ function BatchTagModal({ accountIds, accounts = [], onClose, onSuccess }) {
         </div>
 
         {/* Footer */}
-        <div className={`relative px-6 py-4 border-t ${colors.cardBorder} flex justify-end gap-3`}>
+        <div className={`relative px-6 py-5 border-t ${colors.cardBorder} flex justify-end gap-3`}>
           <button
             onClick={onClose}
-            className={`px-5 py-2.5 text-sm font-medium rounded-lg ${colors.cardHover} ${colors.text} transition-all duration-200 active:scale-[0.98]`}
+            className={`px-5 py-2.5 text-sm font-medium rounded-lg ${colors.cardHover} ${colors.text}`}
           >
             {t('common.cancel')}
           </button>
@@ -238,7 +238,7 @@ function BatchTagModal({ accountIds, accounts = [], onClose, onSuccess }) {
               hover:opacity-90 hover:shadow-xl
               disabled:opacity-50 disabled:cursor-not-allowed 
               flex items-center gap-2 
-              transition-all duration-200 active:scale-[0.98]
+             
             `}
           >
             {loading && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
@@ -247,25 +247,7 @@ function BatchTagModal({ accountIds, accounts = [], onClose, onSuccess }) {
         </div>
       </div>
 
-      <style>{`
-        @keyframes modalSlideIn {
-          from {
-            opacity: 0;
-            transform: scale(0.92) translateY(-20px);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1) translateY(0);
-          }
-        }
-        @keyframes fade-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.2s ease-out;
-        }
-      `}</style>
+
     </div>
   )
 }

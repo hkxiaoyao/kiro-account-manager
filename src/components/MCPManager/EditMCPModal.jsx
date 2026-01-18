@@ -87,11 +87,11 @@ function EditMCPModal({ name, config, onClose, onSuccess }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div 
         className={`relative overflow-hidden ${colors.card} border ${colors.cardBorder} rounded-lg shadow-2xl w-[520px] max-h-[85vh] flex flex-col`}
         onClick={e => e.stopPropagation()}
-        style={{ animation: 'modalSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}
+        
       >
         {/* 顶部渐变装饰 */}
         <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-purple-500/10 via-transparent to-transparent pointer-events-none" />
@@ -104,7 +104,7 @@ function EditMCPModal({ name, config, onClose, onSuccess }) {
             </div>
             <h2 className={`text-base font-semibold ${colors.text}`}>{t('common.edit')}: {name}</h2>
           </div>
-          <button onClick={onClose} className={`p-2 rounded-lg ${colors.cardHover} transition-all`}>
+          <button onClick={onClose} className={`p-2 rounded-lg ${colors.cardHover}`}>
             <X size={18} className={colors.textMuted} />
           </button>
         </div>
@@ -165,14 +165,14 @@ function EditMCPModal({ name, config, onClose, onSuccess }) {
         <div className={`relative flex justify-end gap-3 px-6 py-4 border-t ${colors.cardBorder}`}>
           <button
             onClick={onClose}
-            className={`px-5 py-2.5 rounded-lg text-sm ${colors.text} ${colors.cardHover} transition-all`}
+            className={`px-5 py-2.5 rounded-lg text-sm ${colors.text} ${colors.cardHover}`}
           >
             {t('common.cancel')}
           </button>
           <button
             onClick={handleSave}
             disabled={saving || !!parseError}
-            className="px-6 py-2.5 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-all shadow-lg shadow-purple-500/30"
+            className="px-6 py-2.5 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50 shadow-lg shadow-purple-500/30"
           >
             {saving ? t('common.saving') : t('common.save')}
           </button>

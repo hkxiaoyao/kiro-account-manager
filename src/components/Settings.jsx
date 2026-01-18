@@ -528,7 +528,7 @@ function Settings() {
                                 <button
                                     key={opt.key}
                                     onClick={() => setTheme(opt.key)}
-                                    className={`relative p-4 rounded-xl border-2 transition-all hover:scale-105 ${isActive
+                                    className={`relative p-4 rounded-xl border-2 hover:scale-105 ${isActive
                                         ? 'border-blue-500 shadow-lg shadow-blue-500/20'
                                         : `${colors.cardBorder} ${colors.cardHover} ${colors.card}`
                                         }`}
@@ -585,7 +585,7 @@ function Settings() {
                     </div>
 
                     {/* 锁定模型 */}
-                    <label className={`flex items-start gap-3 cursor-pointer rounded-xl p-4 transition-all hover:scale-[1.01] mb-4 border ${colors.cardBorder} ${colors.cardSecondary} ${colors.cardHover}`}>
+                    <label className={`flex items-start gap-3 cursor-pointer rounded-xl p-4 hover:scale-[1.01] mb-4 border ${colors.cardBorder} ${colors.cardSecondary} ${colors.cardHover}`}>
                         <Switch
                             checked={lockModel}
                             onChange={(e) => handleLockModelChange(e.currentTarget.checked)}
@@ -650,7 +650,7 @@ function Settings() {
 
                     {/* 功能开关 - 2列布局 */}
                     <div className="grid grid-cols-2 gap-2 mb-4">
-                        <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg transition-all border ${colors.cardBorder} ${colors.cardSecondary} ${colors.cardHover}`}>
+                        <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg border ${colors.cardBorder} ${colors.cardSecondary} ${colors.cardHover}`}>
                             <Switch
                                 checked={enableCodebaseIndexing}
                                 onChange={(e) => handleCodebaseIndexingChange(e.currentTarget.checked)}
@@ -658,7 +658,7 @@ function Settings() {
                             />
                             <span className={`text-sm ${colors.text}`}>{t('settings.enableCodebaseIndexing')}</span>
                         </label>
-                        <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg transition-all border ${colors.cardBorder} ${colors.cardSecondary} ${colors.cardHover}`}>
+                        <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg border ${colors.cardBorder} ${colors.cardSecondary} ${colors.cardHover}`}>
                             <Switch
                                 checked={enableTabAutocomplete}
                                 onChange={(e) => handleTabAutocompleteChange(e.currentTarget.checked)}
@@ -666,7 +666,7 @@ function Settings() {
                             />
                             <span className={`text-sm ${colors.text}`}>{t('settings.enableTabAutocomplete')}</span>
                         </label>
-                        <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg transition-all border ${colors.cardBorder} ${colors.cardSecondary} ${colors.cardHover}`}>
+                        <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg border ${colors.cardBorder} ${colors.cardSecondary} ${colors.cardHover}`}>
                             <Switch
                                 checked={usageSummary}
                                 onChange={(e) => handleUsageSummaryChange(e.currentTarget.checked)}
@@ -674,7 +674,7 @@ function Settings() {
                             />
                             <span className={`text-sm ${colors.text}`}>{t('settings.usageSummary')}</span>
                         </label>
-                        <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg transition-all border ${colors.cardBorder} ${colors.cardSecondary} ${colors.cardHover}`}>
+                        <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg border ${colors.cardBorder} ${colors.cardSecondary} ${colors.cardHover}`}>
                             <Switch
                                 checked={codeReferences}
                                 onChange={(e) => handleCodeReferencesChange(e.currentTarget.checked)}
@@ -682,7 +682,7 @@ function Settings() {
                             />
                             <span className={`text-sm ${colors.text}`}>{t('settings.codeReferences')}</span>
                         </label>
-                        <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg transition-all border ${colors.cardBorder} ${colors.cardSecondary} ${colors.cardHover}`}>
+                        <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg border ${colors.cardBorder} ${colors.cardSecondary} ${colors.cardHover}`}>
                             <Switch
                                 checked={enableDebugLogs}
                                 onChange={(e) => handleDebugLogsChange(e.currentTarget.checked)}
@@ -696,7 +696,7 @@ function Settings() {
                     <div className={`pt-4 border-t border-dashed ${colors.cardBorder}`}>
                         <span className={`text-sm ${colors.textMuted} mb-3 block`}>{t('settings.notifications')}</span>
                         <div className="grid grid-cols-2 gap-2">
-                            <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg transition-all border ${colors.cardBorder} ${colors.cardSecondary} ${colors.cardHover}`}>
+                            <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg border ${colors.cardBorder} ${colors.cardSecondary} ${colors.cardHover}`}>
                                 <Switch
                                     checked={notifyActionRequired}
                                     onChange={(e) => handleNotificationChange('kiroAgent.notifications.agent.actionRequired', e.currentTarget.checked, setNotifyActionRequired)}
@@ -704,7 +704,7 @@ function Settings() {
                                 />
                                 <span className={`text-sm ${colors.text}`}>{t('settings.notifyActionRequired')}</span>
                             </label>
-                            <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg transition-all border ${colors.cardBorder} ${colors.cardSecondary} ${colors.cardHover}`}>
+                            <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg border ${colors.cardBorder} ${colors.cardSecondary} ${colors.cardHover}`}>
                                 <Switch
                                     checked={notifyFailure}
                                     onChange={(e) => handleNotificationChange('kiroAgent.notifications.agent.failure', e.currentTarget.checked, setNotifyFailure)}
@@ -712,7 +712,7 @@ function Settings() {
                                 />
                                 <span className={`text-sm ${colors.text}`}>{t('settings.notifyFailure')}</span>
                             </label>
-                            <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg transition-all border ${colors.cardBorder} ${colors.cardSecondary} ${colors.cardHover}`}>
+                            <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg border ${colors.cardBorder} ${colors.cardSecondary} ${colors.cardHover}`}>
                                 <Switch
                                     checked={notifySuccess}
                                     onChange={(e) => handleNotificationChange('kiroAgent.notifications.agent.success', e.currentTarget.checked, setNotifySuccess)}
@@ -720,7 +720,7 @@ function Settings() {
                                 />
                                 <span className={`text-sm ${colors.text}`}>{t('settings.notifySuccess')}</span>
                             </label>
-                            <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg transition-all border ${colors.cardBorder} ${colors.cardSecondary} ${colors.cardHover}`}>
+                            <label className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg border ${colors.cardBorder} ${colors.cardSecondary} ${colors.cardHover}`}>
                                 <Switch
                                     checked={notifyBilling}
                                     onChange={(e) => handleNotificationChange('kiroAgent.notifications.billing', e.currentTarget.checked, setNotifyBilling)}
@@ -747,7 +747,7 @@ function Settings() {
                             <button
                                 onClick={handleDetectProxy}
                                 disabled={detectingProxy}
-                                className={`btn-icon px-4 py-3 border rounded-xl ${colors.card} ${colors.cardHover} border ${colors.cardBorder} ${colors.text} transition-all flex items-center gap-2`}
+                                className={`btn-icon px-4 py-3 border rounded-xl ${colors.card} ${colors.cardHover} border ${colors.cardBorder} ${colors.text} flex items-center gap-2`}
                                 title={t('settings.detectProxyTitle')}
                             >
                                 {detectingProxy ? <RefreshCw size={16} className="animate-spin" /> : <Search size={16} />}
@@ -756,7 +756,7 @@ function Settings() {
                             <button
                                 onClick={handleApplyProxy}
                                 disabled={savingProxy || !proxyChanged}
-                                className={`btn-icon px-5 py-3 rounded-xl flex items-center gap-2 font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all border ${proxyChanged
+                                className={`btn-icon px-5 py-3 rounded-xl flex items-center gap-2 font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed border ${proxyChanged
                                     ? 'bg-blue-500 text-white hover:bg-blue-600 border-blue-500'
                                     : `${colors.cardSecondary} ${colors.textMuted} ${colors.cardBorder}`
                                     }`}
@@ -783,7 +783,7 @@ function Settings() {
 
                     {/* 自动刷新 Token + 刷新间隔 */}
                     <div className="flex items-center gap-3 mb-4">
-                        <label className={`flex items-center gap-2 cursor-pointer px-4 py-3 rounded-xl border transition-all flex-shrink-0 ${autoRefresh
+                        <label className={`flex items-center gap-2 cursor-pointer px-4 py-3 rounded-xl border flex-shrink-0 ${autoRefresh
                             ? 'bg-blue-500/20 border-blue-500/50 text-blue-500'
                             : `${colors.card} ${colors.cardHover} border ${colors.cardBorder} ${colors.text}`
                             }`} title={t('settings.autoRefreshDesc')}>
@@ -819,7 +819,7 @@ function Settings() {
 
                     {/* 机器码设置 - 勾选框 + 二选一下拉框 */}
                     <div className="flex items-center gap-3 mb-4">
-                        <label className={`flex items-center gap-2 cursor-pointer px-4 py-3 rounded-xl border transition-all flex-shrink-0 ${autoChangeMachineId
+                        <label className={`flex items-center gap-2 cursor-pointer px-4 py-3 rounded-xl border flex-shrink-0 ${autoChangeMachineId
                             ? 'bg-blue-500/20 border-blue-500/50 text-blue-500'
                             : `${colors.card} ${colors.cardHover} border ${colors.cardBorder} ${colors.text}`
                             }`} title={t('settings.autoChangeMachineIdDesc')}>
@@ -851,7 +851,7 @@ function Settings() {
                     </div>
 
                     {/* 隐私模式 */}
-                    <label className={`flex items-center gap-2 cursor-pointer px-4 py-3 rounded-xl border transition-all mb-4 ${privacyMode
+                    <label className={`flex items-center gap-2 cursor-pointer px-4 py-3 rounded-xl border mb-4 ${privacyMode
                         ? 'bg-blue-500/20 border-blue-500/50 text-blue-500'
                         : `${colors.card} ${colors.cardHover} border ${colors.cardBorder} ${colors.text}`
                         }`} title={t('settings.privacyModeDesc')}>
@@ -867,7 +867,7 @@ function Settings() {
 
                     {/* 自动换号 */}
                     <div className="flex items-center gap-3">
-                        <label className={`flex items-center gap-2 cursor-pointer px-4 py-3 rounded-xl border transition-all flex-shrink-0 ${autoSwitchEnabled
+                        <label className={`flex items-center gap-2 cursor-pointer px-4 py-3 rounded-xl border flex-shrink-0 ${autoSwitchEnabled
                             ? 'bg-blue-500/20 border-blue-500/50 text-blue-500'
                             : `${colors.card} ${colors.cardHover} border ${colors.cardBorder} ${colors.text}`
                             }`} title={t('settings.autoSwitchDesc')}>
@@ -947,7 +947,7 @@ function Settings() {
                             />
                             <button
                                 onClick={handleDetectBrowsers}
-                                className={`btn-icon px-4 py-3 border rounded-xl ${colors.card} ${colors.cardHover} border ${colors.cardBorder} ${colors.text} transition-all flex items-center gap-2`}
+                                className={`btn-icon px-4 py-3 border rounded-xl ${colors.card} ${colors.cardHover} border ${colors.cardBorder} ${colors.text} flex items-center gap-2`}
                                 title={t('settings.detectBrowsersTitle')}
                             >
                                 <Search size={16} />
@@ -956,7 +956,7 @@ function Settings() {
                             <button
                                 onClick={handleApplyBrowser}
                                 disabled={savingBrowser || !browserChanged}
-                                className={`btn-icon px-5 py-3 rounded-xl flex items-center gap-2 font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all border ${browserChanged
+                                className={`btn-icon px-5 py-3 rounded-xl flex items-center gap-2 font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed border ${browserChanged
                                     ? 'bg-blue-500 text-white hover:bg-blue-600 border-blue-500'
                                     : `${colors.cardSecondary} ${colors.textMuted} ${colors.cardBorder}`
                                     }`}
@@ -1122,7 +1122,7 @@ function Settings() {
                         <button
                             onClick={handleResetSystemMachineGuid}
                             disabled={machineGuidAction !== null}
-                            className={`w-full btn-icon px-4 py-3 rounded-xl flex items-center justify-center gap-2 font-medium transition-all ${colors.danger} ${colors.dangerHover} disabled:opacity-50`}
+                            className={`w-full btn-icon px-4 py-3 rounded-xl flex items-center justify-center gap-2 font-medium ${colors.danger} ${colors.dangerHover} disabled:opacity-50`}
                         >
                             {machineGuidAction === 'reset' ? <RefreshCw size={16} className="animate-spin" /> : <Shuffle size={16} />}
                             {t('common.reset')}

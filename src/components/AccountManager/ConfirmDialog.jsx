@@ -122,7 +122,7 @@ function ConfirmDialog({
         </div>
 
         {/* Content */}
-        <div className="relative px-6 py-4">
+        <div className="relative px-6 py-6">
           <p className={`${colors.textMuted} text-sm leading-relaxed whitespace-pre-line`}>
             {message}
           </p>
@@ -188,25 +188,7 @@ function ConfirmDialog({
         </div>
       </div>
 
-      <style>{`
-        @keyframes dialogSlideIn {
-          from {
-            opacity: 0;
-            transform: scale(0.92) translateY(-20px);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1) translateY(0);
-          }
-        }
-        @keyframes fade-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.2s ease-out;
-        }
-      `}</style>
+
     </div>
   )
 }

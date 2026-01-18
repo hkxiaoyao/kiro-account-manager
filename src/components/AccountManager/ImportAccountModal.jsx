@@ -265,7 +265,7 @@ function ImportAccountModal({ onClose, onSuccess }) {
 
   return (
     <div 
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in"
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
       onClick={onClose}
     >
       <div 
@@ -277,7 +277,7 @@ function ImportAccountModal({ onClose, onSuccess }) {
           border ${colors.cardBorder}
         `}
         onClick={e => e.stopPropagation()}
-        style={{ animation: 'dialogSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)' }}
+        
       >
         {/* 顶部渐变装饰 */}
         <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-indigo-500/10 via-transparent to-transparent pointer-events-none" />
@@ -304,7 +304,7 @@ function ImportAccountModal({ onClose, onSuccess }) {
             </div>
             <button
               onClick={onClose}
-              className={`p-2 rounded-xl transition-all duration-200 ${colors.cardHover}`}
+              className={`p-2 rounded-xl ${colors.cardHover}`}
             >
               <X size={18} className={colors.textMuted} />
             </button>
@@ -315,13 +315,13 @@ function ImportAccountModal({ onClose, onSuccess }) {
         <div className="relative max-h-[75vh] overflow-y-auto">
           {importResult || ssoResult ? (
             <div className="px-6 py-6">
-              <Stack gap="md">
+              <Stack gap="lg">
                 {importResult && renderResult(importResult)}
                 {ssoResult && renderResult(ssoResult)}
                 <div className="flex justify-end gap-3 mt-4">
                   <button
                     onClick={() => { setImportResult(null); setSsoResult(null); setJsonText(''); setSsoToken(''); setParseResult(null) }}
-                    className={`px-5 py-2.5 text-sm font-medium rounded-xl ${colors.btnSecondary} transition-all duration-200 active:scale-[0.98]`}
+                    className={`px-5 py-2.5 text-sm font-medium rounded-xl ${colors.btnSecondary}`}
                   >
                     {t('import.continueImport')}
                   </button>
@@ -332,7 +332,7 @@ function ImportAccountModal({ onClose, onSuccess }) {
                       bg-gradient-to-r from-emerald-500 to-teal-600
                       shadow-lg shadow-emerald-500/30
                       hover:opacity-90 hover:shadow-xl
-                      transition-all duration-200 active:scale-[0.98]
+                     
                     `}
                   >
                     {t('import.done')}
@@ -341,8 +341,8 @@ function ImportAccountModal({ onClose, onSuccess }) {
               </Stack>
             </div>
           ) : importing || ssoImporting ? (
-            <div className="px-6 py-6">
-              <Stack gap="lg">
+            <div className="px-6 py-8">
+              <Stack gap="xl">
                 <div className={`p-5 rounded-xl ${colors.cardSecondary} border ${colors.cardBorder}`}>
                   <div className="flex items-center gap-4 mb-4">
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
@@ -375,7 +375,7 @@ function ImportAccountModal({ onClose, onSuccess }) {
               </Tabs.List>
 
               <Tabs.Panel value="json" pt="md" className="px-6 pb-6">
-                <Stack gap="lg">
+                <Stack gap="xl">
               <Group>
                 <FileButton onChange={handleFileSelect} accept=".json">
                   {(props) => <Button {...props} variant="light" leftSection={<FileJson size={16} />}>{t('import.selectFile')}</Button>}
@@ -426,7 +426,7 @@ function ImportAccountModal({ onClose, onSuccess }) {
               <div className="flex justify-end gap-3 mt-4">
                 <button
                   onClick={onClose}
-                  className={`px-5 py-2.5 text-sm font-medium rounded-xl ${colors.btnSecondary} transition-all duration-200 active:scale-[0.98]`}
+                  className={`px-5 py-2.5 text-sm font-medium rounded-xl ${colors.btnSecondary}`}
                 >
                   {t('common.cancel')}
                 </button>
@@ -440,7 +440,7 @@ function ImportAccountModal({ onClose, onSuccess }) {
                     hover:opacity-90 hover:shadow-xl
                     disabled:opacity-50 disabled:cursor-not-allowed 
                     flex items-center gap-2 
-                    transition-all duration-200 active:scale-[0.98]
+                   
                   `}
                 >
                   <Upload size={16} />
@@ -451,7 +451,7 @@ function ImportAccountModal({ onClose, onSuccess }) {
           </Tabs.Panel>
 
           <Tabs.Panel value="sso" pt="md" className="px-6 pb-6">
-            <Stack gap="lg">
+            <Stack gap="xl">
               <Alert color="blue" variant="light">
                 <Text size="sm" fw={500}>{t('import.ssoGuide')}</Text>
                 <ol className={`list-decimal list-inside space-y-1 text-xs mt-2 ${colors.text}`}>
@@ -502,7 +502,7 @@ function ImportAccountModal({ onClose, onSuccess }) {
               <div className="flex justify-end gap-3 mt-4">
                 <button
                   onClick={onClose}
-                  className={`px-5 py-2.5 text-sm font-medium rounded-xl ${colors.btnSecondary} transition-all duration-200 active:scale-[0.98]`}
+                  className={`px-5 py-2.5 text-sm font-medium rounded-xl ${colors.btnSecondary}`}
                 >
                   {t('common.cancel')}
                 </button>
@@ -516,7 +516,7 @@ function ImportAccountModal({ onClose, onSuccess }) {
                     hover:opacity-90 hover:shadow-xl
                     disabled:opacity-50 disabled:cursor-not-allowed 
                     flex items-center gap-2 
-                    transition-all duration-200 active:scale-[0.98]
+                   
                   `}
                 >
                   <Key size={16} />
@@ -530,25 +530,7 @@ function ImportAccountModal({ onClose, onSuccess }) {
         </div>
       </div>
 
-      <style>{`
-        @keyframes dialogSlideIn {
-          from {
-            opacity: 0;
-            transform: scale(0.92) translateY(-20px);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1) translateY(0);
-          }
-        }
-        @keyframes fade-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.2s ease-out;
-        }
-      `}</style>
+
     </div>
   )
 }

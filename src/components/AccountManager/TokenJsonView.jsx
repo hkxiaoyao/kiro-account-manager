@@ -42,20 +42,24 @@ function CollapsibleValue({ value, colors, threshold = 50 }) {
   const isLong = value.length > threshold
   
   if (!isLong) {
-    return <span className="text-emerald-500">"{value}"</span>
+    return <span className="text-emerald-500 font-medium">"{value}"</span>
   }
   
   const displayValue = expanded ? value : `${value.slice(0, threshold)}...`
   
   return (
     <span className="inline">
-      <span className="text-emerald-500">"{displayValue}"</span>
+      <span className="text-emerald-500 font-medium">"{displayValue}"</span>
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); setExpanded(!expanded) }}
-        className={`ml-1 text-xs px-1 rounded ${colors.cardSecondary} ${colors.textMuted} ${colors.cardHover}`}
+        className={`
+          ml-2 text-xs px-2 py-0.5 rounded-md 
+          ${colors.cardSecondary} ${colors.textMuted} ${colors.cardHover}
+          transition-all duration-200 font-medium
+        `}
       >
-        {expanded ? '收起' : `+${value.length - threshold}`}
+        {expanded ? '收起' : `展开 +${value.length - threshold}`}
       </button>
     </span>
   )
@@ -68,28 +72,28 @@ function JsonRenderer({ json, colors, indent = 0 }) {
   const padInner = '  '.repeat(indent + 1)
   
   return (
-    <div className="text-xs font-mono">
-      <span>{'{'}</span>
+    <div className="text-sm font-mono leading-relaxed">
+      <span className={colors.textMuted}>{'{'}</span>
       {entries.map(([key, value], i) => (
-        <div key={key}>
-          <span>{padInner}</span>
-          <span className="text-purple-500">"{key}"</span>
-          <span>: </span>
+        <div key={key} className="py-0.5">
+          <span className={colors.textMuted}>{padInner}</span>
+          <span className="text-blue-500 font-semibold">"{key}"</span>
+          <span className={colors.textMuted}>: </span>
           {typeof value === 'string' ? (
             <CollapsibleValue value={value} colors={colors} />
           ) : value === null ? (
-            <span className="text-blue-500">null</span>
+            <span className="text-orange-500 font-medium">null</span>
           ) : typeof value === 'boolean' ? (
-            <span className="text-blue-500">{String(value)}</span>
+            <span className="text-purple-500 font-medium">{String(value)}</span>
           ) : typeof value === 'number' ? (
-            <span className="text-amber-500">{value}</span>
+            <span className="text-amber-500 font-medium">{value}</span>
           ) : (
             <span className="text-emerald-500">{JSON.stringify(value)}</span>
           )}
-          {i < entries.length - 1 && <span>,</span>}
+          {i < entries.length - 1 && <span className={colors.textMuted}>,</span>}
         </div>
       ))}
-      <span>{pad}{'}'}</span>
+      <span className={colors.textMuted}>{pad}{'}'}</span>
     </div>
   )
 }
@@ -114,39 +118,67 @@ export function TokenJsonView({ account, defaultExpanded = true }) {
   }
   
   return (
-    <div className={`${colors.card} rounded-xl shadow-sm overflow-hidden`}>
+    <div className={`${colors.card} rounded-xl shadow-sm overflow-hidden border ${colors.cardBorder}`}>
       <div 
-        className={`flex items-center justify-between px-5 py-4 cursor-pointer ${colors.cardHover} transition-colors`}
+        className={`flex items-center justify-between px-6 py-4 cursor-pointer ${colors.cardHover} transition-all duration-200`}
         onClick={() => setExpanded(!expanded)}
       >
-        <div className="flex items-center gap-2">
-          <Key size={18} className={colors.textMuted} />
-          <span className={`font-medium ${colors.text}`}>{t('detail.tokenCredentials') || 'Token 凭证'}</span>
-          <span className={`text-xs px-2 py-0.5 rounded ${colors.badgeInfo}`}>JSON</span>
-        </div>
         <div className="flex items-center gap-3">
-          {account.expiresAt && (
-            <span className={`text-xs ${colors.textMuted} flex items-center gap-1`}>
-              <Clock size={12} />{account.expiresAt}
-            </span>
-          )}
-          {expanded ? <ChevronUp size={16} className={colors.textMuted} /> : <ChevronDown size={16} className={colors.textMuted} />}
+          <div className={`p-2 rounded-lg ${colors.cardSecondary}`}>
+            <Key size={18} className={colors.textMuted} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className={`font-semibold ${colors.text}`}>{t('detail.tokenCredentials') || 'Token 凭证'}</span>
+              <span className={`text-xs px-2 py-0.5 rounded-md ${colors.badgeInfo} font-medium`}>JSON</span>
+            </div>
+            {account.expiresAt && (
+              <span className={`text-xs ${colors.textMuted} flex items-center gap-1 mt-1`}>
+                <Clock size={11} />
+                {t('detail.expiresAt') || '过期时间'}: {account.expiresAt}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className={`p-2 rounded-lg ${colors.cardSecondary} transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}>
+          <ChevronDown size={16} className={colors.textMuted} />
         </div>
       </div>
       
       {expanded && (
-        <div className={`px-5 pb-5 border-t ${colors.cardBorder} pt-4`}>
-          <div className="flex items-center justify-end mb-2">
+        <div className={`px-6 pb-6 border-t ${colors.cardBorder} pt-5 animate-in fade-in slide-in-from-top-2 duration-200`}>
+          <div className="flex items-center justify-between mb-3">
+            <span className={`text-xs font-medium ${colors.textMuted}`}>
+              {Object.keys(credentialsJson).length} {t('detail.fields') || '个字段'}
+            </span>
             <button 
               type="button" 
               onClick={handleCopy}
-              className={`text-xs ${colors.textMuted} hover:text-blue-500 flex items-center gap-1 px-2 py-1 rounded ${colors.cardHover}`}
+              className={`
+                text-xs ${colors.textMuted} hover:text-blue-500 
+                flex items-center gap-1.5 px-3 py-1.5 rounded-lg 
+                ${colors.cardSecondary} ${colors.cardHover}
+                transition-all duration-200 font-medium
+              `}
             >
-              {copied ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
-              {copied ? t('common.copied') : t('common.copyAll')}
+              {copied ? (
+                <>
+                  <Check size={13} className="text-green-500" />
+                  <span className="text-green-500">{t('common.copied')}</span>
+                </>
+              ) : (
+                <>
+                  <Copy size={13} />
+                  {t('common.copyAll')}
+                </>
+              )}
             </button>
           </div>
-          <div className={`p-4 rounded-lg ${colors.cardSecondary} border ${colors.cardBorder} max-h-80 overflow-auto`}>
+          <div className={`
+            p-5 rounded-xl ${colors.cardSecondary} border ${colors.cardBorder} 
+            max-h-96 overflow-auto
+            scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-transparent
+          `}>
             <JsonRenderer json={credentialsJson} colors={colors} />
           </div>
         </div>

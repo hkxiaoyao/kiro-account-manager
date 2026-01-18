@@ -81,7 +81,7 @@ function AddAccountModal({ onClose, onSuccess }) {
 
   return (
     <div 
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in"
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
       onClick={onClose}
     >
       <div 
@@ -93,7 +93,6 @@ function AddAccountModal({ onClose, onSuccess }) {
           border ${colors.cardBorder}
         `}
         onClick={e => e.stopPropagation()}
-        style={{ animation: 'dialogSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)' }}
       >
         {/* 顶部渐变装饰 */}
         <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-blue-500/10 via-transparent to-transparent pointer-events-none" />
@@ -120,7 +119,7 @@ function AddAccountModal({ onClose, onSuccess }) {
             </div>
             <button
               onClick={onClose}
-              className={`p-2 rounded-xl transition-all duration-200 ${colors.cardHover}`}
+              className={`p-2 rounded-xl ${colors.cardHover}`}
             >
               <X size={18} className={colors.textMuted} />
             </button>
@@ -128,10 +127,10 @@ function AddAccountModal({ onClose, onSuccess }) {
         </div>
 
         {/* Content */}
-        <div className="relative px-6 py-4 max-h-[70vh] overflow-y-auto">
-          <Stack gap="lg">
+        <div className="relative px-6 py-6 max-h-[70vh] overflow-y-auto">
+          <Stack gap="xl">
             {/* 保存本地账号 */}
-            <div className={`p-5 rounded-xl border-2 border-dashed ${colors.cardBorder} ${colors.cardSecondary} hover:border-teal-500/50 transition-all group`}>
+            <div className={`p-5 rounded-xl border-2 border-dashed ${colors.cardBorder} ${colors.cardSecondary} hover:border-teal-500/50 group`}>
               <Button
                 onClick={handleSaveLocal}
                 disabled={addLoading}
@@ -141,7 +140,7 @@ function AddAccountModal({ onClose, onSuccess }) {
                 fullWidth
                 size="lg"
                 classNames={{
-                  root: 'h-auto py-4 group-hover:scale-[1.02] transition-transform rounded-xl'
+                  root: 'h-auto py-4 rounded-xl'
                 }}
               >
                 <div className="text-left w-full">
@@ -194,7 +193,7 @@ function AddAccountModal({ onClose, onSuccess }) {
                 placeholder={accountType === 'idc' ? t('addAccount.idcPlaceholder') : t('addAccount.socialPlaceholder')}
                 value={refreshToken}
                 onChange={(e) => setRefreshToken(e.target.value)}
-                className={`w-full px-4 py-3 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 transition-all`}
+                className={`w-full px-4 py-3 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2`}
               />
             </div>
 
@@ -210,7 +209,7 @@ function AddAccountModal({ onClose, onSuccess }) {
                     placeholder="OIDC Client ID"
                     value={clientId}
                     onChange={(e) => setClientId(e.target.value)}
-                    className={`w-full px-4 py-3 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 transition-all`}
+                    className={`w-full px-4 py-3 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2`}
                   />
                 </div>
                 <div>
@@ -222,7 +221,7 @@ function AddAccountModal({ onClose, onSuccess }) {
                     placeholder="OIDC Client Secret"
                     value={clientSecret}
                     onChange={(e) => setClientSecret(e.target.value)}
-                    className={`w-full px-4 py-3 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 transition-all`}
+                    className={`w-full px-4 py-3 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2`}
                   />
                 </div>
                 <div>
@@ -232,7 +231,7 @@ function AddAccountModal({ onClose, onSuccess }) {
                   <select
                     value={region}
                     onChange={(e) => setRegion(e.target.value)}
-                    className={`w-full px-4 py-3 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 transition-all`}
+                    className={`w-full px-4 py-3 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2`}
                   >
                     {awsRegions.map(r => (
                       <option key={r.value} value={r.value}>{r.label}</option>
@@ -252,7 +251,7 @@ function AddAccountModal({ onClose, onSuccess }) {
                 placeholder={t('addAccount.machineIdPlaceholder')}
                 value={machineId}
                 onChange={(e) => setMachineId(e.target.value)}
-                className={`w-full px-4 py-3 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 transition-all`}
+                className={`w-full px-4 py-3 border rounded-xl ${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2`}
               />
             </div>
 
@@ -269,7 +268,7 @@ function AddAccountModal({ onClose, onSuccess }) {
         <div className={`relative px-6 py-5 ${colors.dialogFooter} flex justify-end gap-3`}>
           <button
             onClick={onClose}
-            className={`px-5 py-2.5 text-sm font-medium rounded-xl ${colors.btnSecondary} transition-all duration-200 active:scale-[0.98]`}
+            className={`px-5 py-2.5 text-sm font-medium rounded-xl ${colors.btnSecondary}`}
           >
             {t('common.cancel')}
           </button>
@@ -282,8 +281,7 @@ function AddAccountModal({ onClose, onSuccess }) {
               shadow-lg shadow-blue-500/30
               hover:opacity-90 hover:shadow-xl
               disabled:opacity-50 disabled:cursor-not-allowed 
-              flex items-center gap-2 
-              transition-all duration-200 active:scale-[0.98]
+              flex items-center gap-2
             `}
           >
             {addLoading && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
@@ -292,26 +290,6 @@ function AddAccountModal({ onClose, onSuccess }) {
           </button>
         </div>
       </div>
-
-      <style>{`
-        @keyframes dialogSlideIn {
-          from {
-            opacity: 0;
-            transform: scale(0.92) translateY(-20px);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1) translateY(0);
-          }
-        }
-        @keyframes fade-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.2s ease-out;
-        }
-      `}</style>
     </div>
   )
 }

@@ -96,82 +96,97 @@ function AccountDetailModal({ account, onClose }) {
   const totalPercent = totalQuota > 0 ? Math.min(100, (totalUsed / totalQuota) * 100) : 0
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-6" onClick={onClose}>
       <div 
-        className={`relative overflow-hidden ${colors.card} rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col border ${colors.cardBorder}`} 
+        className={`relative ${colors.card} rounded-2xl w-full max-w-4xl shadow-2xl max-h-[90vh] flex flex-col border ${colors.cardBorder}`} 
         onClick={e => e.stopPropagation()}
-        style={{ animation: 'dialogSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)' }}
       >
-        {/* 顶部渐变装饰 */}
-        <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-blue-500/10 via-transparent to-transparent pointer-events-none" />
-        
-        {/* 装饰性光晕 */}
-        <div className="absolute -top-20 -right-20 w-40 h-40 bg-gradient-to-br from-blue-500/20 to-indigo-500/10 rounded-full blur-3xl opacity-50" />
+        {/* 顶部渐变背景 */}
+        <div className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-br from-blue-500/5 via-purple-500/3 to-transparent pointer-events-none rounded-t-2xl" />
         
         {/* Header */}
-        <div className={`relative flex items-center justify-between px-6 py-4 ${colors.card} border-b ${colors.cardBorder}`}>
-          <div className="flex items-center gap-4">
-            <div className={`
-              w-12 h-12 rounded-2xl flex items-center justify-center
-              ring-1 ${colors.ringColor} shadow-lg
-              ${account.provider === 'Google' 
-                ? 'bg-gradient-to-br from-red-500/20 to-orange-500/10' 
-                : account.provider === 'Github' 
-                  ? `bg-gradient-to-br ${colors.cardSecondary}` 
-                  : 'bg-gradient-to-br from-blue-500/20 to-indigo-500/10'
-              }`}
-            >
-              <User size={24} className={account.provider === 'Google' ? 'text-red-400' : account.provider === 'Github' ? `${colors.text}` : 'text-blue-400'} strokeWidth={2} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className={`text-lg font-semibold ${colors.text}`}>{account.email}</h2>
-                <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                  (account.usageData?.subscriptionInfo?.subscriptionTitle?.toUpperCase()?.includes('ENTERPRISE'))
-                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white'
-                    : (account.usageData?.subscriptionInfo?.type?.includes('PRO+') || account.usageData?.subscriptionInfo?.subscriptionTitle?.includes('PRO+'))
-                      ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
-                      : (account.usageData?.subscriptionInfo?.type?.includes('PRO') || account.usageData?.subscriptionInfo?.subscriptionTitle?.includes('PRO'))
-                        ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white'
-                        : (account.usageData?.subscriptionInfo?.subscriptionTitle?.toUpperCase()?.includes('KIRO'))
-                          ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white'
-                          : `${colors.cardSecondary} ${colors.textMuted}`
-                }`}>
-                  {account.usageData?.subscriptionInfo?.subscriptionTitle || 'Free'}
-                </span>
+        <div className={`relative px-8 py-6 border-b ${colors.cardBorder}`}>
+          <div className="flex items-start justify-between">
+            <div className="flex items-start gap-5 flex-1">
+              {/* 头像图标 */}
+              <div className={`
+                w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg
+                ${account.provider === 'Google' 
+                  ? 'bg-gradient-to-br from-red-500 to-orange-500' 
+                  : account.provider === 'Github' 
+                    ? 'bg-gradient-to-br from-gray-700 to-gray-900' 
+                    : 'bg-gradient-to-br from-blue-500 to-indigo-600'
+                }`}
+              >
+                <User size={28} className="text-white" strokeWidth={2} />
               </div>
-              <p className={`text-sm ${colors.textMuted}`}>
-                <span className={`${
-                  account.provider === 'Google' ? 'text-red-500'
-                    : account.provider === 'GitHub' ? colors.text
-                    : account.provider === 'BuilderId' ? 'text-orange-500'
-                    : colors.textMuted
-                }`}>{account.provider || t('common.unknown')}</span>
-                {' · '}{t('detail.addedAt')} {account.addedAt?.split(' ')[0]}
-              </p>
-              {/* 机器码 - 显眼位置 */}
-              {account.machineId && (
-                <div className="flex items-center gap-2 mt-1">
-                  <span className={`text-xs ${colors.textMuted}`}>ID:</span>
-                  <code className={`text-xs font-mono px-2 py-0.5 rounded bg-red-500/20 text-red-300`}>
-                    {account.machineId}
-                  </code>
-                  <button type="button" onClick={() => handleCopy(account.machineId, 'machineId')} className={`p-1 rounded ${colors.cardHover}`}>
-                    {copied === 'machineId' ? <Check size={12} className="text-green-500" /> : <Copy size={12} className={colors.textMuted} />}
-                  </button>
+              
+              {/* 账号信息 */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-3 mb-2">
+                  <h2 className={`text-xl font-bold ${colors.text} truncate`}>{account.email}</h2>
+                  <span className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap shadow-lg ${
+                    (account.usageData?.subscriptionInfo?.subscriptionTitle?.toUpperCase()?.includes('ENTERPRISE'))
+                      ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-amber-500/30'
+                      : (account.usageData?.subscriptionInfo?.type?.includes('PRO+') || account.usageData?.subscriptionInfo?.subscriptionTitle?.includes('PRO+'))
+                        ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-purple-500/30'
+                        : (account.usageData?.subscriptionInfo?.type?.includes('PRO') || account.usageData?.subscriptionInfo?.subscriptionTitle?.includes('PRO'))
+                          ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-blue-500/30'
+                          : (account.usageData?.subscriptionInfo?.subscriptionTitle?.toUpperCase()?.includes('KIRO'))
+                            ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-teal-500/30'
+                            : `${colors.cardSecondary} ${colors.textMuted}`
+                  }`}>
+                    {account.usageData?.subscriptionInfo?.subscriptionTitle || 'Free'}
+                  </span>
                 </div>
-              )}
+                
+                <div className={`flex items-center gap-3 text-sm ${colors.textMuted} mb-3`}>
+                  <span className={`flex items-center gap-1.5 font-medium ${
+                    account.provider === 'Google' ? 'text-red-500'
+                      : account.provider === 'GitHub' ? colors.text
+                      : account.provider === 'BuilderId' ? 'text-orange-500'
+                      : colors.textMuted
+                  }`}>
+                    <div className="w-1.5 h-1.5 rounded-full bg-current"></div>
+                    {account.provider || t('common.unknown')}
+                  </span>
+                  <span>·</span>
+                  <span>{t('detail.addedAt')} {account.addedAt?.split(' ')[0]}</span>
+                </div>
+                
+                {/* 机器码 */}
+                {account.machineId && (
+                  <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg ${colors.cardSecondary}`}>
+                    <span className={`text-xs font-medium ${colors.textMuted}`}>Machine ID:</span>
+                    <code className="text-xs font-mono text-red-400">
+                      {account.machineId}
+                    </code>
+                    <button 
+                      type="button" 
+                      onClick={() => handleCopy(account.machineId, 'machineId')} 
+                      className={`p-1 rounded ${colors.cardHover}`}
+                    >
+                      {copied === 'machineId' ? <Check size={12} className="text-green-500" /> : <Copy size={12} className={colors.textMuted} />}
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
+            
+            {/* 关闭按钮 */}
+            <button 
+              onClick={onClose} 
+              className={`p-2.5 ${colors.cardHover} rounded-xl flex-shrink-0 ml-4`}
+            >
+              <X size={20} className={colors.textMuted} />
+            </button>
           </div>
-          <button onClick={onClose} className={`p-2 ${colors.cardHover} rounded-xl transition-all`}>
-            <X size={20} className={colors.textMuted} />
-          </button>
         </div>
         
         <div className="flex-1 overflow-y-auto">
-          <div className="p-6 space-y-4">
+          <div className="px-8 py-6 space-y-6">
             {/* 配额总览 */}
-            <div className={`${colors.card} rounded-xl p-5 shadow-sm`}>
+            <div className={`${colors.card} rounded-xl p-6 shadow-sm border ${colors.cardBorder}`}>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <CreditCard size={18} className={colors.textMuted} />
@@ -271,12 +286,12 @@ function AccountDetailModal({ account, onClose }) {
             </div>
 
             {/* 基本信息 */}
-            <div className={`${colors.card} rounded-xl p-5 shadow-sm`}>
-              <div className="flex items-center gap-2 mb-4">
+            <div className={`${colors.card} rounded-xl p-6 shadow-sm border ${colors.cardBorder}`}>
+              <div className="flex items-center gap-2 mb-5">
                 <User size={18} className={colors.textMuted} />
                 <span className={`font-medium ${colors.text}`}>{t('detail.basicInfo')}</span>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-5">
                 <div>
                   <TextInput
                     label={t('detail.emailAddress')}
@@ -285,14 +300,14 @@ function AccountDetailModal({ account, onClose }) {
                     onChange={(e) => setForm({ ...form, email: e.target.value })}
                     required
                     classNames={{
-                      label: `text-xs font-medium ${colors.textMuted}`,
+                      label: `text-sm font-medium ${colors.textMuted} mb-2`,
                       input: `${colors.text} ${colors.input}`
                     }}
                     styles={{
                       input: {
                         fontSize: '0.875rem',
-                        padding: '0.5rem 0.75rem',
-                        borderRadius: '0.5rem',
+                        padding: '0.625rem 0.875rem',
+                        borderRadius: '0.75rem',
                       }
                     }}
                   />
@@ -304,21 +319,19 @@ function AccountDetailModal({ account, onClose }) {
                     readOnly
                     placeholder={t('common.none')}
                     classNames={{
-                      label: `text-xs font-medium ${colors.textMuted}`,
+                      label: `text-sm font-medium ${colors.textMuted} mb-2`,
                       input: `${colors.text} ${colors.input} opacity-60`
                     }}
                     styles={{
                       input: {
                         fontSize: '0.875rem',
-                        padding: '0.5rem 0.75rem',
-                        borderRadius: '0.5rem',
+                        padding: '0.625rem 0.875rem',
+                        borderRadius: '0.75rem',
                       }
                     }}
                   />
                 </div>
               </div>
-              
-
             </div>
 
             {/* Token 凭证 JSON 视图 */}
@@ -326,22 +339,22 @@ function AccountDetailModal({ account, onClose }) {
           </div>
 
           {/* Footer */}
-          <div className={`relative flex justify-between items-center px-6 py-5 ${colors.dialogFooter}`}>
-            <div className={`text-xs ${colors.textMuted}`}>
+          <div className={`relative flex justify-between items-center px-8 py-5 ${colors.dialogFooter}`}>
+            <div className={`text-sm ${colors.textMuted} flex items-center gap-2`}>
               {account.status === 'active' || account.status === '正常' || account.status === '有效' 
-                ? <span className="flex items-center gap-1 text-green-500"><Shield size={12} />{t('detail.accountNormal')}</span> 
+                ? <><Shield size={14} className="text-green-500" /><span className="text-green-500 font-medium">{t('detail.accountNormal')}</span></> 
                 : account.status === 'banned' || account.status === '封禁' || account.status === '已封禁'
-                  ? <span className="flex items-center gap-1 text-red-500"><Shield size={12} />{t('detail.accountBanned')}</span>
-                  : <span className="flex items-center gap-1 text-orange-500"><Shield size={12} />{account.status}</span>}
+                  ? <><Shield size={14} className="text-red-500" /><span className="text-red-500 font-medium">{t('detail.accountBanned')}</span></>
+                  : <><Shield size={14} className="text-orange-500" /><span className="text-orange-500 font-medium">{account.status}</span></>}
             </div>
             <button 
               type="button" 
               onClick={onClose} 
               className="
-                px-6 py-2.5 text-sm font-medium rounded-xl text-white
+                px-8 py-3 text-sm font-semibold rounded-xl text-white
                 bg-gradient-to-r from-blue-500 to-indigo-600
                 shadow-lg shadow-blue-500/30
-                hover:opacity-90 hover:shadow-xl
+                hover:opacity-90 hover:shadow-xl hover:shadow-blue-500/40
                 transition-all duration-200 active:scale-[0.98]
               "
             >
@@ -355,29 +368,3 @@ function AccountDetailModal({ account, onClose }) {
 }
 
 export default AccountDetailModal
-
-// 添加动画样式
-const style = document.createElement('style')
-style.textContent = `
-  @keyframes dialogSlideIn {
-    from {
-      opacity: 0;
-      transform: scale(0.92) translateY(-20px);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1) translateY(0);
-    }
-  }
-  @keyframes fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-  .animate-fade-in {
-    animation: fade-in 0.2s ease-out;
-  }
-`
-if (!document.querySelector('#detail-modal-styles')) {
-  style.id = 'detail-modal-styles'
-  document.head.appendChild(style)
-}

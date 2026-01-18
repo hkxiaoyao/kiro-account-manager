@@ -7,7 +7,7 @@ function RefreshProgressModal({ refreshProgress }) {
   if (!refreshProgress || refreshProgress.total === 0) return null
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
       <div 
         className={`${colors.card} rounded-2xl w-[400px] shadow-2xl overflow-hidden`}
         style={{ animation: 'modalBounceIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
@@ -23,7 +23,7 @@ function RefreshProgressModal({ refreshProgress }) {
               <span className="text-blue-500 font-medium">{refreshProgress.current}/{refreshProgress.total}</span>
             </div>
             <div className={`h-2 ${colors.cardSecondary} rounded-full overflow-hidden`}>
-              <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${(refreshProgress.current / refreshProgress.total) * 100}%` }} />
+              <div className="h-full bg-blue-500 rounded-full" style={{ width: `${(refreshProgress.current / refreshProgress.total) * 100}%` }} />
             </div>
           </div>
           {refreshProgress.currentEmail && (
