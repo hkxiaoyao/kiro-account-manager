@@ -454,12 +454,14 @@ export function ThemeProvider({ children }) {
             borderColor: isLightTheme ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)',
           },
           option: {
-            color: 'inherit',
+            color: isLightTheme ? '#1f2937' : '#e5e7eb',
             '&[data-combobox-selected]': {
               backgroundColor: isLightTheme ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.2)',
+              color: isLightTheme ? '#1f2937' : '#ffffff',
             },
             '&:hover': {
               backgroundColor: isLightTheme ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.05)',
+              color: isLightTheme ? '#1f2937' : '#ffffff',
             },
           },
         }),

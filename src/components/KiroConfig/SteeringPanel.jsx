@@ -306,7 +306,7 @@ function Editor({ file, editState, hasChanges, saving, inclusionOptions, onConte
           </div>
         )}
       </div>
-      <div className="flex-1 p-4">
+      <div className="flex-1 p-4 overflow-hidden">
         <Textarea
           value={editState.content}
           onChange={(e) => onContentChange(e.target.value)}
@@ -315,13 +315,23 @@ function Editor({ file, editState, hasChanges, saving, inclusionOptions, onConte
             input: `${colors.text} ${colors.input} ${colors.inputFocus}`
           }}
           styles={{
-            input: {
-              width: '100%',
+            root: {
               height: '100%',
-              minHeight: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+            },
+            wrapper: {
+              flex: 1,
+              display: 'flex',
+            },
+            input: {
+              flex: 1,
+              height: '100%',
+              minHeight: '400px',
               padding: '1rem',
               borderRadius: '0.75rem',
               fontSize: '0.875rem',
+              lineHeight: '1.5',
               fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
               resize: 'none'
             }
