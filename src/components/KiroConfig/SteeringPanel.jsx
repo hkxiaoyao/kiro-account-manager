@@ -199,22 +199,30 @@ function SteeringPanel({ onCountChange }) {
 // 文件列表组件
 function FileList({ files, selectedFile, onSelect, onDelete, onRefresh, onCreate, isLightTheme, colors, t }) {
   return (
-    <div className={`w-64 border-r ${colors.cardBorder} flex flex-col`}>
+    <div className={`w-72 border-r ${colors.cardBorder} flex flex-col`}>
       <div className={`p-4 border-b ${colors.cardBorder} flex items-center justify-between`}>
-        <span className={`text-sm font-medium ${colors.text}`}>Steering ({files.length})</span>
-        <div className="flex gap-1">
-          <button onClick={onCreate} className={`p-1.5 rounded-lg ${colors.cardHover}`}>
-            <Plus size={16} className={colors.textMuted} />
+        <span className={`text-sm font-semibold ${colors.text}`}>Steering 规则 ({files.length})</span>
+        <div className="flex gap-2">
+          <button 
+            onClick={onCreate} 
+            className={`p-2 rounded-lg ${colors.cardHover}`}
+            title="新建规则"
+          >
+            <Plus size={18} className="text-green-500" />
           </button>
-          <button onClick={onRefresh} className={`p-1.5 rounded-lg ${colors.cardHover}`}>
-            <RefreshCw size={16} className={colors.textMuted} />
+          <button 
+            onClick={onRefresh} 
+            className={`p-2 rounded-lg ${colors.cardHover}`}
+            title="刷新列表"
+          >
+            <RefreshCw size={18} className={colors.textMuted} />
           </button>
         </div>
       </div>
-      <div className="flex-1 overflow-auto p-2 space-y-1">
+      <div className="flex-1 overflow-auto p-3 space-y-2">
         {files.length === 0 ? (
-          <div className={`text-center py-8 ${colors.textMuted}`}>
-            <FileText size={32} className="mx-auto mb-2 opacity-50" />
+          <div className={`text-center py-12 ${colors.textMuted}`}>
+            <FileText size={40} className="mx-auto mb-3 opacity-30" />
             <p className="text-sm">{t('steering.noFiles')}</p>
           </div>
         ) : (
@@ -225,23 +233,28 @@ function FileList({ files, selectedFile, onSelect, onDelete, onRefresh, onCreate
               <div
                 key={file.fileName}
                 onClick={() => onSelect(file)}
-                className={`p-3 rounded-xl cursor-pointer transition-all group ${
-                  isSelected ? colors.tagActive : colors.tagHover
+                className={`p-3 rounded-lg cursor-pointer group ${
+                  isSelected 
+                    ? `${colors.tagActive} border-2 border-blue-500` 
+                    : `${colors.card} border ${colors.cardBorder} ${colors.cardHover}`
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <span className={`font-medium text-sm ${colors.text} truncate`}>{file.fileName}</span>
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <span className={`font-medium text-sm ${colors.text} break-all leading-tight`}>
+                    {file.fileName}
+                  </span>
                   <button
                     onClick={(e) => { e.stopPropagation(); onDelete(file.fileName) }}
-                    className="opacity-0 group-hover:opacity-100 p-1 rounded text-red-500 hover:bg-red-500/10"
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-500/10 flex-shrink-0"
+                    title="删除"
                   >
-                    <Trash2 size={14} />
+                    <Trash2 size={14} className="text-red-500" />
                   </button>
                 </div>
-                <div className={`flex items-center gap-2 text-xs ${colors.textMuted} mt-1`}>
+                <div className={`flex items-center gap-2 text-xs ${colors.textMuted}`}>
                   <span>{formatSize(file.size)}</span>
                   <span>·</span>
-                  <span className={`px-1.5 py-0.5 rounded ${getInclusionStyle(parsed.inclusion, colors)}`}>
+                  <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${getInclusionStyle(parsed.inclusion, colors)}`}>
                     {t(`steering.inclusion${parsed.inclusion.charAt(0).toUpperCase() + parsed.inclusion.slice(1)}`)}
                   </span>
                 </div>
@@ -428,12 +441,7 @@ function CreateModal({ inclusionOptions, onCreate, onClose, isLightTheme, colors
         </div>
       </div>
 
-      <style>{`
-        @keyframes dialogIn {
-          from { opacity: 0; transform: scale(0.95) translateY(-10px); }
-          to { opacity: 1; transform: scale(1) translateY(0); }
-        }
-      `}</style>
+
     </div>
   )
 }
