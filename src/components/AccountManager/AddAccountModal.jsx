@@ -5,7 +5,7 @@ import { Download, Key, AlertCircle } from 'lucide-react'
 import { useApp } from '../../hooks/useApp'
 
 function AddAccountModal({ onClose, onSuccess }) {
-  const { t } = useApp()
+  const { t, colors } = useApp()
   const [addLoading, setAddLoading] = useState(false)
   const [addError, setAddError] = useState('')
   const [accountType, setAccountType] = useState('social')
@@ -137,6 +137,9 @@ function AddAccountModal({ onClose, onSuccess }) {
           value={refreshToken}
           onChange={(e) => setRefreshToken(e.target.value)}
           required
+          classNames={{
+            input: `${colors.text} ${colors.input}`
+          }}
         />
 
         {/* BuilderId 专用字段 */}
@@ -148,6 +151,9 @@ function AddAccountModal({ onClose, onSuccess }) {
               value={clientId}
               onChange={(e) => setClientId(e.target.value)}
               required
+              classNames={{
+                input: `${colors.text} ${colors.input}`
+              }}
             />
             <TextInput
               label={t('addAccount.clientSecret')}
@@ -156,12 +162,20 @@ function AddAccountModal({ onClose, onSuccess }) {
               onChange={(e) => setClientSecret(e.target.value)}
               type="password"
               required
+              classNames={{
+                input: `${colors.text} ${colors.input}`
+              }}
             />
             <Select
               label={t('addAccount.awsRegion')}
               value={region}
               onChange={setRegion}
               data={awsRegions}
+              classNames={{
+                input: `${colors.text} ${colors.input}`,
+                dropdown: `${colors.card} border ${colors.cardBorder}`,
+                option: `${colors.text}`
+              }}
             />
           </>
         )}
@@ -172,6 +186,9 @@ function AddAccountModal({ onClose, onSuccess }) {
           placeholder={t('addAccount.machineIdPlaceholder')}
           value={machineId}
           onChange={(e) => setMachineId(e.target.value)}
+          classNames={{
+            input: `${colors.text} ${colors.input}`
+          }}
         />
 
         {/* 错误提示 */}

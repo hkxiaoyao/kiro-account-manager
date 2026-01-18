@@ -87,10 +87,11 @@ function EditMCPModal({ name, config, onClose, onSuccess }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in" onClick={onClose}>
       <div 
-        className={`${colors.card} rounded-2xl shadow-2xl w-[520px] max-h-[85vh] flex flex-col`}
+        className={`${colors.card} border ${colors.cardBorder} rounded-2xl shadow-2xl w-[520px] max-h-[85vh] flex flex-col`}
         onClick={e => e.stopPropagation()}
+        style={{ animation: 'modalSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}
       >
         {/* 标题 */}
         <div className={`flex items-center justify-between px-5 py-3.5 border-b ${colors.cardBorder}`}>

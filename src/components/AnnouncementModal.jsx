@@ -118,10 +118,8 @@ export default function AnnouncementModal() {
   // 强制更新弹窗
   if (forceUpdate) {
     return (
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm">
-        <div className={`relative w-[420px] max-w-[90vw] rounded-2xl shadow-2xl border ${
-          isLightTheme ? 'bg-white border-gray-200' : 'bg-[#1a1a2e] border-gray-700'
-        } overflow-hidden`}>
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className={`relative w-[420px] max-w-[90vw] rounded-2xl shadow-2xl border ${colors.card} ${colors.cardBorder} overflow-hidden`}>
           <div className="bg-gradient-to-r from-red-500 to-orange-500 px-6 py-4 flex items-center gap-3">
             <AlertTriangle size={24} className="text-white" />
             <span className="text-white font-bold text-lg">需要更新</span>
@@ -286,14 +284,7 @@ export default function AnnouncementModal() {
               checked={agreed}
               onChange={(e) => setAgreed(e.currentTarget.checked)}
               classNames={{
-                input: 'cursor-pointer',
-              }}
-              styles={{
-                input: {
-                  backgroundColor: agreed ? undefined : (isLightTheme ? '#f3f4f6' : 'rgba(255, 255, 255, 0.05)'),
-                  borderColor: agreed ? undefined : (isLightTheme ? '#d1d5db' : 'rgba(255, 255, 255, 0.2)'),
-                  cursor: 'pointer',
-                },
+                input: 'cursor-pointer'
               }}
             />
             <span className="text-sm">我已阅读并知晓以上内容</span>

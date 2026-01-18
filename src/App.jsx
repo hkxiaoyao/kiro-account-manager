@@ -184,10 +184,12 @@ function App() {
               user={user}
               onLogout={handleLogout}
             />
-            <main className="flex-1 overflow-hidden">
-              <Suspense fallback={<PageLoading />}>
-                {renderContent()}
-              </Suspense>
+            <main className="flex-1 overflow-hidden flex justify-center">
+              <div className="h-full max-w-[1600px] w-full px-4">
+                <Suspense fallback={<PageLoading />}>
+                  {renderContent()}
+                </Suspense>
+              </div>
             </main>
             
             <UpdateChecker />

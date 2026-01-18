@@ -47,7 +47,7 @@ function validateAccount(item, index) {
 }
 
 function ImportAccountModal({ onClose, onSuccess }) {
-  const { t } = useApp()
+  const { t, colors } = useApp()
   const [activeTab, setActiveTab] = useState('json')
   const [jsonText, setJsonText] = useState('')
   const [parseResult, setParseResult] = useState(null)
@@ -321,6 +321,9 @@ function ImportAccountModal({ onClose, onSuccess }) {
                 rows={10}
                 placeholder={`[{"refreshToken": "aor...", "provider": "Google"}]`}
                 styles={{ input: { fontFamily: 'monospace' } }}
+                classNames={{
+                  input: `${colors.text} ${colors.input}`
+                }}
               />
 
               {parseResult && (
@@ -379,6 +382,9 @@ function ImportAccountModal({ onClose, onSuccess }) {
                 rows={6}
                 placeholder={t('import.ssoTokenPlaceholder')}
                 styles={{ input: { fontFamily: 'monospace' } }}
+                classNames={{
+                  input: `${colors.text} ${colors.input}`
+                }}
               />
 
               <Select
@@ -392,6 +398,11 @@ function ImportAccountModal({ onClose, onSuccess }) {
                   { value: 'eu-west-1', label: 'eu-west-1' },
                   { value: 'ap-northeast-1', label: 'ap-northeast-1' }
                 ]}
+                classNames={{
+                  input: `${colors.text} ${colors.input}`,
+                  dropdown: `${colors.card} border ${colors.cardBorder}`,
+                  option: `${colors.text}`
+                }}
               />
 
               {ssoToken.trim() && (

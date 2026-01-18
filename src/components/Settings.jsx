@@ -563,7 +563,9 @@ function Settings() {
                                 { value: 'claude-opus-4.5', label: 'Claude Opus 4.5 - 2.2x' }
                             ]}
                             classNames={{
-                                input: `${colors.text} ${colors.input}`
+                                input: `${colors.text} ${colors.input}`,
+                                dropdown: `${colors.card} border ${colors.cardBorder}`,
+                                option: `${colors.text}`
                             }}
                         />
                     </div>
@@ -593,7 +595,9 @@ function Settings() {
                                 { value: 'Autopilot', label: t('settings.agentAutopilot') }
                             ]}
                             classNames={{
-                                input: `${colors.text} ${colors.input}`
+                                input: `${colors.text} ${colors.input}`,
+                                dropdown: `${colors.card} border ${colors.cardBorder}`,
+                                option: `${colors.text}`
                             }}
                         />
                     </div>
@@ -610,7 +614,9 @@ function Settings() {
                                 { value: 'all', label: t('settings.trustedCommandsAll') }
                             ]}
                             classNames={{
-                                input: `${colors.text} ${colors.input}`
+                                input: `${colors.text} ${colors.input}`,
+                                dropdown: `${colors.card} border ${colors.cardBorder}`,
+                                option: `${colors.text}`
                             }}
                         />
                         {trustedCommandsMode === 'common' && (
@@ -782,7 +788,9 @@ function Settings() {
                                     { value: '50', label: `50 ${t('common.minutes')} (${t('common.recommended')})` }
                                 ]}
                                 classNames={{
-                                    input: `${colors.text} ${colors.input}`
+                                    input: `${colors.text} ${colors.input}`,
+                                    dropdown: `${colors.card} border ${colors.cardBorder}`,
+                                    option: `${colors.text}`
                                 }}
                             />
                         </div>
@@ -813,7 +821,9 @@ function Settings() {
                                     { value: 'random', label: t('settings.machineIdRandom') }
                                 ]}
                                 classNames={{
-                                    input: `${colors.text} ${colors.input}`
+                                    input: `${colors.text} ${colors.input}`,
+                                    dropdown: `${colors.card} border ${colors.cardBorder}`,
+                                    option: `${colors.text}`
                                 }}
                             />
                         </div>
@@ -876,7 +886,9 @@ function Settings() {
                                     { value: '30', label: `30 ${t('common.minutes')}` }
                                 ]}
                                 classNames={{
-                                    input: `${colors.text} ${colors.input}`
+                                    input: `${colors.text} ${colors.input}`,
+                                    dropdown: `${colors.card} border ${colors.cardBorder}`,
+                                    option: `${colors.text}`
                                 }}
                             />
                         </div>

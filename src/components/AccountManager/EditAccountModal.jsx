@@ -14,7 +14,7 @@ const PRESET_COLORS = [
 ]
 
 function GroupSelector({ groups, value, onChange, onGroupsChange }) {
-  const { t } = useApp()
+  const { t, colors } = useApp()
   const [newGroupName, setNewGroupName] = useState('')
   const [showInput, setShowInput] = useState(false)
 
@@ -46,6 +46,9 @@ function GroupSelector({ groups, value, onChange, onGroupsChange }) {
           onKeyDown={(e) => e.key === 'Enter' && handleAddGroup()}
           placeholder={t('groups.newGroupPlaceholder') || '输入新分组名...'}
           style={{ flex: 1 }}
+          classNames={{
+            input: `${colors.text} ${colors.input}`
+          }}
         />
         <ActionIcon color="blue" onClick={handleAddGroup} disabled={!newGroupName.trim()}>
           <Check size={16} />
@@ -67,6 +70,11 @@ function GroupSelector({ groups, value, onChange, onGroupsChange }) {
           ...groups.map(g => ({ value: g.id, label: g.name }))
         ]}
         style={{ flex: 1 }}
+        classNames={{
+          input: `${colors.text} ${colors.input}`,
+          dropdown: `${colors.card} border ${colors.cardBorder}`,
+          option: `${colors.text}`
+        }}
       />
       <ActionIcon color="blue" onClick={() => setShowInput(true)}>
         <Plus size={16} />
@@ -76,7 +84,7 @@ function GroupSelector({ groups, value, onChange, onGroupsChange }) {
 }
 
 function EditAccountModal({ account, onClose, onSuccess }) {
-  const { t } = useApp()
+  const { t, colors } = useApp()
   const { showError } = useDialog()
   
   const [form, setForm] = useState({
@@ -141,6 +149,9 @@ function EditAccountModal({ account, onClose, onSuccess }) {
           placeholder={t('editAccount.labelPlaceholder')}
           value={form.label}
           onChange={(e) => setForm({ ...form, label: e.target.value })}
+          classNames={{
+            input: `${colors.text} ${colors.input}`
+          }}
         />
 
         <TextInput
@@ -148,6 +159,9 @@ function EditAccountModal({ account, onClose, onSuccess }) {
           placeholder={t('addAccount.machineIdPlaceholder')}
           value={form.machineId}
           onChange={(e) => setForm({ ...form, machineId: e.target.value })}
+          classNames={{
+            input: `${colors.text} ${colors.input}`
+          }}
           rightSection={
             <CopyButton value={form.machineId}>
               {({ copied, copy }) => (
@@ -168,6 +182,9 @@ function EditAccountModal({ account, onClose, onSuccess }) {
               placeholder="刷新 Token 需要"
               value={form.clientId}
               onChange={(e) => setForm({ ...form, clientId: e.target.value })}
+              classNames={{
+                input: `${colors.text} ${colors.input}`
+              }}
               rightSection={
                 <CopyButton value={form.clientId}>
                   {({ copied, copy }) => (
@@ -186,6 +203,9 @@ function EditAccountModal({ account, onClose, onSuccess }) {
               value={form.clientSecret}
               onChange={(e) => setForm({ ...form, clientSecret: e.target.value })}
               rows={2}
+              classNames={{
+                input: `${colors.text} ${colors.input}`
+              }}
               rightSection={
                 <CopyButton value={form.clientSecret}>
                   {({ copied, copy }) => (

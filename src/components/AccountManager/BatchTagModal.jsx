@@ -107,8 +107,12 @@ function BatchTagModal({ accountIds, accounts = [], onClose, onSuccess }) {
     : availableTags
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className={`${isLightTheme ? 'bg-white' : 'bg-[#1a1a2e]'} rounded-xl w-full max-w-lg shadow-2xl`} onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in" onClick={onClose}>
+      <div 
+        className={`${colors.card} border ${colors.cardBorder} rounded-2xl w-full max-w-lg shadow-2xl`} 
+        onClick={e => e.stopPropagation()}
+        style={{ animation: 'modalSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}
+      >
         <div className={`flex items-center justify-between px-5 py-4 border-b ${colors.cardBorder}`}>
           <div className="flex items-center gap-2">
             <Tag size={20} className="text-purple-500" />

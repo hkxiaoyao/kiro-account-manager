@@ -265,10 +265,11 @@ function GroupTagManager({ onClose, onSuccess, defaultTab = 'tags' }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in" onClick={onClose}>
       <div 
-        className={`${isLightTheme ? 'bg-white' : 'bg-[#1a1a2e]'} rounded-xl w-full max-w-md shadow-2xl max-h-[80vh] overflow-hidden flex flex-col`}
+        className={`${colors.card} border ${colors.cardBorder} rounded-2xl w-full max-w-md shadow-2xl max-h-[80vh] overflow-hidden flex flex-col`}
         onClick={e => e.stopPropagation()}
+        style={{ animation: 'modalSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}
       >
         {/* 头部 + Tab */}
         <div className={`px-5 py-4 border-b ${colors.cardBorder}`}>
@@ -330,6 +331,9 @@ function GroupTagManager({ onClose, onSuccess, defaultTab = 'tags' }) {
               onChange={setNewColor}
               format="hex"
               swatches={PRESET_COLORS}
+              classNames={{
+                input: `${colors.input}`
+              }}
               styles={{
                 input: {
                   width: '40px',

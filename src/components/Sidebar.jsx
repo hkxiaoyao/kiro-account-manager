@@ -149,10 +149,6 @@ function Sidebar({ activeMenu, onMenuChange }) {
                       backgroundColor: 'rgba(255, 255, 255, 0.1)',
                       color: 'rgba(255, 255, 255, 1)',
                     },
-                    '&[data-active]': {
-                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                      color: 'rgba(255, 255, 255, 1)',
-                    },
                   },
                   label: {
                     color: 'inherit',

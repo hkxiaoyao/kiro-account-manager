@@ -58,13 +58,19 @@ function About() {
   ]
 
   return (
-    <div className={`h-full ${colors.main} p-6 overflow-auto`}>
+    <div className={`h-full ${colors.main} p-8 overflow-auto`}>
       <div className="bg-glow bg-glow-1" />
       <div className="bg-glow bg-glow-2" />
       
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-3xl mx-auto space-y-6">
         {/* 头部卡片 */}
-        <Card className={`${colors.card} border ${colors.cardBorder}`} shadow="lg" radius="xl" p="xl">
+        <Card 
+          className={`${colors.card} border ${colors.cardBorder}`} 
+          shadow="lg" 
+          radius="xl" 
+          p="xl"
+          styles={{ root: { backgroundColor: 'transparent' } }}
+        >
           <Stack gap="md" align="center">
             {/* Logo */}
             <div className="relative group">
@@ -119,7 +125,13 @@ function About() {
         </Card>
 
         {/* 链接 */}
-        <Card className={`${colors.card} border ${colors.cardBorder} mt-6`} shadow="lg" radius="xl" p="lg">
+        <Card 
+          className={`${colors.card} border ${colors.cardBorder}`} 
+          shadow="lg" 
+          radius="xl" 
+          p="lg"
+          styles={{ root: { backgroundColor: 'transparent' } }}
+        >
           <Text size="sm" fw={500} className={colors.text} ta="center" mb="md">{t('about.links')}</Text>
           <div className="grid grid-cols-2 gap-3">
             <Button
@@ -196,7 +208,13 @@ function About() {
         </Card>
 
         {/* 赞赏 */}
-        <Card className={`${colors.card} border ${colors.cardBorder} mt-6`} shadow="lg" radius="xl" p="lg">
+        <Card 
+          className={`${colors.card} border ${colors.cardBorder}`} 
+          shadow="lg" 
+          radius="xl" 
+          p="lg"
+          styles={{ root: { backgroundColor: 'transparent' } }}
+        >
           <Group gap="xs" justify="center" mb="lg">
             <Coffee size={18} className="text-amber-500" />
             <Text size="md" fw={500} className={colors.text}>{t('about.donate')}</Text>
@@ -215,7 +233,7 @@ function About() {
         </Card>
 
         {/* 底部 */}
-        <Group gap="xs" justify="center" mt="lg">
+        <Group gap="xs" justify="center" className="mt-6">
           <Text size="sm" className={colors.textMuted}>{t('about.madeWith')}</Text>
           <Heart size={14} className="text-red-500 fill-red-500" />
           <Text size="sm" className={colors.textMuted}>{t('about.by')} hj01857655</Text>

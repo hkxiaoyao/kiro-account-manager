@@ -49,7 +49,8 @@ function FilterSelect({ label, value, options, onChange, onClear, colors, isLigh
           onClear={onClear}
           classNames={{
             input: `${colors.input} ${colors.text}`,
-            dropdown: isLightTheme ? 'bg-white' : 'bg-[#1a1a2e]'
+            dropdown: `${colors.card} border ${colors.cardBorder}`,
+            option: `${colors.text}`
           }}
           styles={{
             input: {

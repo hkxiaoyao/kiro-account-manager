@@ -284,9 +284,11 @@ function Editor({ file, editState, hasChanges, saving, inclusionOptions, onConte
             data={inclusionOptions.map(opt => ({ value: opt.value, label: opt.label }))}
             size="xs"
             classNames={{
-              input: `${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-1 transition-all`
+              input: `${colors.text} ${colors.input} ${colors.inputFocus}`,
+              dropdown: `${colors.card} border ${colors.cardBorder}`,
+              option: `${colors.text}`
             }}
-            styles={{ input: { minWidth: '120px' } }}
+            styles={{ input: { minWidth: '120px', borderRadius: '0.5rem' } }}
           />
         </div>
         {editState.inclusion === 'fileMatch' && (
@@ -298,9 +300,9 @@ function Editor({ file, editState, hasChanges, saving, inclusionOptions, onConte
               placeholder="**/*.jsx"
               size="xs"
               classNames={{
-                input: `${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-1 transition-all`
+                input: `${colors.text} ${colors.input} ${colors.inputFocus}`
               }}
-              styles={{ input: { width: '128px' } }}
+              styles={{ input: { width: '128px', borderRadius: '0.5rem' } }}
             />
           </div>
         )}
@@ -311,9 +313,20 @@ function Editor({ file, editState, hasChanges, saving, inclusionOptions, onConte
           onChange={(e) => onContentChange(e.target.value)}
           placeholder={t('steering.contentPlaceholder')}
           classNames={{
-            input: `w-full h-full p-4 rounded-xl border ${colors.cardBorder} ${isLightTheme ? 'bg-gray-50' : 'bg-white/5'} ${colors.text} text-sm font-mono resize-none ${colors.inputFocus} focus:ring-2 transition-all`
+            input: `${colors.text} ${colors.input} ${colors.inputFocus}`
           }}
-          styles={{ input: { minHeight: '100%' } }}
+          styles={{
+            input: {
+              width: '100%',
+              height: '100%',
+              minHeight: '100%',
+              padding: '1rem',
+              borderRadius: '0.75rem',
+              fontSize: '0.875rem',
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+              resize: 'none'
+            }
+          }}
         />
       </div>
     </>
@@ -354,8 +367,9 @@ function CreateModal({ inclusionOptions, onCreate, onClose, isLightTheme, colors
               onChange={(e) => setFileName(e.target.value)}
               size="md"
               classNames={{
-                input: `${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 transition-all`
+                input: `${colors.text} ${colors.input} ${colors.inputFocus}`
               }}
+              styles={{ input: { borderRadius: '0.5rem' } }}
             />
             <p className={`text-xs ${colors.textMuted} mt-1`}>{t('steering.fileNameHint')}</p>
           </div>
@@ -371,8 +385,11 @@ function CreateModal({ inclusionOptions, onCreate, onClose, isLightTheme, colors
               }))}
               size="md"
               classNames={{
-                input: `${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 transition-all`
+                input: `${colors.text} ${colors.input} ${colors.inputFocus}`,
+                dropdown: `${colors.card} border ${colors.cardBorder}`,
+                option: `${colors.text}`
               }}
+              styles={{ input: { borderRadius: '0.5rem' } }}
             />
           </div>
 
@@ -385,8 +402,9 @@ function CreateModal({ inclusionOptions, onCreate, onClose, isLightTheme, colors
                 onChange={(e) => setFilePattern(e.target.value)}
                 size="md"
                 classNames={{
-                  input: `${colors.text} ${colors.input} ${colors.inputFocus} focus:ring-2 transition-all`
+                  input: `${colors.text} ${colors.input} ${colors.inputFocus}`
                 }}
+                styles={{ input: { borderRadius: '0.5rem' } }}
               />
             </div>
           )}
