@@ -6,6 +6,7 @@ import { ThemeProvider } from './contexts/ThemeContext.jsx'
 import { DialogProvider } from './contexts/DialogContext.jsx'
 import { AppSettingsProvider } from './contexts/AppSettingsContext.jsx'
 import { I18nProvider } from './i18n.jsx'
+import '@mantine/core/styles.css'
 import './index.css'
 
 // 生产环境禁用浏览器快捷键
