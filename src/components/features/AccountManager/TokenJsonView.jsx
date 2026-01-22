@@ -118,7 +118,7 @@ export function TokenJsonView({ account, defaultExpanded = true }) {
   }
   
   return (
-    <div className={`${colors.card} rounded-none shadow-sm overflow-hidden border-y ${colors.cardBorder}`}>
+    <div className={`${colors.card} rounded-xl shadow-sm overflow-hidden border ${colors.cardBorder}`}>
       <div 
         className={`flex items-center justify-between px-8 py-6 cursor-pointer ${colors.cardHover} transition-all duration-200`}
         onClick={() => setExpanded(!expanded)}

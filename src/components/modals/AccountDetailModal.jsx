@@ -286,7 +286,7 @@ function AccountDetailModal({ account, onClose }) {
             </div>
 
             {/* 基本信息 */}
-            <div className={`${colors.card} rounded-none px-8 py-6 shadow-sm border-y ${colors.cardBorder}`}>
+            <div className={`${colors.card} rounded-xl p-6 shadow-sm border ${colors.cardBorder}`}>
               <div className="flex items-center gap-2 mb-6">
                 <User size={18} className={colors.textMuted} />
                 <span className={`font-medium ${colors.text}`}>{t('detail.basicInfo')}</span>
