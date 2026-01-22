@@ -184,9 +184,9 @@ function AccountDetailModal({ account, onClose }) {
         </div>
         
         <div className="flex-1 overflow-y-auto">
-          <div className="py-6 space-y-6">
+          <div className="px-8 py-6 space-y-6">
             {/* 配额总览 */}
-            <div className={`${colors.card} rounded-none px-8 py-6 shadow-sm border-y ${colors.cardBorder}`}>
+            <div className={`${colors.card} rounded-xl p-6 shadow-sm border ${colors.cardBorder}`}>
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-2.5">
                   <CreditCard size={20} className={colors.textMuted} />
