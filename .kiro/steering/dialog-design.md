@@ -2,38 +2,41 @@
 inclusion: always
 ---
 
-# Dialog 和 Modal 组件封装规范
+# Dialog 组件封装规范
 
-基于 Radix UI 和 shadcn/ui 官方文档的最佳实践。
+基于 Headless UI 和 Tailwind CSS 的最佳实践。
 
 ## 核心原则
 
-### 1. Radix UI 复合组件模式
+### 1. Headless UI 组件模式
 
-Radix UI 使用复合组件模式，通过 Root 组件提供 Context，所有子组件共享状态。
+Headless UI 提供无样式的可访问组件，通过 Transition 组件实现动画效果。
 
 **官方推荐结构**：
 ```jsx
-<Dialog.Root>
-  <Dialog.Trigger />
-  <Dialog.Portal>
-    <Dialog.Overlay />
-    <Dialog.Content>
-      <Dialog.Title />
-      <Dialog.Description />
-      <Dialog.Close />
-    </Dialog.Content>
-  </Dialog.Portal>
-</Dialog.Root>
+<Transition show={open}>
+  <Dialog onClose={onClose}>
+    <Transition.Child>
+      <div className="overlay" />
+    </Transition.Child>
+    <Transition.Child>
+      <Dialog.Panel>
+        <Dialog.Title />
+        <Dialog.Description />
+        {/* 内容 */}
+      </Dialog.Panel>
+    </Transition.Child>
+  </Dialog>
+</Transition>
 ```
 
-### 2. 两种封装层次
+### 2. 组件封装层次
 
 **基础组件（Primitives）**：
-- 直接导出 Radix UI 的原始组件
+- 基于 Headless UI 封装
 - 添加样式和主题支持
-- 保持最大灵活性
-- 用于高级定制场景
+- 内置动画效果（Transition）
+- 保持灵活性
 
 **完整组件（Composed）**：
 - 封装常见用例
@@ -49,12 +52,10 @@ Radix UI 使用复合组件模式，通过 Root 组件提供 Context，所有子
 
 ```jsx
 export {
-  DialogRoot,        // Radix UI Root
-  DialogTrigger,     // 触发器
-  DialogPortal,      // Portal 容器
-  DialogOverlay,     // 遮罩层
+  DialogRoot,        // Headless UI Dialog Root + Transition
+  DialogOverlay,     // 遮罩层（带动画）
   DialogClose,       // 关闭按钮
-  DialogContent,     // 内容容器（不带内边距）
+  DialogContent,     // 内容容器（带动画，不带内边距）
   DialogHeader,      // 头部区域（px-6 pt-6 pb-2）
   DialogTitle,       // 标题
   DialogDescription, // 描述文本
@@ -94,35 +95,44 @@ const DialogContent = React.forwardRef(({
   const { colors } = useApp()
   
   return (
-    <DialogPortal>
+    <>
       <DialogOverlay />
-      <DialogPrimitive.Content
-        ref={ref}
-        className={cn(
-          "fixed left-[50%] top-[50%] z-50",
-          "translate-x-[-50%] translate-y-[-50%]",
-          "w-full shadow-2xl rounded-2xl border",
-          // ⚠️ 注意：不添加 padding
-          colors.card,
-          colors.cardBorder,
-          "duration-200",
-          "data-[state=open]:animate-in data-[state=closed]:animate-out",
-          className
-        )}
-        style={{ maxWidth }}
-        {...props}
-      >
-        <DialogPrimitive.Description className="sr-only">
-          弹窗内容
-        </DialogPrimitive.Description>
-        {children}
-        {showClose && (
-          <DialogPrimitive.Close className="absolute right-4 top-4 ...">
-            <X size={18} />
-          </DialogPrimitive.Close>
-        )}
-      </DialogPrimitive.Content>
-    </DialogPortal>
+      
+      <div className="fixed inset-0 overflow-y-auto">
+        <div className="flex min-h-full items-center justify-center p-4">
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0 scale-95"
+            enterTo="opacity-100 scale-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100 scale-100"
+            leaveTo="opacity-0 scale-95"
+          >
+            <HeadlessDialog.Panel
+              ref={ref}
+              className={cn(
+                "w-full shadow-2xl rounded-2xl border",
+                "max-h-[90vh] flex flex-col relative",
+                // ⚠️ 注意：不添加 padding
+                colors.card,
+                colors.cardBorder,
+                className
+              )}
+              style={{ maxWidth }}
+              {...props}
+            >
+              {children}
+              {showClose && (
+                <button className="absolute right-4 top-4 ...">
+                  <X size={18} />
+                </button>
+              )}
+            </HeadlessDialog.Panel>
+          </Transition.Child>
+        </div>
+      </div>
+    </>
   )
 })
 ```
@@ -207,9 +217,9 @@ const DialogDescription = React.forwardRef(({ className, ...props }, ref) => {
   const { colors } = useApp()
   
   return (
-    <DialogPrimitive.Description
+    <HeadlessDialog.Description
       ref={ref}
-      className={cn("text-sm mt-2", colors.textMuted, className)}
+      className={cn("text-sm mt-1", colors.textMuted, className)}
       {...props}
     />
   )
@@ -393,30 +403,21 @@ className="active:scale-[0.98] transition-all duration-200"
 
 ---
 
-## Dialog vs Modal 语义化区分
+## 统一的 Dialog 组件
 
-虽然 Radix UI 底层使用同一个组件，但我们**语义化区分**两种用途：
+**项目已统一使用 Dialog 组件**，不再区分 Dialog 和 Modal。
 
-### Dialog（通知类）
+### 特点
 
-**文件**：`src/components/ui/dialog.jsx`
+- **文件**：`src/components/ui/dialog.jsx`
+- **基于**：Headless UI + Tailwind CSS
+- **动画**：内置 Transition 组件
+- **灵活性**：通过 `maxWidth` 参数控制大小
+- **内边距**：DialogContent 无内边距，由子组件控制
 
-**特点**：
-- **默认宽度**：400px（小）
-- **背景模糊**：`backdrop-blur-sm`（轻度）
-- **Header**：简单图标 + 标题 + 描述
-- **Body**：支持 gap 参数控制间距
-- **Footer**：右对齐按钮
-- **动画**：`slide-in-from-top`
-- **内边距**：`px-5 py-3`（紧凑）
+### 使用方式
 
-**用途**：
-- 确认对话框
-- 警告提示
-- 错误通知
-- 简单信息展示
-
-**示例**：
+**小弹窗（确认/提示）**：
 ```jsx
 <DialogRoot open={open} onOpenChange={setOpen}>
   <DialogContent maxWidth="400px">
@@ -435,93 +436,37 @@ className="active:scale-[0.98] transition-all duration-200"
 </DialogRoot>
 ```
 
-### Modal（表单类）
-
-**文件**：`src/components/ui/modal.jsx`
-
-**特点**：
-- **默认宽度**：600px（大）
-- **背景模糊**：`backdrop-blur-md`（强烈）
-- **Header**：支持完全自定义（头像、徽章、状态等）
-- **Body**：支持 noPadding，完全自定义布局
-- **Footer**：左右布局（状态显示 + 按钮）
-- **动画**：`slide-in-from-bottom`
-- **内边距**：`px-6 py-4`（宽松）
-
-**用途**：
-- 编辑表单
-- 详情展示
-- 复杂内容
-- 多区域布局
-
-**示例**：
+**大弹窗（表单/详情）**：
 ```jsx
-<ModalRoot open={open} onOpenChange={setOpen}>
-  <ModalContent maxWidth="800px">
-    {/* 自定义复杂头部 */}
-    <div className="border-b px-6 py-4">
-      <div className="flex items-center gap-3">
-        <Avatar />
-        <div>
-          <h2>账号详情</h2>
-          <Badge>PRO</Badge>
-        </div>
-      </div>
-    </div>
+<DialogRoot open={open} onOpenChange={setOpen}>
+  <DialogContent maxWidth="800px">
+    <DialogHeader icon={User} iconColor="text-blue-400">
+      <DialogTitle>账号详情</DialogTitle>
+      <DialogDescription>查看和编辑账号信息</DialogDescription>
+    </DialogHeader>
     
-    {/* 使用 noPadding 自己控制布局 */}
-    <ModalBody noPadding>
+    <DialogBody noPadding>
       <div className="px-6 py-4">配额卡片</div>
       <div className="px-6 py-4">表单字段</div>
       <TokenJsonView />
-    </ModalBody>
+    </DialogBody>
     
-    {/* 左右布局的 Footer */}
-    <ModalFooter>
-      <div className="flex items-center gap-2">
-        <Shield />
-        <span>账号正常</span>
-      </div>
+    <DialogFooter>
       <Button>关闭</Button>
-    </ModalFooter>
-  </ModalContent>
-</ModalRoot>
+    </DialogFooter>
+  </DialogContent>
+</DialogRoot>
 ```
-
-### 组件对比表
-
-| 特性 | Dialog（通知类） | Modal（表单类） |
-|------|-----------------|----------------|
-| 默认宽度 | 400px | 600px |
-| 背景模糊 | backdrop-blur-sm | backdrop-blur-md |
-| Header | 简单（图标+标题） | 复杂（自定义） |
-| Body padding | px-5 py-3 | px-6 py-4 |
-| Body gap | 支持 gap 参数 | 无 gap，完全自定义 |
-| Footer | 右对齐按钮 | 左右布局 |
-| 动画 | slide-in-from-top | slide-in-from-bottom |
-| 用途 | 确认、警告、提示 | 表单、详情、复杂内容 |
-
-### 使用指南
-
-**何时用 Dialog**：
-- ✅ 确认删除操作
-- ✅ 显示错误信息
-- ✅ 简单的是/否选择
-- ✅ 快速提示信息
-
-**何时用 Modal**：
-- ✅ 编辑账号表单
-- ✅ 查看账号详情
-- ✅ 复杂的多步骤表单
-- ✅ 需要自定义头部/底部布局
 
 ### 实际应用
 
 **项目中的使用**：
-- `ConfirmDialog.jsx` → 使用 **Dialog**
-- `EditAccountModal.jsx` → 使用 **Modal**
-- `AccountDetailModal.jsx` → 使用 **Modal**
-- `AddAccountModal.jsx` → 使用 **Modal**
+- `ConfirmModal.jsx` → Dialog（400px）
+- `AddAccountModal.jsx` → Dialog（480px）
+- `ImportAccountModal.jsx` → Dialog（700px）
+- `EditAccountModal.jsx` → Dialog（480px）
+- `BatchTagModal.jsx` → Dialog（480px）
+- `AccountDetailModal.jsx` → Dialog（800px）
 
 ---
 
@@ -612,6 +557,7 @@ h1, h2, h3, h4, h5, h6, p, ul, ol, li, figure, blockquote, dl, dd {
 
 ## 迁移检查清单
 
+- [x] 从 Radix UI 迁移到 Headless UI
 - [x] DialogContent 移除 `p-4`
 - [x] 新增 DialogBody 组件
 - [x] DialogBody 支持 gap 参数
@@ -620,22 +566,24 @@ h1, h2, h3, h4, h5, h6, p, ul, ol, li, figure, blockquote, dl, dd {
 - [x] 移除所有 Stack/Mantine 容器嵌套
 - [x] 完整组件使用 `footer` prop
 - [x] 更新所有使用 Dialog 的地方
-- [ ] 删除 modal.jsx（如果决定统一）
+- [x] 删除 modal.jsx（已统一）
+- [x] 卸载 @radix-ui/react-dialog
 - [x] 测试所有弹窗功能
 
 ---
 
 ## 参考资料
 
-- [Radix UI Dialog 官方文档](https://www.radix-ui.com/primitives/docs/components/dialog)
-- [shadcn/ui Dialog 实现](https://ui.shadcn.com/docs/components/dialog)
-- [完整最佳实践文档](../docs/dialog-modal-best-practices.md)
+- [Headless UI Dialog 官方文档](https://headlessui.com/react/dialog)
+- [Headless UI Transition 文档](https://headlessui.com/react/transition)
+- [Tailwind CSS 官方文档](https://tailwindcss.com)
 
 ---
 
 ## 相关文件
 
-- `src/components/ui/dialog.jsx` - Dialog 组件实现
-- `src/components/ui/modal.jsx` - Modal 组件实现（待统一）
+- `src/components/ui/dialog.jsx` - Dialog 组件实现（基于 Headless UI）
 - `src/components/ui/button.jsx` - Button 组件
-- `docs/dialog-modal-best-practices.md` - 详细最佳实践文档
+- `src/components/features/AccountManager/ConfirmModal.jsx` - 确认弹窗示例
+- `src/components/features/AccountManager/AddAccountModal.jsx` - 表单弹窗示例
+- `src/components/modals/AccountDetailModal.jsx` - 详情弹窗示例

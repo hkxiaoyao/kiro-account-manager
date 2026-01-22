@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import { useApp } from '../hooks/useApp'
+import { useApp } from '../../hooks/useApp'
 
 export default function AuthCallback() {
   const { t, theme, colors } = useApp()

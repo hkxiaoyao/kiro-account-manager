@@ -31,7 +31,7 @@ pub async fn refresh_token_by_provider(
     let provider = account.provider.as_deref().unwrap_or("Google");
     let refresh_token = account.refresh_token.as_ref().ok_or("No refresh token")?;
 
-    if provider == "BuilderId" {
+    if provider == "BuilderId" || provider == "Enterprise" {
         let metadata = RefreshMetadata {
             client_id: account.client_id.clone(),
             client_secret: account.client_secret.clone(),
@@ -39,7 +39,13 @@ pub async fn refresh_token_by_provider(
             ..Default::default()
         };
         let region = metadata.region.as_deref().unwrap_or("us-east-1");
-        let idc_provider = IdcProvider::new("BuilderId", region, None);
+        // Enterprise 使用保存的 start_url
+        let start_url = if provider == "Enterprise" {
+            account.start_url.clone()
+        } else {
+            None
+        };
+        let idc_provider = IdcProvider::new(provider, region, start_url);
         let auth = idc_provider.refresh_token(refresh_token, metadata).await?;
         Ok(RefreshResult {
             access_token: auth.access_token,

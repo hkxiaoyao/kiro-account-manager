@@ -53,6 +53,14 @@ function Login({ onLogin }) {
     }
   }, [onLogin])
 
+  // Provider 显示名称映射
+  const providerNames = {
+    'Google': 'Google',
+    'Github': 'GitHub',
+    'BuilderId': 'Builder ID',
+    'Enterprise': 'IAM Identity Center'
+  }
+
   const handleLogin = async (provider) => {
     // Enterprise 需要用户输入 start_url
     if (provider === 'Enterprise') {
@@ -61,11 +69,6 @@ function Login({ onLogin }) {
     }
 
     // 显示等待授权弹窗
-    const providerNames = {
-      'Google': 'Google',
-      'Github': 'GitHub',
-      'BuilderId': 'Builder ID'
-    }
     setWaitingProviderName(providerNames[provider] || provider)
     setShowWaitingModal(true)
     setLoadingProvider(provider)
@@ -94,6 +97,8 @@ function Login({ onLogin }) {
     }
 
     setShowEnterpriseModal(false)
+    setWaitingProviderName(providerNames['Enterprise'])
+    setShowWaitingModal(true)
     setLoadingProvider('Enterprise')
     setError('')
     
@@ -107,6 +112,7 @@ function Login({ onLogin }) {
       console.error('Login error:', e)
       setError(typeof e === 'string' ? e : e.message || t('login.failed'))
       setLoadingProvider(null)
+      setShowWaitingModal(false)
     }
   }
 

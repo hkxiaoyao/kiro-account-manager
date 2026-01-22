@@ -117,6 +117,8 @@ pub struct Account {
     pub client_id_hash: Option<String>,
     pub sso_session_id: Option<String>,
     pub id_token: Option<String>,
+    #[serde(default)]
+    pub start_url: Option<String>, // Enterprise 的 Start URL
     // Social 专用
     pub profile_arn: Option<String>,
     // 原始 usage API 响应
@@ -155,6 +157,7 @@ impl Account {
             client_id_hash: None,
             sso_session_id: None,
             id_token: None,
+            start_url: None,
             profile_arn: None,
             usage_data: None,
             group_id: None,

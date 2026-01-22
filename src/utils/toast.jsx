@@ -109,48 +109,10 @@ export const showPromise = (promise, messages = {}) => {
 }
 
 /**
- * 确认对话框（使用 Toast）
+ * 注意：确认对话框请使用 DialogContext 的 showConfirm
+ * import { useDialog } from '@/contexts/DialogContext'
+ * const { showConfirm } = useDialog()
+ * const confirmed = await showConfirm('标题', '消息')
  */
-export const showConfirm = (message, onConfirm, onCancel) => {
-  return toast(
-    (t) => (
-      <div className="flex flex-col gap-3">
-        <p className="text-sm">{message}</p>
-        <div className="flex gap-2 justify-end">
-          <button
-            onClick={() => {
-              toast.dismiss(t.id)
-              onCancel?.()
-            }}
-            className="px-3 py-1.5 text-sm rounded-lg bg-white/10 hover:bg-white/20 border border-white/20"
-            style={{ color: 'var(--toast-text, #000)' }}
-          >
-            取消
-          </button>
-          <button
-            onClick={() => {
-              toast.dismiss(t.id)
-              onConfirm?.()
-            }}
-            className="px-3 py-1.5 text-sm rounded-lg bg-blue-500 hover:bg-blue-600 text-white"
-          >
-            确认
-          </button>
-        </div>
-      </div>
-    ),
-    {
-      duration: Infinity,
-      position: 'top-center',
-      style: {
-        background: 'var(--toast-bg, #fff)',
-        color: 'var(--toast-text, #000)',
-        borderRadius: '12px',
-        padding: '16px',
-        minWidth: '300px',
-      },
-    }
-  )
-}
 
 export default toast

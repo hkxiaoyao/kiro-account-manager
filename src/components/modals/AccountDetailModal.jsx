@@ -7,11 +7,11 @@ import { useDialog } from '../../contexts/DialogContext'
 import { formatUsage } from '../../utils/accountStats'
 import { TokenJsonView } from '../features/AccountManager/TokenJsonView'
 import {
-  ModalRoot,
-  ModalContent,
-  ModalBody,
-  ModalFooter,
-} from '../ui/modal'
+  DialogRoot,
+  DialogContent,
+  DialogBody,
+  DialogFooter,
+} from '../ui/dialog'
 import { Button } from '../ui/button'
 
 // 配额卡片组件（优化性能）
@@ -157,8 +157,8 @@ function AccountDetailModal({ account, onClose }) {
   const totalPercent = totalQuota > 0 ? Math.min(100, (totalUsed / totalQuota) * 100) : 0
 
   return (
-    <ModalRoot open={true} onOpenChange={(open) => !open && onClose()}>
-      <ModalContent maxWidth="800px">
+    <DialogRoot open={true} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent maxWidth="800px">
         {/* 顶部渐变背景 */}
         <div className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-br from-blue-500/5 via-purple-500/3 to-transparent pointer-events-none rounded-t-2xl" />
         
@@ -231,8 +231,8 @@ function AccountDetailModal({ account, onClose }) {
           </div>
         </div>
         
-        {/* Body - 使用 ModalBody 的 noPadding，自己控制每个区域的 padding */}
-        <ModalBody noPadding>
+        {/* Body - 使用 DialogBody 的 noPadding，自己控制每个区域的 padding */}
+        <DialogBody noPadding>
           {/* 配额总览 */}
           <div className={`border-b ${colors.cardBorder} px-6 py-4`}>
             <div className="flex items-center justify-between mb-4">
@@ -473,10 +473,10 @@ function AccountDetailModal({ account, onClose }) {
 
           {/* Token 凭证 JSON 视图 */}
           <TokenJsonView account={account} />
-        </ModalBody>
+        </DialogBody>
 
         {/* Footer */}
-        <ModalFooter>
+        <DialogFooter>
           <div className={`text-sm ${colors.textMuted} flex items-center gap-2`}>
             {account.status === 'active' || account.status === '正常' || account.status === '有效' 
               ? <><Shield size={15} className="text-green-500" /><span className="text-green-500 font-medium">{t('detail.accountNormal')}</span></> 
@@ -487,9 +487,9 @@ function AccountDetailModal({ account, onClose }) {
           <Button onClick={onClose}>
             {t('common.close')}
           </Button>
-        </ModalFooter>
-      </ModalContent>
-    </ModalRoot>
+        </DialogFooter>
+      </DialogContent>
+    </DialogRoot>
   )
 }
 

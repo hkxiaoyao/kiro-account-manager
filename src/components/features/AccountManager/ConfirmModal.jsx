@@ -2,13 +2,13 @@ import { useState } from 'react'
 import { AlertTriangle, CheckCircle, XCircle, Info, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react'
 import { useApp } from '../../../hooks/useApp'
 import {
-  ModalRoot,
-  ModalContent,
-  ModalHeader,
-  ModalTitle,
-  ModalBody,
-  ModalFooter,
-} from '../../ui/modal'
+  DialogRoot,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogBody,
+  DialogFooter,
+} from '../../ui/dialog'
 import { Button } from '../../ui/button'
 
 /**
@@ -71,13 +71,13 @@ function ConfirmModal({
   const { icon: Icon, iconColor, iconBg, btnVariant } = config[type]
 
   return (
-    <ModalRoot open={true} onOpenChange={(open) => !open && onCancel()}>
-      <ModalContent maxWidth="400px">
-        <ModalHeader icon={Icon} iconColor={iconColor} iconBg={iconBg}>
-          <ModalTitle>{title}</ModalTitle>
-        </ModalHeader>
+    <DialogRoot open={true} onOpenChange={(open) => !open && onCancel()}>
+      <DialogContent maxWidth="400px">
+        <DialogHeader icon={Icon} iconColor={iconColor} iconBg={iconBg}>
+          <DialogTitle>{title}</DialogTitle>
+        </DialogHeader>
 
-        <ModalBody>
+        <DialogBody>
           <p className="text-sm leading-relaxed whitespace-pre-line">
             {message}
           </p>
@@ -112,9 +112,9 @@ function ConfirmModal({
               )}
             </div>
           )}
-        </ModalBody>
+        </DialogBody>
 
-        <ModalFooter>
+        <DialogFooter>
           {type === 'confirm' && (
             <Button 
               variant="secondary" 
@@ -133,9 +133,9 @@ function ConfirmModal({
           >
             {finalConfirmText}
           </Button>
-        </ModalFooter>
-      </ModalContent>
-    </ModalRoot>
+        </DialogFooter>
+      </DialogContent>
+    </DialogRoot>
   )
 }
 

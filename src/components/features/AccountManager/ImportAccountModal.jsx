@@ -1,9 +1,19 @@
-import { useState, useRef } from 'react'
-import { Tabs, Textarea, Select, Stack, Group, Text, Alert, Progress, FileButton, Button } from '@mantine/core'
-import { Upload, FileJson, Key, AlertCircle, CheckCircle, Loader2, X } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Tabs, Textarea, Select, Stack, Group, Text, Alert, Progress, FileButton, Button as MantineButton } from '@mantine/core'
+import { Upload, FileJson, Key, AlertCircle, CheckCircle, Loader2, Database, RefreshCw } from 'lucide-react'
 import { invoke } from '@tauri-apps/api/core'
 import { useApp } from '../../../hooks/useApp'
 import { getConcurrency } from '../../../utils/concurrency'
+import {
+  DialogRoot,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogBody,
+  DialogFooter,
+} from '../../ui/dialog'
+import { Button } from '../../ui/button'
 
 function validateAccount(item, index) {
   const errors = []
@@ -59,6 +69,35 @@ function ImportAccountModal({ onClose, onSuccess }) {
   const [ssoImporting, setSsoImporting] = useState(false)
   const [ssoProgress, setSsoProgress] = useState({ current: 0, total: 0 })
   const [ssoResult, setSsoResult] = useState(null)
+  
+  // 从 Kiro 导入相关状态
+  const [kiroAccounts, setKiroAccounts] = useState([])
+  const [kiroLoading, setKiroLoading] = useState(false)
+  const [kiroError, setKiroError] = useState(null)
+  const [kiroImporting, setKiroImporting] = useState(false)
+  const [kiroProgress, setKiroProgress] = useState({ current: 0, total: 0 })
+  const [kiroResult, setKiroResult] = useState(null)
+
+  // 自动检测 Kiro 账号
+  useEffect(() => {
+    if (activeTab === 'kiro') {
+      detectKiroAccounts()
+    }
+  }, [activeTab])
+
+  const detectKiroAccounts = async () => {
+    setKiroLoading(true)
+    setKiroError(null)
+    try {
+      const accounts = await invoke('read_kiro_accounts')
+      setKiroAccounts(accounts)
+    } catch (e) {
+      setKiroError(String(e))
+      setKiroAccounts([])
+    } finally {
+      setKiroLoading(false)
+    }
+  }
 
   const parseJson = (text) => {
     if (!text.trim()) {
@@ -241,21 +280,86 @@ function ImportAccountModal({ onClose, onSuccess }) {
     if (success.length > 0) onSuccess?.()
   }
 
+  const handleKiroImport = async () => {
+    if (kiroAccounts.length === 0) return
+    
+    setKiroImporting(true)
+    setKiroProgress({ current: 0, total: kiroAccounts.length })
+    
+    const success = []
+    const failed = []
+    
+    const importOne = async (account) => {
+      try {
+        let result
+        if (account.authMethod === 'IdC') {
+          result = await invoke('add_account_by_idc', {
+            refreshToken: account.refreshToken,
+            clientId: account.clientId,
+            clientSecret: account.clientSecret,
+            region: account.region || 'us-east-1',
+            machineId: null,
+            accessToken: account.accessToken || null,
+            password: null,
+            provider: account.provider,
+            startUrl: null
+          })
+        } else {
+          result = await invoke('add_account_by_social', {
+            refreshToken: account.refreshToken,
+            provider: account.provider,
+            machineId: null,
+            accessToken: account.accessToken || null
+          })
+        }
+        
+        if (result.status === 'banned') {
+          return { success: true, email: result.email, banned: true }
+        }
+        return { success: true, email: result.email }
+      } catch (e) {
+        const errorMsg = String(e)
+        if (errorMsg.includes('BANNED')) {
+          return { success: false, error: '账号已封禁', banned: true }
+        }
+        return { success: false, error: errorMsg.slice(0, 80) }
+      }
+    }
+    
+    const results = await runConcurrent(
+      kiroAccounts,
+      importOne,
+      (completed) => setKiroProgress({ current: completed, total: kiroAccounts.length })
+    )
+    
+    results.forEach(r => {
+      if (r.success) {
+        success.push({ email: r.email })
+      } else {
+        failed.push({ error: r.error })
+      }
+    })
+    
+    setKiroResult({ success, failed })
+    setKiroImporting(false)
+    if (success.length > 0) onSuccess?.()
+  }
+
   const renderResult = (result) => (
     <Stack gap="md" p="sm">
       <Alert icon={<CheckCircle size={20} />} color="teal" variant="light">
-        <Text fw={500}>{t('import.successCount', { count: result.success.length })}</Text>
+        <div className={`font-medium ${colors.text}`}>{t('import.successCount', { count: result.success.length })}</div>
         {result.success.length > 0 && (
-          <Text size="sm" mt="xs">{result.success.map(s => s.email).join(', ')}</Text>
+          <div className={`text-sm mt-2 ${colors.text}`}>{result.success.map(s => s.email).join(', ')}</div>
         )}
       </Alert>
       
       {result.failed.length > 0 && (
         <Alert icon={<AlertCircle size={20} />} color="red" variant="light">
-          <Text fw={500}>{t('import.failedCount', { count: result.failed.length })}</Text>
+          <div className={`font-medium ${colors.text}`}>{t('import.failedCount', { count: result.failed.length })}</div>
           <Stack gap={4} mt="xs" p={0}>
             {result.failed.map((f, i) => (
-              <Text key={i} size="sm">#{f.index}: {f.error}</Text>
+              <div key={i} className={`text-sm ${colors.text}`}>{f.error}</div>
             ))}
           </Stack>
         </Alert>
@@ -264,276 +368,347 @@ function ImportAccountModal({ onClose, onSuccess }) {
   )
 
   return (
-    <div 
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-      onClick={onClose}
-    >
-      <div 
-        className={`
-          relative overflow-hidden
-          ${colors.card} 
-          rounded-2xl w-full max-w-[700px] 
-          shadow-2xl
-          border ${colors.cardBorder}
-        `}
-        onClick={e => e.stopPropagation()}
-        
-      >
-        {/* 顶部渐变装饰 */}
-        <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-indigo-500/10 via-transparent to-transparent pointer-events-none" />
-        
-        {/* 装饰性光晕 */}
-        <div className="absolute -top-20 -right-20 w-40 h-40 bg-gradient-to-br from-indigo-500/20 to-purple-500/10 rounded-full blur-3xl opacity-50" />
-        
-        {/* Header */}
-        <div className="relative px-6 pt-6 pb-2">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className={`
-                w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/10
-                flex items-center justify-center
-                ring-1 ${colors.ringColor}
-                shadow-lg
-              `}>
-                <Upload size={24} className="text-indigo-400" strokeWidth={2} />
-              </div>
-              <div>
-                <h2 className={`text-lg font-semibold ${colors.text} leading-tight`}>{t('import.title')}</h2>
-                <p className={`text-xs ${colors.textMuted} mt-0.5`}>{t('import.subtitle') || '批量导入账号数据'}</p>
-              </div>
+    <DialogRoot open={true} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent maxWidth="700px">
+        <DialogHeader>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/10 flex items-center justify-center shadow-md">
+              <Upload size={20} className="text-indigo-400" strokeWidth={2} />
             </div>
-            <button
-              onClick={onClose}
-              className={`p-2 rounded-xl ${colors.cardHover}`}
-            >
-              <X size={18} className={colors.textMuted} />
-            </button>
+            <div>
+              <DialogTitle>{t('import.title')}</DialogTitle>
+              <DialogDescription>{t('import.subtitle') || '批量导入账号数据'}</DialogDescription>
+            </div>
           </div>
-        </div>
+        </DialogHeader>
 
-        {/* Content */}
-        <div className="relative max-h-[75vh] overflow-y-auto">
-          {importResult || ssoResult ? (
-            <div className="px-6 py-6">
-              <Stack gap="lg" p="md">
-                {importResult && renderResult(importResult)}
-                {ssoResult && renderResult(ssoResult)}
-                <div className="flex justify-end gap-3 mt-4">
-                  <button
-                    onClick={() => { setImportResult(null); setSsoResult(null); setJsonText(''); setSsoToken(''); setParseResult(null) }}
-                    className={`px-5 py-2.5 text-sm font-medium rounded-xl ${colors.btnSecondary}`}
-                  >
-                    {t('import.continueImport')}
-                  </button>
-                  <button
-                    onClick={onClose}
-                    className={`
-                      px-6 py-2.5 text-sm font-medium rounded-xl text-white
-                      bg-gradient-to-r from-emerald-500 to-teal-600
-                      shadow-lg shadow-emerald-500/30
-                      hover:opacity-90 hover:shadow-xl
-                     
-                    `}
-                  >
-                    {t('import.done')}
-                  </button>
-                </div>
-              </Stack>
+        <DialogBody noPadding>
+          {importResult || ssoResult || kiroResult ? (
+            <div className="px-6 py-4">
+              {importResult && renderResult(importResult)}
+              {ssoResult && renderResult(ssoResult)}
+              {kiroResult && renderResult(kiroResult)}
             </div>
-          ) : importing || ssoImporting ? (
-            <div className="px-6 py-8">
-              <Stack gap="xl" p="md">
-                <div className={`p-5 rounded-xl ${colors.cardSecondary} border ${colors.cardBorder}`}>
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-                      <Loader2 size={20} className="animate-spin text-white" />
+          ) : importing || ssoImporting || kiroImporting ? (
+            <div className="px-6 py-6">
+              <div className={`p-5 rounded-xl ${colors.cardSecondary} border ${colors.cardBorder}`}>
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                    <Loader2 size={20} className="animate-spin text-white" />
+                  </div>
+                  <div>
+                    <div className={`font-medium ${colors.text}`}>
+                      {importing ? t('import.importing') : ssoImporting ? t('import.ssoImporting') : '正在从 Kiro 导入...'}
                     </div>
-                    <div>
-                      <div className={`font-medium ${colors.text}`}>{importing ? t('import.importing') : t('import.ssoImporting')}</div>
-                      <div className={`text-sm ${colors.textMuted}`}>
-                        {(importing ? importProgress : ssoProgress).current}/{(importing ? importProgress : ssoProgress).total}
-                      </div>
+                    <div className={`text-sm ${colors.textMuted}`}>
+                      {(importing ? importProgress : ssoImporting ? ssoProgress : kiroProgress).current}/
+                      {(importing ? importProgress : ssoImporting ? ssoProgress : kiroProgress).total}
                     </div>
                   </div>
-                  <Progress 
-                    value={(importing ? importProgress : ssoProgress).current / (importing ? importProgress : ssoProgress).total * 100} 
-                    size="lg"
-                    radius="xl"
-                    classNames={{
-                      root: 'bg-gray-200 dark:bg-gray-700',
-                      bar: 'bg-gradient-to-r from-blue-500 to-indigo-600'
-                    }}
-                  />
                 </div>
-              </Stack>
+                <Progress 
+                  value={(importing ? importProgress : ssoImporting ? ssoProgress : kiroProgress).current / 
+                         (importing ? importProgress : ssoImporting ? ssoProgress : kiroProgress).total * 100} 
+                  size="lg"
+                  radius="xl"
+                  classNames={{
+                    root: 'bg-gray-200 dark:bg-gray-700',
+                    bar: 'bg-gradient-to-r from-blue-500 to-indigo-600'
+                  }}
+                />
+              </div>
             </div>
           ) : (
             <Tabs value={activeTab} onChange={setActiveTab}>
-              <Tabs.List className="px-6 pt-4 border-b-0">
-                <Tabs.Tab value="json" leftSection={<FileJson size={16} />}>{t('import.jsonTab')}</Tabs.Tab>
-                <Tabs.Tab value="sso" leftSection={<Key size={16} />}>{t('import.ssoTab')}</Tabs.Tab>
+              <Tabs.List className="px-6 pt-2 pb-3 border-b-0">
+                <div className={`grid grid-cols-3 gap-1 p-1 rounded-xl border ${colors.cardBorder} ${colors.cardSecondary}`}>
+                  <button
+                    onClick={() => setActiveTab('json')}
+                    className={`py-2 px-3 text-sm rounded-lg transition-all duration-200 font-medium ${
+                      activeTab === 'json'
+                        ? `${colors.card} shadow-sm ring-1 ${colors.ringColor}`
+                        : colors.cardHover
+                    }`}
+                    style={{ color: activeTab === 'json' ? undefined : 'rgb(229, 231, 235)' }}
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <FileJson size={16} />
+                      <span>{t('import.jsonTab')}</span>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('sso')}
+                    className={`py-2 px-3 text-sm rounded-lg transition-all duration-200 font-medium ${
+                      activeTab === 'sso'
+                        ? `${colors.card} shadow-sm ring-1 ${colors.ringColor}`
+                        : colors.cardHover
+                    }`}
+                    style={{ color: activeTab === 'sso' ? undefined : 'rgb(229, 231, 235)' }}
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <Key size={16} />
+                      <span>{t('import.ssoTab')}</span>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('kiro')}
+                    className={`py-2 px-3 text-sm rounded-lg transition-all duration-200 font-medium ${
+                      activeTab === 'kiro'
+                        ? `${colors.card} shadow-sm ring-1 ${colors.ringColor}`
+                        : colors.cardHover
+                    }`}
+                    style={{ color: activeTab === 'kiro' ? undefined : 'rgb(229, 231, 235)' }}
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <Database size={16} />
+                      <span>从 Kiro 导入</span>
+                    </div>
+                  </button>
+                </div>
               </Tabs.List>
 
-              <Tabs.Panel value="json" pt="md" className="px-6 pb-6">
-                <Stack gap="xl" p="md">
-              <Group>
-                <FileButton onChange={handleFileSelect} accept=".json">
-                  {(props) => <Button {...props} variant="light" leftSection={<FileJson size={16} />}>{t('import.selectFile')}</Button>}
-                </FileButton>
-                <Button variant="light" color="blue" size="sm" onClick={() => setJsonText(JSON.stringify([{ refreshToken: "", provider: "Google", machineId: "" }], null, 2))}>
-                  {t('import.socialTemplate')}
-                </Button>
-                <Button variant="light" color="violet" size="sm" onClick={() => setJsonText(JSON.stringify([{ refreshToken: "", clientId: "", clientSecret: "", region: "us-east-1", provider: "BuilderId", machineId: "" }], null, 2))}>
-                  {t('import.idcTemplate')}
-                </Button>
-              </Group>
+              <Tabs.Panel value="json" pt="md" className="px-6 pb-4">
+                <Stack gap="lg">
+                  <Group>
+                    <FileButton onChange={handleFileSelect} accept=".json">
+                      {(props) => <MantineButton {...props} variant="light" leftSection={<FileJson size={16} />}>{t('import.selectFile')}</MantineButton>}
+                    </FileButton>
+                    <MantineButton variant="light" color="blue" size="sm" onClick={() => setJsonText(JSON.stringify([{ refreshToken: "", provider: "Google", machineId: "" }], null, 2))}>
+                      {t('import.socialTemplate')}
+                    </MantineButton>
+                    <MantineButton variant="light" color="violet" size="sm" onClick={() => setJsonText(JSON.stringify([{ refreshToken: "", clientId: "", clientSecret: "", region: "us-east-1", provider: "BuilderId", machineId: "" }], null, 2))}>
+                      {t('import.idcTemplate')}
+                    </MantineButton>
+                  </Group>
 
-              <Textarea
-                label={t('import.orPaste')}
-                value={jsonText}
-                onChange={(e) => { setJsonText(e.target.value); parseJson(e.target.value) }}
-                rows={10}
-                placeholder={`[{"refreshToken": "aor...", "provider": "Google"}]`}
-                styles={{ 
-                  input: { 
-                    fontFamily: 'monospace'
-                  } 
-                }}
-              />
+                  <Textarea
+                    label={t('import.orPaste')}
+                    value={jsonText}
+                    onChange={(e) => { setJsonText(e.target.value); parseJson(e.target.value) }}
+                    rows={10}
+                    placeholder={`[{"refreshToken": "aor...", "provider": "Google"}]`}
+                    classNames={{
+                      input: `${colors.text} ${colors.input} ${colors.inputFocus} font-mono`
+                    }}
+                  />
 
-              {parseResult && (
-                <Stack gap="xs" p={0}>
-                  {parseResult.valid.length > 0 && (
-                    <Alert icon={<CheckCircle size={16} />} color="teal" variant="light">
-                      {t('import.parseSuccess')}: {parseResult.valid.length} {t('import.validRecords')}
-                    </Alert>
+                  {parseResult && (
+                    <Stack gap="xs">
+                      {parseResult.valid.length > 0 && (
+                        <Alert icon={<CheckCircle size={16} />} color="teal" variant="light">
+                          {t('import.parseSuccess')}: {parseResult.valid.length} {t('import.validRecords')}
+                        </Alert>
+                      )}
+                      {parseResult.errors.length > 0 && (
+                        <Alert icon={<AlertCircle size={16} />} color="red" variant="light">
+                          <div className={`text-sm font-medium ${colors.text}`}>{t('import.validationError')}</div>
+                          <Stack gap={2} mt="xs">
+                            {parseResult.errors.slice(0, 5).map((err, i) => (
+                              <div key={i} className={`text-xs ${colors.text}`}>{err}</div>
+                            ))}
+                            {parseResult.errors.length > 5 && (
+                              <div className={`text-xs ${colors.text}`}>{t('import.moreErrors', { count: parseResult.errors.length - 5 })}</div>
+                            )}
+                          </Stack>
+                        </Alert>
+                      )}
+                    </Stack>
                   )}
-                  {parseResult.errors.length > 0 && (
-                    <Alert icon={<AlertCircle size={16} />} color="red" variant="light">
-                      <Text size="sm" fw={500}>{t('import.validationError')}</Text>
-                      <Stack gap={2} mt="xs" p={0}>
-                        {parseResult.errors.slice(0, 5).map((err, i) => (
-                          <Text key={i} size="xs">{err}</Text>
-                        ))}
-                        {parseResult.errors.length > 5 && (
-                          <Text size="xs">{t('import.moreErrors', { count: parseResult.errors.length - 5 })}</Text>
-                        )}
-                      </Stack>
+                </Stack>
+              </Tabs.Panel>
+
+              <Tabs.Panel value="sso" pt="md" className="px-6 pb-4">
+                <Stack gap="lg">
+                  <Alert color="blue" variant="light">
+                    <div className={`text-sm font-medium ${colors.text}`}>{t('import.ssoGuide')}</div>
+                    <ol className={`list-decimal list-inside space-y-1 text-xs mt-2 ${colors.text}`}>
+                      <li>{t('import.ssoStep1')}</li>
+                      <li>{t('import.ssoStep2')}</li>
+                      <li>{t('import.ssoStep3')}</li>
+                      <li>{t('import.ssoStep4')}</li>
+                    </ol>
+                  </Alert>
+
+                  <Textarea
+                    label={t('import.ssoTokenLabel')}
+                    description={t('import.ssoTokenHint')}
+                    value={ssoToken}
+                    onChange={(e) => setSsoToken(e.target.value)}
+                    rows={6}
+                    placeholder={t('import.ssoTokenPlaceholder')}
+                    classNames={{
+                      input: `${colors.text} ${colors.input} ${colors.inputFocus} font-mono`
+                    }}
+                  />
+
+                  <Select
+                    label="Region"
+                    description={t('import.regionOptional')}
+                    value={ssoRegion}
+                    onChange={setSsoRegion}
+                    data={[
+                      { value: 'us-east-1', label: 'us-east-1' },
+                      { value: 'us-west-2', label: 'us-west-2' },
+                      { value: 'eu-west-1', label: 'eu-west-1' },
+                      { value: 'ap-northeast-1', label: 'ap-northeast-1' }
+                    ]}
+                    classNames={{
+                      input: `${colors.text} ${colors.input} ${colors.inputFocus}`,
+                      dropdown: `${colors.card} border ${colors.cardBorder}`,
+                      option: `${colors.text}`
+                    }}
+                  />
+
+                  {ssoToken.trim() && (
+                    <Alert icon={<CheckCircle size={16} />} color="blue" variant="light" radius="xl">
+                      {t('import.detectedTokens', { count: ssoToken.split('\n').filter(t => t.trim()).length })}
                     </Alert>
                   )}
                 </Stack>
-              )}
+              </Tabs.Panel>
 
-              <div className="flex justify-end gap-3 mt-4">
-                <button
-                  onClick={onClose}
-                  className={`px-5 py-2.5 text-sm font-medium rounded-xl ${colors.btnSecondary}`}
-                >
-                  {t('common.cancel')}
-                </button>
-                <button
-                  onClick={handleJsonImport}
-                  disabled={!parseResult?.valid.length}
-                  className={`
-                    px-6 py-2.5 text-sm font-medium rounded-xl text-white
-                    bg-gradient-to-r from-indigo-500 to-purple-600
-                    shadow-lg shadow-indigo-500/30
-                    hover:opacity-90 hover:shadow-xl
-                    disabled:opacity-50 disabled:cursor-not-allowed 
-                    flex items-center gap-2 
-                   
-                  `}
-                >
-                  <Upload size={16} />
-                  {t('import.import')} {parseResult?.valid.length ? `(${parseResult.valid.length})` : ''}
-                </button>
-              </div>
-            </Stack>
-          </Tabs.Panel>
+              <Tabs.Panel value="kiro" pt="md" className="px-6 pb-4">
+                <Stack gap="lg">
+                  <Alert color="indigo" variant="light">
+                    <div className={`text-sm font-medium ${colors.text}`}>从 Kiro IDE 导入账号</div>
+                    <div className={`text-xs mt-1 ${colors.textMuted}`}>
+                      自动读取 Kiro IDE 缓存的账号信息（~/.aws/sso/cache/kiro-auth-token.json）
+                    </div>
+                  </Alert>
 
-          <Tabs.Panel value="sso" pt="md" className="px-6 pb-6">
-            <Stack gap="xl" p="md">
-              <Alert color="blue" variant="light">
-                <Text size="sm" fw={500}>{t('import.ssoGuide')}</Text>
-                <ol className={`list-decimal list-inside space-y-1 text-xs mt-2 ${colors.text}`}>
-                  <li>{t('import.ssoStep1')}</li>
-                  <li>{t('import.ssoStep2')}</li>
-                  <li>{t('import.ssoStep3')}</li>
-                  <li>{t('import.ssoStep4')}</li>
-                </ol>
-              </Alert>
-
-              <Textarea
-                label={t('import.ssoTokenLabel')}
-                description={t('import.ssoTokenHint')}
-                value={ssoToken}
-                onChange={(e) => setSsoToken(e.target.value)}
-                rows={6}
-                placeholder={t('import.ssoTokenPlaceholder')}
-                styles={{ 
-                  input: { 
-                    fontFamily: 'monospace'
-                  } 
-                }}
-              />
-
-              <Select
-                label="Region"
-                description={t('import.regionOptional')}
-                value={ssoRegion}
-                onChange={setSsoRegion}
-                data={[
-                  { value: 'us-east-1', label: 'us-east-1' },
-                  { value: 'us-west-2', label: 'us-west-2' },
-                  { value: 'eu-west-1', label: 'eu-west-1' },
-                  { value: 'ap-northeast-1', label: 'ap-northeast-1' }
-                ]}
-                classNames={{
-                  input: `${colors.text} ${colors.input}`,
-                  dropdown: `${colors.card} border ${colors.cardBorder}`,
-                  option: `${colors.text}`
-                }}
-              />
-
-              {ssoToken.trim() && (
-                <Alert icon={<CheckCircle size={16} />} color="blue" variant="light" radius="xl">
-                  {t('import.detectedTokens', { count: ssoToken.split('\n').filter(t => t.trim()).length })}
-                </Alert>
-              )}
-
-              <div className="flex justify-end gap-3 mt-4">
-                <button
-                  onClick={onClose}
-                  className={`px-5 py-2.5 text-sm font-medium rounded-xl ${colors.btnSecondary}`}
-                >
-                  {t('common.cancel')}
-                </button>
-                <button
-                  onClick={handleSsoImport}
-                  disabled={!ssoToken.trim()}
-                  className={`
-                    px-6 py-2.5 text-sm font-medium rounded-xl text-white
-                    bg-gradient-to-r from-indigo-500 to-purple-600
-                    shadow-lg shadow-indigo-500/30
-                    hover:opacity-90 hover:shadow-xl
-                    disabled:opacity-50 disabled:cursor-not-allowed 
-                    flex items-center gap-2 
-                   
-                  `}
-                >
-                  <Key size={16} />
-                  {t('import.import')} {ssoToken.trim() ? `(${ssoToken.split('\n').filter(t => t.trim()).length})` : ''}
-                </button>
-              </div>
-            </Stack>
-          </Tabs.Panel>
-        </Tabs>
+                  {kiroLoading ? (
+                    <div className={`p-5 rounded-xl ${colors.cardSecondary} border ${colors.cardBorder}`}>
+                      <div className="flex items-center gap-3">
+                        <Loader2 size={20} className="animate-spin text-blue-500" />
+                        <div className={`text-sm ${colors.text}`}>正在检测 Kiro IDE 账号...</div>
+                      </div>
+                    </div>
+                  ) : kiroError ? (
+                    <Alert icon={<AlertCircle size={16} />} color="red" variant="light">
+                      <div className={`text-sm font-medium ${colors.text}`}>检测失败</div>
+                      <div className={`text-xs mt-1 ${colors.textMuted}`}>{kiroError}</div>
+                      <MantineButton
+                        variant="light"
+                        color="red"
+                        size="xs"
+                        mt="sm"
+                        leftSection={<RefreshCw size={14} />}
+                        onClick={detectKiroAccounts}
+                      >
+                        重新检测
+                      </MantineButton>
+                    </Alert>
+                  ) : kiroAccounts.length > 0 ? (
+                    <>
+                      <Alert icon={<CheckCircle size={16} />} color="teal" variant="light">
+                        <div className={`text-sm font-medium ${colors.text}`}>检测到 {kiroAccounts.length} 个账号</div>
+                      </Alert>
+                      
+                      <div className={`p-4 rounded-xl ${colors.cardSecondary} border ${colors.cardBorder}`}>
+                        <Stack gap="sm">
+                          {kiroAccounts.map((account, index) => (
+                            <div key={index} className={`p-3 rounded-lg ${colors.card} border ${colors.cardBorder}`}>
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <div className={`text-sm font-medium ${colors.text}`}>
+                                    {account.provider} ({account.authMethod})
+                                  </div>
+                                  <div className={`text-xs ${colors.textMuted}`}>
+                                    {account.email || '未知邮箱'}
+                                  </div>
+                                </div>
+                                <div className={`px-2 py-1 rounded text-xs ${colors.badgeInfo}`}>
+                                  {account.authMethod === 'IdC' ? 'IdC' : 'Social'}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </Stack>
+                      </div>
+                    </>
+                  ) : (
+                    <Alert icon={<AlertCircle size={16} />} color="gray" variant="light">
+                      <div className={`text-sm ${colors.text}`}>未检测到 Kiro IDE 账号</div>
+                      <div className={`text-xs mt-1 ${colors.textMuted}`}>
+                        请先在 Kiro IDE 中登录账号
+                      </div>
+                    </Alert>
+                  )}
+                </Stack>
+              </Tabs.Panel>
+            </Tabs>
           )}
-        </div>
-      </div>
+        </DialogBody>
 
-
-    </div>
+        <DialogFooter>
+          <div></div>
+          {importResult || ssoResult || kiroResult ? (
+            <div className="flex gap-3">
+              <Button 
+                variant="secondary" 
+                onClick={() => { 
+                  setImportResult(null)
+                  setSsoResult(null)
+                  setKiroResult(null)
+                  setJsonText('')
+                  setSsoToken('')
+                  setParseResult(null)
+                }}
+              >
+                {t('import.continueImport')}
+              </Button>
+              <Button variant="success" onClick={onClose}>
+                {t('import.done')}
+              </Button>
+            </div>
+          ) : importing || ssoImporting || kiroImporting ? (
+            <div></div>
+          ) : activeTab === 'json' ? (
+            <div className="flex gap-3">
+              <Button variant="secondary" onClick={onClose}>
+                {t('common.cancel')}
+              </Button>
+              <Button 
+                onClick={handleJsonImport}
+                disabled={!parseResult?.valid.length}
+                className="flex items-center gap-2"
+              >
+                <Upload size={16} />
+                {t('import.import')} {parseResult?.valid.length ? `(${parseResult.valid.length})` : ''}
+              </Button>
+            </div>
+          ) : activeTab === 'sso' ? (
+            <div className="flex gap-3">
+              <Button variant="secondary" onClick={onClose}>
+                {t('common.cancel')}
+              </Button>
+              <Button 
+                onClick={handleSsoImport}
+                disabled={!ssoToken.trim()}
+                className="flex items-center gap-2"
+              >
+                <Key size={16} />
+                {t('import.import')} {ssoToken.trim() ? `(${ssoToken.split('\n').filter(t => t.trim()).length})` : ''}
+              </Button>
+            </div>
+          ) : (
+            <div className="flex gap-3">
+              <Button variant="secondary" onClick={onClose}>
+                {t('common.cancel')}
+              </Button>
+              <Button 
+                onClick={handleKiroImport}
+                disabled={kiroAccounts.length === 0}
+                className="flex items-center gap-2"
+              >
+                <Database size={16} />
+                导入 {kiroAccounts.length > 0 ? `(${kiroAccounts.length})` : ''}
+              </Button>
+            </div>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </DialogRoot>
   )
 }
 

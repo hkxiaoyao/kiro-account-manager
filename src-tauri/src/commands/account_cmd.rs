@@ -379,6 +379,7 @@ pub async fn add_local_kiro_account(state: State<'_, AppState>) -> Result<Accoun
             local_token.access_token.clone(), // 传入 access_token
             None, // 本地导入无密码
             Some(provider), // 传入 provider (BuilderId 或 Enterprise)
+            None, // 本地导入无 start_url（BuilderId 不需要，Enterprise 从 Kiro IDE 导入时也不需要）
         ).await
     } else {
         add_account_by_social(
@@ -402,7 +403,8 @@ pub async fn add_account_by_idc(
     machine_id: Option<String>,
     access_token: Option<String>,
     password: Option<String>,
-    provider: Option<String>, // 新增: 支持指定 provider (BuilderId 或 Enterprise)
+    provider: Option<String>, // 支持指定 provider (BuilderId 或 Enterprise)
+    start_url: Option<String>, // 新增: Enterprise 的 Start URL
 ) -> Result<Account, String> {
     let region = region.unwrap_or_else(|| "us-east-1".to_string());
     let provider_id = provider.unwrap_or_else(|| "BuilderId".to_string()); // 默认 BuilderId
@@ -410,6 +412,11 @@ pub async fn add_account_by_idc(
     // 验证 provider
     if provider_id != "BuilderId" && provider_id != "Enterprise" {
         return Err(format!("不支持的 provider: {}, 只支持 BuilderId 或 Enterprise", provider_id));
+    }
+    
+    // Enterprise 必须提供 start_url
+    if provider_id == "Enterprise" && start_url.is_none() {
+        return Err("Enterprise 账号需要提供 Start URL".to_string());
     }
     
     // 先尝试用传入的 access_token 获取配额
@@ -424,7 +431,7 @@ pub async fn add_account_by_idc(
                         region: Some(region.clone()),
                         ..Default::default()
                     };
-                    let idc_provider = IdcProvider::new(&provider_id, &region, None);
+                    let idc_provider = IdcProvider::new(&provider_id, &region, start_url.clone());
                     let auth_result = idc_provider.refresh_token(&refresh_token, metadata).await?;
                     let new_usage = get_usage_by_provider(&provider_id, &auth_result.access_token).await?;
                     let expires_at = calc_expires_at(auth_result.expires_in);
@@ -444,7 +451,7 @@ pub async fn add_account_by_idc(
                 region: Some(region.clone()),
                 ..Default::default()
             };
-            let idc_provider = IdcProvider::new(&provider_id, &region, None);
+            let idc_provider = IdcProvider::new(&provider_id, &region, start_url.clone());
             let auth_result = idc_provider.refresh_token(&refresh_token, metadata).await?;
             let usage_result = get_usage_by_provider(&provider_id, &auth_result.access_token).await?;
             let expires_at = calc_expires_at(auth_result.expires_in);
@@ -486,6 +493,7 @@ pub async fn add_account_by_idc(
         existing.client_secret = Some(client_secret);
         existing.region = Some(region);
         existing.client_id_hash = Some(client_id_hash);
+        existing.start_url = start_url.clone(); // 保存 Start URL
         if id_token.is_some() {
             existing.id_token = id_token;
         }
@@ -509,6 +517,7 @@ pub async fn add_account_by_idc(
         account.client_secret = Some(client_secret);
         account.region = Some(region);
         account.client_id_hash = Some(client_id_hash);
+        account.start_url = start_url.clone(); // 保存 Start URL
         account.id_token = id_token;
         account.sso_session_id = sso_session_id;
         account.usage_data = Some(usage_result.usage_data);

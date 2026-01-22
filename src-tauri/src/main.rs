@@ -49,7 +49,7 @@ use commands::sso_import_cmd::*;
 use commands::update_cmd::*;
 use commands::steering_cmd::*;
 use kiro::{
-    get_kiro_local_token, switch_kiro_account,
+    get_kiro_local_token, switch_kiro_account, read_kiro_accounts,
 };
 use process::{close_kiro_ide, is_kiro_ide_running, start_kiro_ide};
 
@@ -188,6 +188,8 @@ fn main() {
             // Kiro IDE 命令
             get_kiro_local_token,
             switch_kiro_account,
+            read_kiro_accounts,
+            read_kiro_accounts,
             // 进程管理命令
             close_kiro_ide,
             start_kiro_ide,

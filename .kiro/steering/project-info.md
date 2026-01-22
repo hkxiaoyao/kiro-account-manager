@@ -17,6 +17,7 @@ inclusion: always
 - 一键切换：快速切换账号，可选自动重置机器 ID
 - 批量操作：批量刷新、批量删除、批量导入导出
 - Token 自动刷新：定时刷新过期 Token
+- 从 Kiro 导入：自动检测并导入 Kiro IDE 中已登录的账号
 
 **IDE 集成**
 - IDE 设置同步：代理、模型配置
@@ -54,13 +55,35 @@ inclusion: always
 
 ## 技术栈
 
+### UI 组件库搭配
+
+本项目采用**三层 UI 架构**，各司其职：
+
+| 层级 | 技术 | 职责 | 示例 |
+|------|------|------|------|
+| **布局/样式** | Tailwind CSS v4 | 原子化 CSS，布局和自定义样式 | `flex`, `gap-4`, `rounded-xl` |
+| **弹窗** | Headless UI | Dialog 组件，无样式可访问 | `<Dialog>`, `<Transition>` |
+| **表单/展示** | Mantine | 表单组件和展示组件 | `<Select>`, `<Alert>`, `<Progress>` |
+
+**为什么这样搭配？**
+- **Tailwind CSS v4**：最新版本，性能提升 10 倍，内置现代 CSS 特性
+- **Headless UI**：Tailwind Labs 官方推荐，API 简洁，完美集成
+- **Mantine**：表单组件功能完善（验证、错误提示），节省开发时间
+
+**不冲突吗？**
+- ✅ 完全不冲突！各自负责不同领域
+- ✅ Headless UI 只负责弹窗逻辑，样式用 Tailwind
+- ✅ Mantine 组件通过 `classNames` 属性使用 Tailwind 样式
+
 ### 前端
 - React 18 + JSX（非 TypeScript）
 - Vite 5 打包
-- TailwindCSS 3 样式
+- **Tailwind CSS v4** 样式（最新版本，性能提升 10 倍）
 - Lucide React 图标
 - Tauri API v2 通信（`@tauri-apps/api/core`）
 - i18next + react-i18next 国际化（i18n）
+- **Headless UI** 弹窗组件（Tailwind Labs 官方）
+- **Mantine** 表单组件（Select、TextInput、Alert 等）
 
 ### 后端（Rust）
 - Tauri 2.x 框架
@@ -152,7 +175,7 @@ npm run compile
 │   │   │   │   ├── AccountCard.jsx       # 账号卡片组件（含右键菜单）
 │   │   │   │   ├── AccountPagination.jsx # 分页控件
 │   │   │   │   ├── AddAccountModal.jsx   # 添加账号弹窗
-│   │   │   │   ├── ImportAccountModal.jsx # 导入账号弹窗
+│   │   │   │   ├── ImportAccountModal.jsx # 导入账号弹窗（3-Tab：JSON/SSO Token/从 Kiro 导入）
 │   │   │   │   ├── EditAccountModal.jsx  # 编辑备注弹窗
 │   │   │   │   ├── RefreshProgressModal.jsx # 刷新进度弹窗
 │   │   │   │   └── ConfirmModal.jsx      # 确认弹窗
@@ -167,8 +190,7 @@ npm run compile
 │   │   ├── modals/           # 弹窗组件
 │   │   │   └── AccountDetailModal.jsx # 账号详情弹窗
 │   │   ├── ui/               # UI 基础组件
-│   │   │   ├── dialog.jsx    # Dialog 组件
-│   │   │   ├── modal.jsx     # Modal 组件
+│   │   │   ├── dialog.jsx    # Dialog 组件（基于 Headless UI）
 │   │   │   └── button.jsx    # Button 组件
 │   │   ├── Sidebar.jsx       # 侧边栏导航
 │   │   ├── UpdateChecker.jsx # 更新检查组件
@@ -210,7 +232,7 @@ npm run compile
 │   │   ├── auth.rs           # 认证工具
 │   │   ├── auth_social.rs    # 社交登录认证
 │   │   ├── state.rs          # 应用状态管理
-│   │   ├── kiro.rs           # Kiro IDE 集成
+│   │   ├── kiro.rs           # Kiro IDE 集成（切换账号、读取本地账号）
 │   │   ├── mcp.rs            # MCP 配置管理
 │   │   ├── process.rs        # 进程管理
 │   │   ├── browser.rs        # 浏览器操作
