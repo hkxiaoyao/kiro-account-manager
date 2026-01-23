@@ -1,4 +1,4 @@
-# Kiro Account Manager
+﻿# Kiro Account Manager
 
 <p align="center">
   <img src="src-tauri/icons/128x128.png" alt="Logo" width="80">
@@ -157,7 +157,7 @@
 
 ---
 
-## �� 下载
+## 📥 下载
 
 **最新版本**：[GitHub Releases](https://github.com/hj01857655/kiro-account-manager/releases/latest)
 
