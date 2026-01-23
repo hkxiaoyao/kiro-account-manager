@@ -30,7 +30,11 @@
 ## ✨ 功能特性
 
 ### 🔐 账号登录
-- **Desktop OAuth** - 桌面端授权，支持 Google/GitHub/BuilderId/Enterprise
+- **Desktop OAuth** - 桌面端授权，支持 Google/GitHub/BuilderId
+- **🆕 Enterprise 支持** - AWS IAM Identity Center 企业账号登录
+  - 完整支持 SSO OIDC 流程
+  - 自动刷新 Token
+  - 企业账号专属徽章颜色
 - 默认无痕模式，保护隐私
 
 ### 📊 账号展示
@@ -52,7 +56,7 @@
 - 批量刷新（智能并发控制，自动优化速度）
 - 批量删除 / 批量打标签
 - JSON 导入导出（Social / IdC 格式）
-- SSO Token 批量导入（支持多行粘贴）
+- 🆕 SSO Token 批量导入（支持 BuilderId/Enterprise 多行粘贴）
 - 关键词搜索过滤
 - 刷新失败自动通知（封禁/Token失效）
 
@@ -81,11 +85,11 @@
 - AI 模型选择与锁定
 - 代码库索引开关
 - 信任命令配置（关闭/常用/全部）
-- Agent 自主模式（监督/自动驾驶）
+- 🆕 Agent 自主模式（监督/自动驾驶）
 - Token 自动刷新（可配置间隔）
 - 切号自动重置机器 ID（随机/绑定模式）
 - 隐私模式（邮箱脱敏显示）
-- 余额不足自动换号（可配置阈值和检查间隔）
+- 🆕 余额不足自动换号（可配置阈值和检查间隔）
 
 ### 🌐 浏览器与代理
 - 自定义浏览器 / 自动检测
