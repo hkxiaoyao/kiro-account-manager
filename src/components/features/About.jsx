@@ -138,7 +138,7 @@ function About() {
             <Group gap="sm" grow>
               <Button
                 component="a"
-                href="https://vercel-api-lemon-five.vercel.app"
+                href="https://kiro-website-six.vercel.app"
                 target="_blank"
                 rel="noopener noreferrer"
                 leftSection={<ExternalLink size={18} />}
