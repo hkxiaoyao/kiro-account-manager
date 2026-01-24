@@ -419,7 +419,8 @@ pub async fn add_local_kiro_account(state: State<'_, AppState>) -> Result<Accoun
             local_token.access_token.clone(), // 传入 access_token
             None, // 本地导入无密码
             Some(provider), // 传入 provider (BuilderId 或 Enterprise)
-            None, // 本地导入无 start_url（BuilderId 不需要，Enterprise 从 Kiro IDE 导入时也不需要）
+            None, // 本地导入无 start_url
+            Some(hash), // 直接使用 Kiro IDE 提供的 clientIdHash
         ).await
     } else {
         add_account_by_social(
@@ -444,7 +445,8 @@ pub async fn add_account_by_idc(
     access_token: Option<String>,
     password: Option<String>,
     provider: Option<String>, // 支持指定 provider (BuilderId 或 Enterprise)
-    start_url: Option<String>, // 新增: Enterprise 的 Start URL
+    start_url: Option<String>, // Enterprise 的 Start URL（JSON 导入时需要）
+    client_id_hash: Option<String>, // 从 Kiro 导入时直接提供（优先使用）
 ) -> Result<Account, String> {
     let region = region.unwrap_or_else(|| "us-east-1".to_string());
     
@@ -512,9 +514,17 @@ pub async fn add_account_by_idc(
         new_email.clone().ok_or("获取邮箱失败，请检查账号状态")?
     };
     
-    // 计算 client_id_hash（使用实际的 start_url）
-    let actual_start_url = start_url.as_deref().unwrap_or("https://view.awsapps.com/start");
-    let client_id_hash = calc_client_id_hash(actual_start_url);
+    // 计算或使用 client_id_hash
+    let client_id_hash = if let Some(hash) = client_id_hash {
+        // 从 Kiro 导入时直接使用提供的 hash
+        hash
+    } else {
+        // JSON 导入时，使用 clientId 的 SHA1 作为 hash（不需要 startUrl）
+        use sha1::{Digest, Sha1};
+        let mut hasher = Sha1::new();
+        hasher.update(client_id.as_bytes());
+        hex::encode(hasher.finalize())
+    };
     
     let mut store = state.store.lock().expect("Failed to acquire store lock");
     let existing_idx = find_existing_account_idx(&store.accounts, &new_email, &provider_id, &refresh_token, &user_id);

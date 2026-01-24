@@ -186,7 +186,8 @@ function ImportAccountModal({ onClose, onSuccess }) {
             accessToken: item.accessToken || null,
             password: item.password || null,
             provider: provider,
-            startUrl: item.startUrl || null
+            startUrl: item.startUrl || null,
+            clientIdHash: null  // JSON 导入时不提供，由后端根据 startUrl 计算
           })
         }
         if (account.status === 'banned') {
@@ -304,7 +305,8 @@ function ImportAccountModal({ onClose, onSuccess }) {
             accessToken: account.accessToken || null,
             password: null,
             provider: account.provider,
-            startUrl: null  // Kiro IDE 不存储 startUrl，AWS 从 JWT 中自动解析
+            startUrl: null,  // 从 Kiro 导入不需要 startUrl
+            clientIdHash: account.clientIdHash || null  // 使用 Kiro 提供的 clientIdHash
           })
         } else {
           result = await invoke('add_account_by_social', {
