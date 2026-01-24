@@ -41,3 +41,4 @@ scripts/register/verified_accounts.json
 scripts/register/*.png
 scripts/register/*.har
 scripts/register/debug/
+enterprise-import.json

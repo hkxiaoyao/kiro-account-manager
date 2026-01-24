@@ -200,6 +200,7 @@ pub async fn switch_kiro_account(params: SwitchAccountParams) -> Result<SwitchAc
         let client_id = params.client_id;
         let client_secret = params.client_secret;
         let region = params.region;
+        let start_url = params.start_url;
         
         // 获取 token 目录
         let home = std::env::var("USERPROFILE")
@@ -227,7 +228,7 @@ pub async fn switch_kiro_account(params: SwitchAccountParams) -> Result<SwitchAc
                 "authMethod": "IdC",
                 "provider": provider,
                 "clientIdHash": hash,
-                "region": region.clone().unwrap_or_else(|| "us-east-1".to_string())
+                "region": region.ok_or("IdC 账号必须提供 region")?,
             })
         } else {
             let arn = profile_arn.unwrap_or_else(|| 

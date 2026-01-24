@@ -299,7 +299,7 @@ function ImportAccountModal({ onClose, onSuccess }) {
             refreshToken: account.refreshToken,
             clientId: account.clientId,
             clientSecret: account.clientSecret,
-            region: account.region || 'us-east-1',
+            region: account.region || null,
             machineId: null,
             accessToken: account.accessToken || null,
             password: null,
