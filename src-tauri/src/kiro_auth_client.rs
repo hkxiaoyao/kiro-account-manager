@@ -143,16 +143,6 @@ impl KiroAuthServiceClient {
 
         let body_str = String::from_utf8_lossy(&bytes);
 
-        // 只打印非 200 的响应
-        if !status.is_success() {
-            log::debug!("[KiroAuth] RefreshToken Status: {}", status);
-            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body_str) {
-                log::debug!("[KiroAuth] RefreshToken Response:\n{}", serde_json::to_string_pretty(&json).unwrap_or(body_str.to_string()));
-            } else {
-                log::debug!("[KiroAuth] RefreshToken Response: {}", body_str);
-            }
-        }
-
         if !status.is_success() {
             if status.as_u16() == 401 {
                 return Err("RefreshToken 已过期或无效".to_string());
