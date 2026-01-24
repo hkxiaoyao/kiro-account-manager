@@ -7,7 +7,7 @@ inclusion: always
 ## 仓库说明
 
 - **私有仓库**: `hj01857655/kiro-account-manager_dev` - 开发用，所有代码提交到这里
-- **公开仓库**: `hj01857655/kiro-account-manager` - 仅用于发布 Release
+- **公开仓库**: `hj01857655/kiro-account-manager` - **不开源**，仅用于发布 Release
 
 ## 私有仓库规则
 
@@ -17,7 +17,7 @@ inclusion: always
 
 ## 公开仓库规则
 
-⚠️ **严格禁止**: 公开仓库 `kiro-account-manager` 源码已冻结！
+⚠️ **严格禁止**: 公开仓库 `kiro-account-manager` **不开源**，源码已冻结在 v1.5.1！
 
 - ❌ **禁止** 推送任何源码到公开仓库
 - ❌ **禁止** 执行 `git push` 到公开仓库的任何分支
