@@ -221,9 +221,39 @@ pub async fn switch_kiro_account(params: SwitchAccountParams) -> Result<SwitchAc
         
         // 根据 auth_method 构建 token 数据
         let token_data = if auth_method == "IdC" {
-            // IdC 账号必须提供 client_id_hash
-            let hash = client_id_hash.clone()
-                .ok_or("IdC 账号必须提供 client_id_hash")?;
+            // IdC 账号：如果没有提供 client_id_hash，根据 provider 自动计算
+            let hash = if let Some(h) = client_id_hash {
+                if h.is_empty() {
+                    // 空字符串，自动计算
+                    None
+                } else {
+                    Some(h)
+                }
+            } else {
+                None
+            };
+            
+            let hash = if let Some(h) = hash {
+                h
+            } else {
+                // 自动计算 clientIdHash（与 Kiro IDE 源码一致）
+                use sha1::{Digest, Sha1};
+                
+                let actual_start_url = if provider == "BuilderId" {
+                    "https://view.awsapps.com/start"
+                } else {
+                    // Enterprise 必须提供 region（用于推断 start_url）
+                    // 注意：这里无法获取真实的 start_url，只能用默认值
+                    // 建议从账号数据中传入 start_url
+                    return Err("Enterprise 账号必须提供 client_id_hash".to_string());
+                };
+                
+                // 与 Kiro IDE 完全一致：SHA-1(JSON.stringify({ startUrl }))
+                let input = serde_json::json!({ "startUrl": actual_start_url }).to_string();
+                let mut hasher = Sha1::new();
+                hasher.update(input.as_bytes());
+                hex::encode(hasher.finalize())
+            };
             
             // 检查 hash 是否为空
             if hash.is_empty() {
