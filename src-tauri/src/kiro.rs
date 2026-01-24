@@ -221,7 +221,15 @@ pub async fn switch_kiro_account(params: SwitchAccountParams) -> Result<SwitchAc
         
         // 根据 auth_method 构建 token 数据
         let token_data = if auth_method == "IdC" {
-            let hash = client_id_hash.clone().unwrap_or_default();
+            // IdC 账号必须提供 client_id_hash
+            let hash = client_id_hash.clone()
+                .ok_or("IdC 账号必须提供 client_id_hash")?;
+            
+            // 检查 hash 是否为空
+            if hash.is_empty() {
+                return Err("client_id_hash 不能为空".to_string());
+            }
+            
             serde_json::json!({
                 "accessToken": access_token,
                 "refreshToken": refresh_token,
@@ -258,6 +266,11 @@ pub async fn switch_kiro_account(params: SwitchAccountParams) -> Result<SwitchAc
         // IdC 账号还需要写入 Client Registration 文件
         if auth_method == "IdC" {
             if let (Some(hash), Some(cid), Some(csec)) = (client_id_hash, client_id, client_secret) {
+                // 再次检查 hash 是否为空
+                if hash.is_empty() {
+                    return Err("client_id_hash 不能为空".to_string());
+                }
+                
                 let client_reg_path = dir_path.join(format!("{}.json", hash));
                 let client_reg_temp_path = dir_path.join(format!("{}.json.tmp", hash));
                 let client_expires = chrono::Utc::now() + chrono::Duration::days(90);
@@ -272,6 +285,8 @@ pub async fn switch_kiro_account(params: SwitchAccountParams) -> Result<SwitchAc
                     .map_err(|e| format!("Failed to write client registration temp: {}", e))?;
                 std::fs::rename(&client_reg_temp_path, &client_reg_path)
                     .map_err(|e| format!("Failed to rename client registration: {}", e))?;
+            } else {
+                return Err("IdC 账号必须提供 client_id_hash、client_id 和 client_secret".to_string());
             }
         }
         
