@@ -56,9 +56,7 @@ export function useSwitchAccount(onLocalTokenChange) {
     }
     
     if (isIdC) {
-      // 如果 clientIdHash 为空，调用后端计算（后端会根据 provider 自动计算）
-      // BuilderId: 固定 hash，Enterprise: 根据 startUrl 计算
-      params.clientIdHash = account.clientIdHash || null
+      // 后端会根据 startUrl 自动计算 clientIdHash，前端不需要传
       params.region = account.region || 'us-east-1'
       params.clientId = account.clientId
       params.clientSecret = account.clientSecret
