@@ -583,28 +583,27 @@ async fn add_account_by_idc_internal(
         new_email.clone().ok_or("获取邮箱失败，请检查账号状态")?
     };
     
-    // 计算或使用 client_id_hash
+    // 计算或使用 client_id_hash（与 Kiro IDE 源码一致）
+    // Kiro IDE 源码：getClientIdHash(startUrl) { return crypto.createHash("sha1").update(JSON.stringify({ startUrl })).digest("hex"); }
     let client_id_hash = if let Some(hash) = client_id_hash {
         // 从 Kiro 导入时直接使用提供的 hash
         hash
     } else {
         // JSON 导入时计算 hash
-        if provider_id == "BuilderId" {
-            // BuilderId: 使用 SHA-1 直接 hash startUrl（与 Kiro IDE 一致）
-            use sha1::{Digest, Sha1};
-            let start_url = "https://view.awsapps.com/start";
-            let mut hasher = Sha1::new();
-            hasher.update(start_url.as_bytes());
-            hex::encode(hasher.finalize())
+        use sha1::{Digest, Sha1};
+        
+        let actual_start_url = if provider_id == "BuilderId" {
+            "https://view.awsapps.com/start"
         } else {
-            // Enterprise: 使用 SHA-1 hash JSON（与 Kiro IDE 一致）
-            use sha1::{Digest, Sha1};
-            let actual_start_url = start_url.as_deref().ok_or("Enterprise 账号缺少 Start URL")?;
-            let input = serde_json::json!({ "startUrl": actual_start_url }).to_string();
-            let mut hasher = Sha1::new();
-            hasher.update(input.as_bytes());
-            hex::encode(hasher.finalize())
-        }
+            // Enterprise 必须提供 Start URL
+            start_url.as_deref().ok_or("Enterprise 账号缺少 Start URL")?
+        };
+        
+        // 与 Kiro IDE 完全一致：SHA-1(JSON.stringify({ startUrl }))
+        let input = serde_json::json!({ "startUrl": actual_start_url }).to_string();
+        let mut hasher = Sha1::new();
+        hasher.update(input.as_bytes());
+        hex::encode(hasher.finalize())
     };
     
     let mut store = state.store.lock().expect("Failed to acquire store lock");
