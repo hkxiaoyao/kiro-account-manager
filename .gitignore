@@ -47,3 +47,4 @@ src-tauri/clippy_warnings.txt
 .tmp/
 
 .breezell/
+scratch/

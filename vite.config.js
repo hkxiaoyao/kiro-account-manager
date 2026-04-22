@@ -27,7 +27,7 @@ export default defineConfig({
     },
     // 预热常用文件，加快首次加载
     warmup: {
-      clientFiles: ['./src/main.jsx', './src/App.jsx'],
+      clientFiles: ['./src/main.tsx', './src/App.tsx'],
     },
   },
   // 优化依赖预构建
