@@ -80,6 +80,10 @@
 [data-theme='light'] {
   --background: #f8fafc;
   --background-rgb: 248 250 252;
+  --surface-rgb-light: 255 255 255;
+  --surface-contrast-rgb-light: 248 250 252;
+  --border-light: rgb(15 23 42 / 0.12);
+  --popover-light: rgb(255 255 255 / 0.94);
   --bg-color: #f8fafc;
   --bg-gradient-1: #e2e8f0;
   --bg-gradient-1-rgb: 226 232 240;
@@ -114,10 +118,12 @@
 [data-theme='dark'] {
   --background: #0a0b14;
   --background-rgb: 10 11 20;
-  --surface-rgb: 20 21 35;
-  --surface-contrast-rgb: 10 11 20;
+  --surface-rgb-dark: 20 21 35;
+  --surface-contrast-rgb-dark: 10 11 20;
+  --border-dark: rgb(255 255 255 / 0.18);
+  --popover-dark: rgb(20 21 35 / 0.96);
   --card: transparent;
-  --popover: rgb(var(--surface-rgb) / 0.96);
+  --popover: rgb(var(--surface-rgb-dark) / 0.96);
   --primary: #60a5fa;
   --primary-rgb: 96 165 250;
   --glow-rgb: 96 165 250;
