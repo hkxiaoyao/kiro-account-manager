@@ -1,7 +1,33 @@
 import { invoke } from '@tauri-apps/api/core'
 import { getPrimaryClientApiKey, parseAllowedIps, parseClientApiKeys } from './gatewayPageUtils'
 
-export const DEFAULT_GATEWAY_CONFIG = {
+export interface GatewayConfig {
+  enabled: boolean;
+  host: string;
+  port: number;
+  apiKey: string;
+  clientApiKeysText: string;
+  region: string;
+  accountMode: string;
+  accountId: string | null;
+  groupId: string | null;
+  strategy: string;
+  threshold: number;
+  localOnly: boolean;
+  allowedIpsText: string;
+  logLevel: string;
+}
+
+export interface GatewayStatus {
+  running: boolean;
+  host: string;
+  port: number;
+  requestCount: number;
+  lastError: string | null;
+  runtimeConfig: GatewayConfig | null;
+}
+
+export const DEFAULT_GATEWAY_CONFIG: GatewayConfig = {
   enabled: false,
   host: '127.0.0.1',
   port: 8765,
@@ -15,17 +41,19 @@ export const DEFAULT_GATEWAY_CONFIG = {
   threshold: 90,
   localOnly: true,
   allowedIpsText: '',
-  logLevel: 'debug'}
+  logLevel: 'debug'
+}
 
-export const DEFAULT_GATEWAY_STATUS = {
+export const DEFAULT_GATEWAY_STATUS: GatewayStatus = {
   running: false,
   host: '127.0.0.1',
   port: 8765,
   requestCount: 0,
   lastError: null,
-  runtimeConfig: null}
+  runtimeConfig: null
+}
 
-export const buildGatewayConfigSnapshot = (config) => JSON.stringify({
+export const buildGatewayConfigSnapshot = (config: GatewayConfig) => JSON.stringify({
   enabled: !!config.enabled,
   host: config.host || '',
   port: Number(config.port) || 0,
@@ -39,9 +67,10 @@ export const buildGatewayConfigSnapshot = (config) => JSON.stringify({
   threshold: Number(config.threshold) || 90,
   localOnly: !!config.localOnly,
   allowedIpsText: config.allowedIpsText || '',
-  logLevel: config.logLevel || 'debug'})
+  logLevel: config.logLevel || 'debug'
+})
 
-export const buildGatewayRuntimeSnapshot = (config) => JSON.stringify({
+export const buildGatewayRuntimeSnapshot = (config: GatewayConfig) => JSON.stringify({
   host: config.host || '',
   port: Number(config.port) || 0,
   apiKey: getPrimaryClientApiKey(config.clientApiKeysText || config.apiKey),
@@ -54,9 +83,10 @@ export const buildGatewayRuntimeSnapshot = (config) => JSON.stringify({
   threshold: Number(config.threshold) || 90,
   localOnly: !!config.localOnly,
   allowedIpsText: config.allowedIpsText || '',
-  logLevel: config.logLevel || 'debug'})
+  logLevel: config.logLevel || 'debug'
+})
 
-export const hydrateGatewayConfig = (gatewayConfig) => ({
+export const hydrateGatewayConfig = (gatewayConfig: any): GatewayConfig => ({
   ...(() => {
     const clientApiKeys = Array.isArray(gatewayConfig?.clientApiKeys)
       ? parseClientApiKeys(gatewayConfig.clientApiKeys.join('\n'))
@@ -81,17 +111,19 @@ export const hydrateGatewayConfig = (gatewayConfig) => ({
   allowedIpsText: Array.isArray(gatewayConfig?.allowedIps)
     ? gatewayConfig.allowedIps.join('\n')
     : '',
-  logLevel: gatewayConfig?.logLevel || 'debug'})
+  logLevel: gatewayConfig?.logLevel || 'debug'
+})
 
-export const buildGatewayStatusState = (gatewayStatus, gatewayConfig, fallbackConfig = DEFAULT_GATEWAY_CONFIG) => ({
+export const buildGatewayStatusState = (gatewayStatus: any, gatewayConfig: any, fallbackConfig: GatewayConfig = DEFAULT_GATEWAY_CONFIG): GatewayStatus => ({
   running: gatewayStatus?.running ?? false,
   host: gatewayStatus?.host || gatewayConfig?.host || fallbackConfig.host,
   port: gatewayStatus?.port || gatewayConfig?.port || fallbackConfig.port,
   requestCount: gatewayStatus?.requestCount || 0,
   lastError: gatewayStatus?.lastError || null,
-  runtimeConfig: gatewayStatus?.runtimeConfig ? hydrateGatewayConfig(gatewayStatus.runtimeConfig) : null})
+  runtimeConfig: gatewayStatus?.runtimeConfig ? hydrateGatewayConfig(gatewayStatus.runtimeConfig) : null
+})
 
-export const buildGatewayPayload = (config) => ({
+export const buildGatewayPayload = (config: GatewayConfig) => ({
   ...(() => {
     const clientApiKeys = parseClientApiKeys(config.clientApiKeysText || config.apiKey)
     return {
@@ -109,15 +141,16 @@ export const buildGatewayPayload = (config) => ({
   threshold: Number(config.threshold) || 90,
   localOnly: !!config.localOnly,
   allowedIps: parseAllowedIps(config.allowedIpsText),
-  logLevel: config.logLevel})
+  logLevel: config.logLevel
+})
 
 export const loadGatewayPageData = async () => {
   const [gatewayConfig, gatewayStatus, accounts, groups, logDir] = await Promise.all([
-    invoke('get_gateway_config'),
-    invoke('get_gateway_status'),
-    invoke('get_accounts'),
-    invoke('get_groups'),
-    invoke('get_gateway_log_dir'),
+    invoke<any>('get_gateway_config'),
+    invoke<any>('get_gateway_status'),
+    invoke<any[]>('get_accounts'),
+    invoke<any[]>('get_groups'),
+    invoke<string>('get_gateway_log_dir'),
   ])
 
   return {
@@ -128,21 +161,21 @@ export const loadGatewayPageData = async () => {
     logDir: String(logDir || '')}
 }
 
-export const fetchGatewayStatus = async () => invoke('get_gateway_status')
+export const fetchGatewayStatus = async () => invoke<any>('get_gateway_status')
 
 export const fetchGatewayRequestLogs = async (limit = 120) => {
-  const logs = await invoke('get_gateway_request_logs', { limit })
+  const logs = await invoke<any[]>('get_gateway_request_logs', { limit })
   return Array.isArray(logs) ? logs : []
 }
 
-export const saveGatewayConfig = async (config) => invoke('save_gateway_config', {
+export const saveGatewayConfig = async (config: GatewayConfig) => invoke('save_gateway_config', {
   config: buildGatewayPayload(config)})
 
-export const startGateway = async (config) => invoke('start_gateway', {
+export const startGateway = async (config: GatewayConfig) => invoke<any>('start_gateway', {
   config: buildGatewayPayload(config)})
 
 export const stopGateway = async () => invoke('stop_gateway')
 
-export const openGatewayLogDir = async () => invoke('open_gateway_log_dir')
+export const openGatewayLogDir = async () => invoke<string>('open_gateway_log_dir')
 
 export const clearGatewayRequestLogs = async () => invoke('clear_gateway_request_logs')
