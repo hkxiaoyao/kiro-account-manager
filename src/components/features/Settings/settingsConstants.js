@@ -27,4 +27,7 @@ export const buildThemeOptions = (t) => [
   { key: 'ocean', name: t('settings.ocean') || 'Ocean', iconName: 'Palette', color: 'from-cyan-400 to-blue-500' },
   { key: 'rose', name: t('settings.rose') || 'Rose', iconName: 'Palette', color: 'from-pink-400 to-rose-500' },
   { key: 'aurora', name: t('settings.aurora') || 'Aurora', iconName: 'Palette', color: 'from-teal-400 to-emerald-500' },
+  { key: 'midnight', name: t('settings.midnight') || 'Midnight', iconName: 'Moon', color: 'from-gray-900 via-yellow-700 to-black' },
+  { key: 'forest', name: t('settings.forest') || 'Forest', iconName: 'Palette', color: 'from-green-600 to-emerald-900' },
+  { key: 'sakura', name: t('settings.sakura') || 'Sakura', iconName: 'Palette', color: 'from-pink-200 to-rose-400' },
 ]

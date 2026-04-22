@@ -1,16 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { emit } from '@tauri-apps/api/event'
-import { Lock, Copy, Sun, Moon, Palette, Check, RefreshCw, Settings as SettingsIcon, Clock, Globe, Search, Shield, Download, Upload, Shuffle, AlertTriangle, Eye, EyeOff, Repeat, LayoutDashboard, Cpu, Bot, Bell } from 'lucide-react'
+import { Lock, Copy, Palette, Check, RefreshCw, Settings as SettingsIcon, Clock, Globe, Search, Shield, Download, Upload, Shuffle, AlertTriangle, Eye, EyeOff, Repeat, LayoutDashboard, Cpu, Bot, Bell } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs'
 import { useApp } from '../../../hooks/useApp'
 import { useDialog } from '../../../contexts/DialogContext'
 import { useAppSettings } from '../../../contexts/AppSettingsContext'
 import { usePrivacy } from '../../../contexts/PrivacyContext'
-import { getThemeAccent, isLightTheme as checkIsLightTheme } from '../KiroConfig/themeAccent'
 import { buildSettingsErrorMessage, persistAppSettings, runKiroCommandWithAppSettings } from './settingsActions'
-import { AI_MODELS, buildThemeOptions, NOTIFICATION_SETTINGS_FIELD_MAP } from './settingsConstants'
-import { isValidBrowserPath, isValidProxy, resolveOsLabel } from './settingsValidators'
+import { buildThemeOptions, NOTIFICATION_SETTINGS_FIELD_MAP } from './settingsConstants'
+import { isValidBrowserPath, isValidProxy } from './settingsValidators'
 import SettingsAppearance from './SettingsAppearance'
 import SettingsGeneral from './SettingsGeneral'
 import SettingsKiro from './SettingsKiro'
@@ -18,13 +17,11 @@ import SettingsAgent from './SettingsAgent'
 import SettingsNotifications from './SettingsNotifications'
 
 function Settings() {
-    const { t, theme, colors, setTheme } = useApp()
+    const { t, theme, setTheme } = useApp()
     const { showConfirm, showError, showSuccess } = useDialog()
     const { updateSettings: updateAppSettings } = useAppSettings()
     const { privacyMode, setPrivacyMode } = usePrivacy()
     const [activeTab, setActiveTab] = useState('general')
-    // 用于 SVG 箭头颜色（浅色主题用深色）
-    const isLightTheme = checkIsLightTheme(theme)
 
     const [aiModel, setAiModel] = useState('claude-sonnet-4.5')
     const [lockModel, setLockModel] = useState(false)
@@ -80,13 +77,6 @@ function Settings() {
     const [systemMachineInfo, setSystemMachineInfo] = useState(null)
     const [machineGuidAction, setMachineGuidAction] = useState(null) // 'reset'
 
-    const accountToggleContainerClass = `${colors.card} ${colors.cardHover} border ${colors.cardBorder} ${colors.text}`
-    const accent = getThemeAccent(theme)
-    const themeAccentBorderClass = `${accent.border} shadow-md ${accent.shadow}`
-    const themeAccentDotClass = accent.solidBg
-    const themeAccentTextClass = accent.text
-    const themeAccentButtonClass = `${accent.solidBg} text-white ${accent.solidHoverBg} ${accent.border}`
-
     // 加载设置（指纹延迟加载，不阻塞页面）
     const loadSettings = async () => {
         setLoading(true)
@@ -98,7 +88,6 @@ function Settings() {
                 invoke('get_system_machine_guid').catch(() => null)
             ])
             setSystemMachineInfo(sysMachine)
-
 
             // 从 Kiro IDE 设置读取
             if (kiroSettings) {
@@ -146,7 +135,6 @@ function Settings() {
             }
         } catch (err) {
             console.error('Failed to load settings:', err)
-            // 暂时不显示错误弹窗，避免阻塞页面
         } finally {
             setLoading(false)
         }
@@ -177,7 +165,6 @@ function Settings() {
     })
 
     const handleApplyProxy = async () => {
-        // 验证代理格式
         if (!isValidProxy(httpProxy)) {
             await showError(t('settings.saveFailed'), t('settings.invalidProxyFormat'))
             return
@@ -186,7 +173,7 @@ function Settings() {
         setSavingProxy(true)
         try {
             await invoke('set_kiro_proxy', { proxy: httpProxy })
-            setOriginalProxy(httpProxy) // 保存成功后更新原始值
+            setOriginalProxy(httpProxy)
             await showSuccess(t('settings.saveSuccess'), httpProxy ? t('settings.proxyApplied') : t('settings.proxyCleared'))
         } catch (err) {
             await showError(t('settings.saveFailed'), t('settings.saveFailed') + ': ' + err)
@@ -195,15 +182,11 @@ function Settings() {
         }
     }
 
-    // 代理是否有修改
-    const proxyChanged = httpProxy !== originalProxy
-
     const handleApplyModel = async (model) => {
         setAiModel(model)
         setSavingModel(true)
         try {
             await invoke('set_kiro_model', { model })
-            // 如果锁定模型，保存到应用设置
             if (lockModel) {
                 await saveAppSettings({ lockedModel: model })
             }
@@ -240,7 +223,6 @@ function Settings() {
         await saveAppSettings({ bindMachineIdToAccount: mode === 'bind' })
     }
 
-    // 自动换号处理函数
     const handleAutoSwitchEnabledChange = async (checked) => {
         setAutoSwitchEnabled(checked)
         await saveAppSettings({ autoSwitchEnabled: checked }, true)
@@ -272,42 +254,27 @@ function Settings() {
                 t('settings.trustedCommandsAllConfirmMessage'),
                 { confirmText: t('settings.trustedCommandsAllConfirmAction'), cancelText: t('common.cancel') }
             )
-            if (!confirmed) {
-                return
-            }
+            if (!confirmed) return
         }
-        const previousMode = trustedCommandsMode
         setTrustedCommandsMode(mode)
         try {
             await invoke('set_kiro_trusted_commands', { mode, customCommands: customTrustedCommands })
         } catch (err) {
-            setTrustedCommandsMode(previousMode)
             await showError(t('settings.saveFailed'), t('settings.saveFailed') + ': ' + err)
         }
     }
 
     const handleCustomTrustedCommandsChange = async (commands) => {
+        setCustomTrustedCommands(commands)
         if (trustedCommandsMode === 'common') {
-            const hasGlobalWildcard = commands
-                .split('\n')
-                .map(line => line.trim())
-                .some(line => line === '*')
-            if (hasGlobalWildcard) {
-                await showError(t('settings.saveFailed'), t('settings.trustedCommandsWildcardBlocked'))
-                return
-            }
-            setCustomTrustedCommands(commands)
             try {
                 await invoke('set_kiro_trusted_commands', { mode: 'common', customCommands: commands })
             } catch (err) {
                 await showError(t('settings.saveFailed'), t('settings.saveFailed') + ': ' + err)
             }
-        } else {
-            setCustomTrustedCommands(commands)
         }
     }
 
-    // Agent 设置处理函数
     const handleAgentAutonomyChange = async (mode) => {
         setAgentAutonomy(mode)
         await runKiroCommand('set_kiro_agent_autonomy', { autonomy: mode })
@@ -333,40 +300,34 @@ function Settings() {
         await runKiroCommand('set_kiro_debug_logs', { enabled: checked }, { enableDebugLogs: checked })
     }
 
-    // 通知设置处理函数
     const handleNotificationChange = async (key, checked, setter) => {
         setter(checked)
         const field = NOTIFICATION_SETTINGS_FIELD_MAP[key]
         await runKiroCommand('set_kiro_notification', { key, enabled: checked }, field ? { [field]: checked } : null)
     }
 
-    // 信任工具处理（逗号分隔字符串 → 数组）
     const handleTrustedToolsSave = async (value) => {
         setTrustedTools(value)
         const tools = value.split(',').map(s => s.trim()).filter(Boolean)
         await runKiroCommand('set_kiro_trusted_tools', { tools }, { trustedTools: tools })
     }
 
-    // 代码引用追踪
     const handleReferenceTrackerChange = async (checked) => {
         setReferenceTracker(checked)
         await runKiroCommand('set_kiro_reference_tracker', { enabled: checked }, { referenceTracker: checked })
     }
 
-    // MCP 配置开关
     const handleConfigureMcpChange = async (mode) => {
         setConfigureMcp(mode)
         await runKiroCommand('set_kiro_configure_mcp', { mode }, { configureMcp: mode })
     }
 
-    // 遥测设置
     const handleTelemetryChange = async (ideKey, checked, setter, appField) => {
         setter(checked)
         await runKiroCommand('set_kiro_telemetry', { key: ideKey, enabled: checked }, { [appField]: checked })
     }
 
     const handleApplyBrowser = async () => {
-        // 验证浏览器路径
         if (!isValidBrowserPath(browserPath)) {
             await showError(t('settings.saveFailed'), t('settings.invalidBrowserPath'))
             return
@@ -374,77 +335,43 @@ function Settings() {
 
         setSavingBrowser(true)
         try {
-            const nextSettings = await saveAppSettings({ browserPath: browserPath })
-            if (!nextSettings) {
-                return
-            }
+            await saveAppSettings({ browserPath: browserPath })
             setOriginalBrowserPath(browserPath)
             await showSuccess(t('settings.saveSuccess'), browserPath ? t('settings.browserSaved') : t('settings.defaultBrowser'))
         } catch (err) {
-            const errorInfo = buildSettingsErrorMessage(t, err)
-            await showError(errorInfo.title, errorInfo.message)
+            await showError(t('settings.saveFailed'), err.toString())
         } finally {
             setSavingBrowser(false)
         }
     }
-
-    const browserChanged = browserPath !== originalBrowserPath
 
     const handleDetectBrowsers = async () => {
         try {
             const browsers = await invoke('detect_installed_browsers')
             setDetectedBrowsers(browsers)
             setShowBrowserList(true)
-            if (browsers.length === 0) {
-                await showError(t('settings.detectFailed'), t('settings.noBrowserFound'))
-            }
         } catch (err) {
-            await showError(t('settings.detectFailed'), t('settings.detectFailed') + ': ' + err)
+            await showError(t('settings.detectFailed'), err.toString())
         }
     }
 
-    // 检测系统代理
     const handleDetectProxy = async () => {
         setDetectingProxy(true)
         try {
             const proxyInfo = await invoke('detect_system_proxy')
-            
-            // 检测到 TUN 模式
-            if (proxyInfo.tunMode) {
-                const tunInfo = proxyInfo.tunInterface ? ` (${proxyInfo.tunInterface})` : ''
-                await showSuccess(t('settings.tunModeDetected'), `${t('settings.tunModeEnabled')}${tunInfo}\n\n${t('settings.tunModeHint')}`)
-                return
-            }
-            
             if (proxyInfo.enabled && proxyInfo.httpProxy) {
                 setHttpProxy(proxyInfo.httpProxy)
                 await showSuccess(t('settings.detectSuccess'), `${t('settings.systemProxyDetected')}: ${proxyInfo.httpProxy}`)
-            } else if (proxyInfo.proxyServer) {
-                // 代理已配置但未启用
-                const useIt = await showConfirm(t('settings.proxyConfigured'), `${t('settings.proxyNotEnabled')}: ${proxyInfo.proxyServer}\n\n${t('settings.useThisProxy')}`)
-                if (useIt) {
-                    const proxy = proxyInfo.proxyServer.startsWith('http') ? proxyInfo.proxyServer : `http://${proxyInfo.proxyServer}`
-                    setHttpProxy(proxy)
-                }
             } else {
                 await showError(t('settings.noProxyDetected'), t('settings.noProxyConfigured'))
             }
         } catch (err) {
-            await showError(t('settings.detectFailed'), t('settings.detectFailed') + ': ' + err)
+            await showError(t('settings.detectFailed'), err.toString())
         } finally {
             setDetectingProxy(false)
         }
     }
 
-    const handleSelectBrowser = (browser, useIncognito = true) => {
-        const path = useIncognito && browser.incognitoArg
-            ? `"${browser.path}" ${browser.incognitoArg}`
-            : `"${browser.path}"`
-        setBrowserPath(path)
-        setShowBrowserList(false)
-    }
-
-    // 系统机器码操作
     const handleResetSystemMachineGuid = async () => {
         const confirmed = await showConfirm(
             `⚠️ ${t('settings.resetSystemMachineGuid')}`,
@@ -460,58 +387,12 @@ function Settings() {
             await showSuccess(t('settings.resetSuccess'), `${t('settings.newMachineGuid')}: ${newGuid}`)
         } catch (err) {
             await showError(t('settings.resetFailed'), err.toString())
-            setMachineGuidAction(null) // 错误时立即清除状态，允许重试
+            setMachineGuidAction(null)
         }
     }
-
-    // 复制到剪贴板
-    const [copiedField, setCopiedField] = useState(null)
-    const copiedTimerRef = useRef(null)
-
-    // 清理timer
-    useEffect(() => {
-        return () => {
-            if (copiedTimerRef.current) {
-                clearTimeout(copiedTimerRef.current)
-            }
-        }
-    }, [])
-
-    const copyToClipboard = (text, field) => {
-        navigator.clipboard.writeText(text).catch(e => console.error('Copy failed:', e))
-        setCopiedField(field)
-        if (copiedTimerRef.current) {
-            clearTimeout(copiedTimerRef.current)
-        }
-        copiedTimerRef.current = setTimeout(() => setCopiedField(null), 1500)
-    }
-
-    // 信息项组件
-    const InfoItem = ({ label, value, copyable = false, fieldKey }) => (
-        <div className={`flex items-center justify-between py-2 ${colors.cardBorder} border-b last:border-0`}>
-            <span className={`text-sm ${colors.textMuted}`}>{label}</span>
-            <div className="flex items-center gap-2">
-                <code className={`text-xs px-2 py-1 rounded-lg font-mono ${colors.text} max-w-[200px] truncate border ${colors.cardBorder} ${colors.cardSecondary}`}>
-                    {value || '-'}
-                </code>
-                {copyable && value && (
-                    <button
-                        onClick={() => copyToClipboard(value, fieldKey)}
-                        className={`btn-icon p-1 rounded-lg ${colors.cardHover} transition-colors`}
-                    >
-                        {copiedField === fieldKey ? (
-                            <Check size={14} className="text-green-500" />
-                        ) : (
-                            <Copy size={14} className={colors.textMuted} />
-                        )}
-                    </button>
-                )}
-            </div>
-        </div>
-    )
 
     return (
-        <div className={`h-full ${colors.main} p-8 overflow-auto flex justify-center`}>
+        <div className="h-full glass-main p-8 overflow-auto flex justify-center">
             {/* 背景装饰 */}
             <div className="bg-glow bg-glow-1" />
             <div className="bg-glow bg-glow-2" />
@@ -524,8 +405,8 @@ function Settings() {
                             <SettingsIcon size={24} className="text-white" />
                         </div>
                         <div>
-                            <h1 className={`text-2xl font-bold ${colors.text}`}>{t('settings.title')}</h1>
-                            <p className={colors.textMuted}>{t('settings.subtitle')}</p>
+                            <h1 className="text-2xl font-bold text-foreground">{t('settings.title')}</h1>
+                            <p className="text-muted-foreground">{t('settings.subtitle')}</p>
                         </div>
                     </div>
                 </div>
@@ -556,50 +437,7 @@ function Settings() {
 
                     <TabsContent value="general">
                         <SettingsGeneral
-                            autoRefresh={autoRefresh}
-                            setAutoRefresh={setAutoRefresh}
-                            autoRefreshInterval={autoRefreshInterval}
-                            setAutoRefreshInterval={setAutoRefreshInterval}
-                            autoChangeMachineId={autoChangeMachineId}
-                            setAutoChangeMachineId={setAutoChangeMachineId}
-                            machineIdMode={machineIdMode}
-                            setMachineIdMode={setMachineIdMode}
-                            privacyMode={privacyMode}
-                            setPrivacyMode={setPrivacyMode}
-                            autoSwitchEnabled={autoSwitchEnabled}
-                            setAutoSwitchEnabled={setAutoSwitchEnabled}
-                            autoSwitchThreshold={autoSwitchThreshold}
-                            setAutoSwitchThreshold={setAutoSwitchThreshold}
-                            autoSwitchInterval={autoSwitchInterval}
-                            setAutoSwitchInterval={setAutoSwitchInterval}
-                            browserPath={browserPath}
-                            setBrowserPath={setBrowserPath}
-                            originalBrowserPath={originalBrowserPath}
-                            setOriginalBrowserPath={setOriginalBrowserPath}
-                            savingBrowser={savingBrowser}
-                            setSavingBrowser={setSavingBrowser}
-                            detectedBrowsers={detectedBrowsers}
-                            setDetectedBrowsers={setDetectedBrowsers}
-                            showBrowserList={showBrowserList}
-                            setShowBrowserList={setShowBrowserList}
-                            systemMachineInfo={systemMachineInfo}
-                            setSystemMachineInfo={setSystemMachineInfo}
-                            machineGuidAction={machineGuidAction}
-                            handleResetSystemMachineGuid={handleResetSystemMachineGuid}
-                            handleDetectBrowsers={handleDetectBrowsers}
-                            handleApplyBrowser={handleApplyBrowser}
-                            handleAutoRefreshChange={handleAutoRefreshChange}
-                            handleAutoRefreshIntervalChange={handleAutoRefreshIntervalChange}
-                            handleAutoChangeMachineIdChange={handleAutoChangeMachineIdChange}
-                            handleMachineIdModeChange={handleMachineIdModeChange}
-                            handleAutoSwitchEnabledChange={handleAutoSwitchEnabledChange}
-                            handleAutoSwitchThresholdChange={handleAutoSwitchThresholdChange}
-                            handleAutoSwitchIntervalChange={handleAutoSwitchIntervalChange}
-                            t={t}
-                            colors={colors}
-                            accent={accent}
-                            themeAccentButtonClass={themeAccentButtonClass}
-                            themeAccentTextClass={themeAccentTextClass}
+                            {...{ autoRefresh, setAutoRefresh, autoRefreshInterval, setAutoRefreshInterval, autoChangeMachineId, setAutoChangeMachineId, machineIdMode, setMachineIdMode, privacyMode, setPrivacyMode, autoSwitchEnabled, setAutoSwitchEnabled, autoSwitchThreshold, setAutoSwitchThreshold, autoSwitchInterval, setAutoSwitchInterval, browserPath, setBrowserPath, originalBrowserPath, setOriginalBrowserPath, savingBrowser, setSavingBrowser, detectedBrowsers, setDetectedBrowsers, showBrowserList, setShowBrowserList, systemMachineInfo, setSystemMachineInfo, machineGuidAction, handleResetSystemMachineGuid, handleDetectBrowsers, handleApplyBrowser, handleAutoRefreshChange, handleAutoRefreshIntervalChange, handleAutoChangeMachineIdChange, handleMachineIdModeChange, handleAutoSwitchEnabledChange, handleAutoSwitchThresholdChange, handleAutoSwitchIntervalChange, t }}
                         />
                     </TabsContent>
 
@@ -608,95 +446,24 @@ function Settings() {
                             theme={theme}
                             setTheme={setTheme}
                             t={t}
-                            colors={colors}
                         />
                     </TabsContent>
 
                     <TabsContent value="kiro">
                         <SettingsKiro
-                            aiModel={aiModel}
-                            setAiModel={setAiModel}
-                            lockModel={lockModel}
-                            setLockModel={setLockModel}
-                            agentAutonomy={agentAutonomy}
-                            setAgentAutonomy={setAgentAutonomy}
-                            trustedCommandsMode={trustedCommandsMode}
-                            setTrustedCommandsMode={setTrustedCommandsMode}
-                            customTrustedCommands={customTrustedCommands}
-                            setCustomTrustedCommands={setCustomTrustedCommands}
-                            trustedTools={trustedTools}
-                            setTrustedTools={setTrustedTools}
-                            configureMcp={configureMcp}
-                            setConfigureMcp={setConfigureMcp}
-                            httpProxy={httpProxy}
-                            setHttpProxy={setHttpProxy}
-                            originalProxy={originalProxy}
-                            savingProxy={savingProxy}
-                            detectingProxy={detectingProxy}
-                            savingModel={savingModel}
-                            handleApplyModel={handleApplyModel}
-                            handleLockModelChange={handleLockModelChange}
-                            handleAgentAutonomyChange={handleAgentAutonomyChange}
-                            handleTrustedCommandsModeChange={handleTrustedCommandsModeChange}
-                            handleCustomTrustedCommandsChange={handleCustomTrustedCommandsChange}
-                            handleTrustedToolsSave={handleTrustedToolsSave}
-                            handleConfigureMcpChange={handleConfigureMcpChange}
-                            handleApplyProxy={handleApplyProxy}
-                            handleDetectProxy={handleDetectProxy}
-                            t={t}
-                            colors={colors}
-                            themeAccentTextClass={themeAccentTextClass}
-                            themeAccentButtonClass={themeAccentButtonClass}
+                            {...{ aiModel, setAiModel, lockModel, setLockModel, agentAutonomy, setAgentAutonomy, trustedCommandsMode, setTrustedCommandsMode, customTrustedCommands, setCustomTrustedCommands, trustedTools, setTrustedTools, configureMcp, setConfigureMcp, httpProxy, setHttpProxy, originalProxy, savingProxy, detectingProxy, savingModel, handleApplyModel, handleLockModelChange, handleAgentAutonomyChange, handleTrustedCommandsModeChange, handleCustomTrustedCommandsChange, handleTrustedToolsSave, handleConfigureMcpChange, handleApplyProxy, handleDetectProxy, t }}
                         />
                     </TabsContent>
 
                     <TabsContent value="agent">
                         <SettingsAgent
-                            enableCodebaseIndexing={enableCodebaseIndexing}
-                            setEnableCodebaseIndexing={setEnableCodebaseIndexing}
-                            enableTabAutocomplete={enableTabAutocomplete}
-                            setEnableTabAutocomplete={setEnableTabAutocomplete}
-                            usageSummary={usageSummary}
-                            setUsageSummary={setUsageSummary}
-                            codeReferences={codeReferences}
-                            setCodeReferences={setCodeReferences}
-                            enableDebugLogs={enableDebugLogs}
-                            setEnableDebugLogs={setEnableDebugLogs}
-                            referenceTracker={referenceTracker}
-                            setReferenceTracker={setReferenceTracker}
-                            handleCodebaseIndexingChange={handleCodebaseIndexingChange}
-                            handleTabAutocompleteChange={handleTabAutocompleteChange}
-                            handleUsageSummaryChange={handleUsageSummaryChange}
-                            handleCodeReferencesChange={handleCodeReferencesChange}
-                            handleDebugLogsChange={handleDebugLogsChange}
-                            handleReferenceTrackerChange={handleReferenceTrackerChange}
-                            t={t}
-                            colors={colors}
+                            {...{ enableCodebaseIndexing, setEnableCodebaseIndexing, enableTabAutocomplete, setEnableTabAutocomplete, usageSummary, setUsageSummary, codeReferences, setCodeReferences, enableDebugLogs, setEnableDebugLogs, referenceTracker, setReferenceTracker, handleCodebaseIndexingChange, handleTabAutocompleteChange, handleUsageSummaryChange, handleCodeReferencesChange, handleDebugLogsChange, handleReferenceTrackerChange, t }}
                         />
                     </TabsContent>
 
                     <TabsContent value="notifications">
                         <SettingsNotifications
-                            notifyActionRequired={notifyActionRequired}
-                            setNotifyActionRequired={setNotifyActionRequired}
-                            notifyFailure={notifyFailure}
-                            setNotifyFailure={setNotifyFailure}
-                            notifySuccess={notifySuccess}
-                            setNotifySuccess={setNotifySuccess}
-                            notifyBilling={notifyBilling}
-                            setNotifyBilling={setNotifyBilling}
-                            telemetryContentCollection={telemetryContentCollection}
-                            setTelemetryContentCollection={setTelemetryContentCollection}
-                            telemetryUsageAnalytics={telemetryUsageAnalytics}
-                            setTelemetryUsageAnalytics={setTelemetryUsageAnalytics}
-                            telemetryEditStats={telemetryEditStats}
-                            setTelemetryEditStats={setTelemetryEditStats}
-                            telemetryFeedback={telemetryFeedback}
-                            setTelemetryFeedback={setTelemetryFeedback}
-                            handleNotificationChange={handleNotificationChange}
-                            handleTelemetryChange={handleTelemetryChange}
-                            t={t}
-                            colors={colors}
+                            {...{ notifyActionRequired, setNotifyActionRequired, notifyFailure, setNotifyFailure, notifySuccess, setNotifySuccess, notifyBilling, setNotifyBilling, telemetryContentCollection, setTelemetryContentCollection, telemetryUsageAnalytics, setTelemetryUsageAnalytics, telemetryEditStats, setTelemetryEditStats, telemetryFeedback, setTelemetryFeedback, handleNotificationChange, handleTelemetryChange, t }}
                         />
                     </TabsContent>
                 </Tabs>

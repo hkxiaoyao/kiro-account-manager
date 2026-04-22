@@ -25,10 +25,9 @@ const allRoutes = { ...routeMap, ...internalRoutes }
 
 // 页面加载骨架屏
 function PageLoading() {
-  const { colors } = useApp()
   return (
-    <div className={`h-full flex items-center justify-center ${colors.main}`}>
-      <div className={`animate-pulse ${colors.textMuted}`}>加载中...</div>
+    <div className="h-full flex items-center justify-center glass-main">
+      <div className="animate-pulse text-muted-foreground">加载中...</div>
     </div>
   )
 }
@@ -40,7 +39,7 @@ function App() {
     return localStorage.getItem('activeMenu') || 'home'
   })
   const [mountedRouteIds, setMountedRouteIds] = useState(() => getMountedRouteIds([], localStorage.getItem('activeMenu') || 'home'))
-  const { colors } = useApp()
+  const { t } = useApp()
   const { settings: appSettings, loading: settingsLoading } = useAppSettings()
   const { showError, showInfo } = useDialog()
 
@@ -202,7 +201,7 @@ function App() {
             onMenuChange={setActiveMenu}
             onLogout={handleLogout}
           />
-          <main className={cn("flex-1 overflow-hidden", colors.main)}>
+          <main className="flex-1 overflow-hidden glass-main">
             <div className="h-full w-full">
               <Suspense fallback={<PageLoading />}>
                 {renderContent()}

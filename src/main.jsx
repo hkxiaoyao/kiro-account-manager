@@ -3,44 +3,31 @@ import ReactDOM from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 import { ThemeProvider } from './components/theme-provider'
-import { ThemeProvider as AppThemeBridgeProvider } from './contexts/ThemeContext.jsx'
 import { DialogProvider } from './contexts/DialogContext.jsx'
 import { AppSettingsProvider } from './contexts/AppSettingsContext.jsx'
 import { I18nProvider } from './i18n.jsx'
-import { dismissBootSplash } from './utils/bootSplash.js'
 import { TooltipProvider } from '@/components/ui/tooltip'
+
 // 生产环境禁用浏览器快捷键
 if (import.meta.env.PROD) {
   document.addEventListener('keydown', (e) => {
-    // F5 - 刷新
-    // F12 - 开发者工具
     if (e.key === 'F5' || e.key === 'F12') {
       e.preventDefault()
       return false
     }
-    
-    // Ctrl 组合键
     if (e.ctrlKey) {
       const key = e.key.toLowerCase()
-      // Ctrl+R - 刷新
-      // Ctrl+U - 查看源码
-      // Ctrl+P - 打印
-      // Ctrl+S - 保存
-      // Ctrl+G - 查找
-      // Ctrl+F - 页面搜索
       if (['r', 'u', 'p', 's', 'g', 'f'].includes(key)) {
         e.preventDefault()
         return false
       }
-      // Ctrl+Shift+I/J - 开发者工具
       if (e.shiftKey && ['i', 'j'].includes(key)) {
         e.preventDefault()
         return false
       }
     }
   })
-  
-  // 禁用右键菜单
+
   document.addEventListener('contextmenu', (e) => {
     e.preventDefault()
     return false
@@ -55,15 +42,17 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         defaultTheme="dark"
         enableSystem={false}
         disableTransitionOnChange
-        themes={['light', 'dark', 'purple', 'green']}
+        themes={[
+          'light', 'dark', 'dark-one', 'tech', 'midnight', 
+          'purple', 'green', 'business', 'sunset', 'ocean', 
+          'forest', 'rose', 'aurora', 'sakura'
+        ]}
       >
-        <AppThemeBridgeProvider>
-          <TooltipProvider>
-            <DialogProvider>
-              <App />
-            </DialogProvider>
-          </TooltipProvider>
-        </AppThemeBridgeProvider>
+        <TooltipProvider>
+          <DialogProvider>
+            <App />
+          </DialogProvider>
+        </TooltipProvider>
       </ThemeProvider>
     </AppSettingsProvider>
   </I18nProvider>,
