@@ -402,8 +402,8 @@ const lightBase = themes.light
 const darkBase = themes.dark
 
 Object.assign(themes, {
-  'dark-one': { ...darkBase, nameKey: 'theme.darkOne', main: 'glass-main', sidebar: 'bg-gradient-to-b from-[#1b1e23] to-[#121418]' },
-  tech: { ...darkBase, nameKey: 'theme.tech', main: 'glass-main', sidebar: 'bg-gradient-to-b from-[#0f172a] to-[#0b1120]', btnPrimary: 'bg-blue-600 hover:bg-blue-700 text-white' },
+  'dark-one': { ...darkBase, nameKey: 'theme.darkOne', main: 'glass-main' },
+  tech: { ...darkBase, nameKey: 'theme.tech', main: 'glass-main', btnPrimary: 'bg-blue-600 hover:bg-blue-700 text-white' },
   business: { ...lightBase, nameKey: 'theme.business', main: 'glass-main', sidebarCard: 'bg-amber-500/10', btnPrimary: 'bg-amber-600 hover:bg-amber-700 text-white' },
   sunset: { ...lightBase, nameKey: 'theme.sunset', main: 'glass-main', sidebarCard: 'bg-orange-500/10', btnPrimary: 'bg-orange-600 hover:bg-orange-700 text-white' },
   ocean: { ...lightBase, nameKey: 'theme.ocean', main: 'glass-main', sidebarCard: 'bg-blue-500/10', btnPrimary: 'bg-blue-600 hover:bg-blue-700 text-white' },
