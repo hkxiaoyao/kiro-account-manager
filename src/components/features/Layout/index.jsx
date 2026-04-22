@@ -56,7 +56,7 @@ function Sidebar({ activeMenu, onMenuChange }) {
 
   return (
     <div
-      className={cn("flex flex-col relative transition-all duration-300", colors.sidebar)}
+      className={cn("flex flex-col relative transition-all duration-300 glass-sidebar z-10")}
       style={{ width: collapsed ? 64 : 224 }}
     >
       {/* Logo - 双击折叠 */}
