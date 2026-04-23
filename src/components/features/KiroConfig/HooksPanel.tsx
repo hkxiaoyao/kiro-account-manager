@@ -1,23 +1,33 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useMemo } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { FolderOpen, Link2, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react'
 import { useApp } from '../../../hooks/useApp'
 import { useDialog } from '../../../contexts/DialogContext'
 import { handleUiError } from '../../../utils/errorLogger'
+import { getThemeAccent, getSolidAccentButton, getGradientAccentButton, getThemeSurfaceStyles } from './themeAccent'
+import React from 'react'
 
-const formatSize = (bytes) => bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`
+const formatSize = (bytes: number) => bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`
 
-
-function HooksPanel({ onCountChange, projectDir }) {
-  const { t, theme} = useApp()
+function HooksPanel({ onCountChange, projectDir }: any) {
+  const { t, theme } = useApp()
+  const accent = useMemo(() => getThemeAccent(theme), [theme])
   const { showConfirm, showError } = useDialog()
-    const surface = getThemeSurfaceStyles(theme)
+  const surface = getThemeSurfaceStyles(theme)
   const accentSolidButtonClass = getSolidAccentButton(accent)
   const accentGradientButtonClass = getGradientAccentButton(accent)
 
-  const [hooks, setHooks] = useState([])
+  // 定义本地色彩系统
+  const colors = {
+    inputFocus: 'focus:ring-primary/20 focus:border-primary',
+    btnDisabled: 'opacity-50 cursor-not-allowed grayscale',
+    dialogHeader: 'border-b border-border bg-muted/30',
+    info: 'bg-primary/10'
+  }
+
+  const [hooks, setHooks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedHook, setSelectedHook] = useState(null)
+  const [selectedHook, setSelectedHook] = useState<any>(null)
   const [editContent, setEditContent] = useState('')
   const [saving, setSaving] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
@@ -36,7 +46,7 @@ function HooksPanel({ onCountChange, projectDir }) {
 
     setLoading(true)
     try {
-      const data = await invoke('get_hooks', { projectDir })
+      const data = await invoke<any[]>('get_hooks', { projectDir })
       setHooks(data)
       onCountChange?.(data?.length || 0)
     } catch (e) {
@@ -53,7 +63,7 @@ function HooksPanel({ onCountChange, projectDir }) {
     loadHooks()
   }, [loadHooks])
 
-  const handleSelect = async (hookFile) => {
+  const handleSelect = async (hookFile: any) => {
     if (hasChanges && !await showConfirm(t('hooks.unsavedChanges'), t('hooks.confirmSwitch'))) return
     setSelectedHook(hookFile)
     setEditContent(hookFile.content || '')
@@ -83,7 +93,7 @@ function HooksPanel({ onCountChange, projectDir }) {
     }
   }
 
-  const handleDelete = async (hookFile) => {
+  const handleDelete = async (hookFile: any) => {
     if (!projectDir) return
     if (!await showConfirm(t('hooks.confirmDelete'), t('hooks.confirmDeleteFile', { fileName: hookFile.fileName }))) return
     try {
@@ -104,7 +114,7 @@ function HooksPanel({ onCountChange, projectDir }) {
     }
   }
 
-  const handleCreate = async (fileName) => {
+  const handleCreate = async (fileName: string) => {
     if (!projectDir) return false
 
     const raw = fileName.trim()
@@ -145,7 +155,7 @@ function HooksPanel({ onCountChange, projectDir }) {
 }
 `
     try {
-      const newHook = await invoke('create_hook', {
+      const newHook = await invoke<any>('create_hook', {
         fileName: normalized,
         content: template,
         projectDir
@@ -181,12 +191,11 @@ function HooksPanel({ onCountChange, projectDir }) {
                 onClick={() => setShowCreateModal(true)}
                 disabled={!projectDir}
                 className={`cursor-pointer p-2 rounded-lg hover:bg-muted/50 transition-colors duration-200 focus:outline-none focus:ring-2 ${accent.ring} disabled:opacity-50 disabled:cursor-not-allowed`}
-
               >
                 <Plus size={16} className={accent.text} />
               </button>
               <button onClick={loadHooks} className={`cursor-pointer p-2 rounded-lg hover:bg-muted/50 transition-colors duration-200 focus:outline-none focus:ring-2 ${accent.ring}`} title={t('common.refresh')}>
-
+                <RefreshCw size={16} className="text-muted-foreground" />
               </button>
             </div>
           </div>
@@ -199,8 +208,11 @@ function HooksPanel({ onCountChange, projectDir }) {
               <Link2 size={48} className="mx-auto mb-3 opacity-20" />
               <p className="text-sm">{projectDir ? t('hooks.noHooks') : t('kiroConfig.selectProjectDir')}</p>
               {projectDir && (
-                  <button onClick={() => setShowCreateModal(true)} className={`cursor-pointer mt-4 px-4 py-2 rounded-lg text-sm transition-colors duration-200 focus:outline-none focus:ring-2 ${accent.ring} ${accentSolidButtonClass}`}>
-
+                <button 
+                  onClick={() => setShowCreateModal(true)} 
+                  className={`cursor-pointer mt-4 px-4 py-2 rounded-lg text-sm transition-colors duration-200 focus:outline-none focus:ring-2 ${accent.ring} ${accentSolidButtonClass}`}
+                >
+                  {t('common.add')}
                 </button>
               )}
             </div>
@@ -230,7 +242,6 @@ function HooksPanel({ onCountChange, projectDir }) {
                       <button
                         onClick={(e) => { e.stopPropagation(); handleDelete(h) }}
                         className="cursor-pointer opacity-0 group-hover:opacity-100 p-2 rounded-lg hover:bg-red-500/20 flex-shrink-0 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-red-500/60"
-
                       >
                         <Trash2 size={16} className="text-red-500" />
                       </button>
@@ -312,14 +323,14 @@ function HooksPanel({ onCountChange, projectDir }) {
   )
 }
 
-function CreateHookModal({ onCreate, onClose, colors, t, accent, accentGradientButtonClass, existingFileNames }) {
+function CreateHookModal({ onCreate, onClose, colors, t, accent, accentGradientButtonClass, existingFileNames }: any) {
   const [fileName, setFileName] = useState('')
   const [creating, setCreating] = useState(false)
 
   const raw = fileName.trim()
   const normalized = raw ? (raw.endsWith('.kiro.hook') ? raw : `${raw}.kiro.hook`) : ''
   const invalidName = raw && !/^[A-Za-z0-9._-]+(\.kiro\.hook)?$/.test(raw)
-  const duplicateName = normalized && existingFileNames.some(name => name.toLowerCase() === normalized.toLowerCase())
+  const duplicateName = normalized && existingFileNames.some((name: string) => name.toLowerCase() === normalized.toLowerCase())
   const canSubmit = !!raw && !invalidName && !duplicateName && !creating
 
   const handleSubmit = async () => {

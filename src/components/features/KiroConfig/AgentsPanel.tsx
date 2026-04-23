@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { useApp } from '../../../hooks/useApp'
 import { useDialog } from '../../../contexts/DialogContext'
@@ -14,14 +14,15 @@ import {
   getGradientAccentButton,
   getThemeSurfaceStyles} from './themeAccent'
 import { handleUiError } from '../../../utils/errorLogger'
+import React from 'react'
 
 // 解析 agent front-matter（v0.10.32 完整 schema: name, description, tools, model, includeMcpJson, includePowers）
-const parseAgentFrontMatter = (content) => {
+const parseAgentFrontMatter = (content: string) => {
   const match = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/)
-  if (!match) return { name: '', description: '', tools: [], model: '', includeMcpJson: false, includePowers: false, body: content }
+  if (!match) return { name: '', description: '', tools: [] as string[], model: '', includeMcpJson: false, includePowers: false, body: content }
   const [, fm, body] = match
   // 解析 tools 列表（YAML 数组格式或 "*"）
-  let tools = []
+  let tools: string[] = []
   const toolsWildcard = fm.match(/tools:\s*['"]?\*['"]?/)
   if (toolsWildcard) {
     tools = ['*']
@@ -46,7 +47,7 @@ const parseAgentFrontMatter = (content) => {
 }
 
 // 组装 agent front-matter（v0.10.32 完整 schema）
-const buildAgentContent = ({ name, description, tools, model, includeMcpJson, includePowers }, body) => {
+const buildAgentContent = ({ name, description, tools, model, includeMcpJson, includePowers }: any, body: string) => {
   let fm = '---'
   if (name) fm += `\nname: "${name}"`
   if (description) fm += `\ndescription: "${description}"`
@@ -67,10 +68,10 @@ const buildAgentContent = ({ name, description, tools, model, includeMcpJson, in
 }
 
 // 格式化文件大小
-const formatSize = (bytes) => bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`
+const formatSize = (bytes: number) => bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`
 
 // scope 徽章
-const ScopeBadge = ({ scope, accent }) => {
+const ScopeBadge = ({ scope, accent }: any) => {
   if (scope === 'project') {
     return (
       <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-500 border border-amber-500/30">
@@ -102,7 +103,7 @@ const AVAILABLE_MODELS = [
   { value: 'claude-haiku-4.5', label: 'Claude Haiku 4.5' },
 ]
 
-const normalizeToolTagsSelection = (nextValues, prevValues = []) => {
+const normalizeToolTagsSelection = (nextValues: string[], prevValues: string[] = []) => {
   const uniqueValues = [...new Set((nextValues || []).filter(Boolean))]
   if (!uniqueValues.includes('*')) return uniqueValues
   if (uniqueValues.length === 1) return ['*']
@@ -111,19 +112,28 @@ const normalizeToolTagsSelection = (nextValues, prevValues = []) => {
   return prevHasWildcard ? uniqueValues.filter(value => value !== '*') : ['*']
 }
 
-function AgentsPanel({ onCountChange, projectDir }) {
-  const { t, theme} = useApp()
+function AgentsPanel({ onCountChange, projectDir }: any) {
+  const { t, theme } = useApp()
+  const accent = useMemo(() => getThemeAccent(theme), [theme])
   const { showConfirm } = useDialog()
   const surface = getThemeSurfaceStyles(theme)
   
   const accentSolidButtonClass = getSolidAccentButton(accent)
   const accentGradientButtonClass = getGradientAccentButton(accent)
 
-  const [agents, setAgents] = useState([])
+  // 定义本地色彩系统
+  const colors = {
+    inputFocus: 'focus:ring-primary/20 focus:border-primary',
+    btnDisabled: 'opacity-50 cursor-not-allowed grayscale',
+    dialogHeader: 'border-b border-border bg-muted/30',
+    info: 'bg-primary/10'
+  }
+
+  const [agents, setAgents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedAgent, setSelectedAgent] = useState(null)
+  const [selectedAgent, setSelectedAgent] = useState<any>(null)
   const [editState, setEditState] = useState({
-    name: '', description: '', tools: [], model: '',
+    name: '', description: '', tools: [] as string[], model: '',
     includeMcpJson: false, includePowers: false, body: ''
   })
   const [saving, setSaving] = useState(false)
@@ -135,7 +145,7 @@ function AgentsPanel({ onCountChange, projectDir }) {
   const loadAgents = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await invoke('get_custom_agents', { projectDir: projectDir || null })
+      const data = await invoke<any[]>('get_custom_agents', { projectDir: projectDir || null })
       setAgents(data)
       onCountChange?.(data?.length || 0)
     } catch (e) {
@@ -152,7 +162,7 @@ function AgentsPanel({ onCountChange, projectDir }) {
     loadAgents()
   }, [loadAgents])
 
-  const handleSelect = async (agent) => {
+  const handleSelect = async (agent: any) => {
     if (hasChanges && !await showConfirm(t('agents.unsavedChanges'), t('agents.confirmSwitch'))) return
     setSelectedAgent(agent)
     const parsed = parseAgentFrontMatter(agent.content)
@@ -160,7 +170,7 @@ function AgentsPanel({ onCountChange, projectDir }) {
     setHasChanges(false)
   }
 
-  const updateEditState = (key, value) => {
+  const updateEditState = (key: string, value: any) => {
     const normalizedValue = key === 'tools'
       ? normalizeToolTagsSelection(value, editState.tools)
       : value
@@ -195,7 +205,7 @@ function AgentsPanel({ onCountChange, projectDir }) {
     }
   }
 
-  const handleDelete = async (agent) => {
+  const handleDelete = async (agent: any) => {
     if (!await showConfirm(t('agents.confirmDelete'), t('agents.confirmDeleteAgent', { fileName: agent.fileName }))) return
     try {
       await invoke('delete_custom_agent', {
@@ -216,12 +226,12 @@ function AgentsPanel({ onCountChange, projectDir }) {
     }
   }
 
-  const handleCreate = async (agentName, description, tools, model, scope) => {
+  const handleCreate = async (agentName: string, description: string, tools: string[], model: string, scope: string) => {
     const fileName = agentName.endsWith('.md') ? agentName : `${agentName}.md`
     const body = '\n<!-- 在此编写 Agent 的系统提示词 -->\n'
     const content = buildAgentContent({ name: agentName.replace('.md', ''), description, tools, model, includeMcpJson: false, includePowers: false }, body)
     try {
-      const newAgent = await invoke('create_custom_agent', {
+      const newAgent = await invoke<any>('create_custom_agent', {
         fileName,
         content,
         scope,
@@ -387,9 +397,8 @@ function AgentsPanel({ onCountChange, projectDir }) {
                     value={editState.name}
                     onChange={(e) => updateEditState('name', e.target.value)}
                     placeholder={t('agents.fmNamePlaceholder')}
-                    size="xs"
                     classNames={{ input: `text-foreground bg-background border-input ${colors.inputFocus}` }}
-                    style={{ width: '140px', borderRadius: '0.5rem' }}
+                    style={{ width: '140px', borderRadius: '0.5rem', height: '1.5rem', padding: '0 0.5rem', fontSize: '0.75rem' }}
                   />
                 </div>
                 <div className="flex items-center gap-2 flex-1">
@@ -398,9 +407,8 @@ function AgentsPanel({ onCountChange, projectDir }) {
                     value={editState.description}
                     onChange={(e) => updateEditState('description', e.target.value)}
                     placeholder={t('agents.fmDescriptionPlaceholder')}
-                    size="xs"
                     classNames={{ input: `text-foreground bg-background border-input ${colors.inputFocus}` }}
-                    style={{ flex: 1, minWidth: '200px', borderRadius: '0.5rem' }}
+                    style={{ flex: 1, minWidth: '200px', borderRadius: '0.5rem', height: '1.5rem', padding: '0 0.5rem', fontSize: '0.75rem' }}
                   />
                 </div>
               </div>
@@ -422,7 +430,6 @@ function AgentsPanel({ onCountChange, projectDir }) {
                     placeholder={t('agents.selectTools')}
                     searchable
                     clearable
-                    size="xs"
                     classNames={{
                       input: `text-foreground bg-background border-input ${colors.inputFocus}`,
                       dropdown: `glass-card border border-border`,
@@ -432,12 +439,14 @@ function AgentsPanel({ onCountChange, projectDir }) {
                     styles={{
                       input: {
                         borderRadius: '0.5rem',
-                        minHeight: '32px',
+                        minHeight: '28px',
                         backgroundColor: surface.inputBg,
                         borderColor: surface.inputBorder,
-                        color: surface.inputText},
+                        color: surface.inputText,
+                        padding: '2px 8px'},
                       inputField: {
                         color: surface.inputText,
+                        fontSize: '0.75rem',
                         '&::placeholder': {
                           color: surface.placeholder,
                           opacity: 1
@@ -448,12 +457,15 @@ function AgentsPanel({ onCountChange, projectDir }) {
                         borderColor: surface.dropdownBorder},
                       option: {
                         color: surface.inputText,
+                        fontSize: '0.75rem',
                         backgroundColor: 'transparent'},
                       pill: {
                         backgroundColor: surface.pillBg,
                         color: surface.pillText,
                         border: surface.pillBorder,
-                        borderRadius: '0.375rem'
+                        borderRadius: '0.375rem',
+                        height: '20px',
+                        fontSize: '0.7rem'
                       }
                     }}
                   />
@@ -473,7 +485,6 @@ function AgentsPanel({ onCountChange, projectDir }) {
                     }}
                     onDropdownClose={() => setEditModelDropdownOpened(false)}
                     data={AVAILABLE_MODELS}
-                    size="xs"
                     clearable
                     classNames={{
                       input: `text-foreground bg-background border-input ${colors.inputFocus}`,
@@ -486,6 +497,9 @@ function AgentsPanel({ onCountChange, projectDir }) {
                       input: {
                         minWidth: '180px',
                         borderRadius: '0.5rem',
+                        height: '1.5rem',
+                        fontSize: '0.75rem',
+                        padding: '0 0.5rem',
                         backgroundColor: surface.inputBg,
                         borderColor: surface.inputBorder,
                         color: surface.inputText},
@@ -494,24 +508,25 @@ function AgentsPanel({ onCountChange, projectDir }) {
                         borderColor: surface.dropdownBorder},
                       option: {
                         color: surface.inputText,
+                        fontSize: '0.75rem',
                         backgroundColor: 'transparent'}
                     }}
                   />
                 </div>
-                <Switch
-                  label={t('agents.includeMcpJson')}
-                  checked={editState.includeMcpJson}
-                  onCheckedChange={(checked) => updateEditState('includeMcpJson', echecked)}
-                  size="xs"
-                  classNames={{ label: `text-muted-foreground text-xs` }}
-                />
-                <Switch
-                  label={t('agents.includePowers')}
-                  checked={editState.includePowers}
-                  onCheckedChange={(checked) => updateEditState('includePowers', echecked)}
-                  size="xs"
-                  classNames={{ label: `text-muted-foreground text-xs` }}
-                />
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={editState.includeMcpJson}
+                    onCheckedChange={(checked) => updateEditState('includeMcpJson', checked)}
+                  />
+                  <span className="text-muted-foreground text-xs">{t('agents.includeMcpJson')}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={editState.includePowers}
+                    onCheckedChange={(checked) => updateEditState('includePowers', checked)}
+                  />
+                  <span className="text-muted-foreground text-xs">{t('agents.includePowers')}</span>
+                </div>
               </div>
             </div>
             <div className="flex-1 p-4 overflow-hidden">
@@ -569,16 +584,16 @@ function AgentsPanel({ onCountChange, projectDir }) {
 }
 
 // 创建 Agent 弹窗
-function CreateAgentModal({ onCreate, onClose, accent, surface, accentGradientButtonClass, colors, t, hasProjectDir }) {
+function CreateAgentModal({ onCreate, onClose, accent, surface, accentGradientButtonClass, colors, t, hasProjectDir }: any) {
   const [agentName, setAgentName] = useState('')
   const [description, setDescription] = useState('')
-  const [tools, setTools] = useState([])
+  const [tools, setTools] = useState<string[]>([])
   const [model, setModel] = useState('')
   const [scope, setScope] = useState('user')
   const [toolsDropdownOpened, setToolsDropdownOpened] = useState(false)
   const [modelDropdownOpened, setModelDropdownOpened] = useState(false)
 
-  const handleToolsChange = (values) => {
+  const handleToolsChange = (values: string[]) => {
     setTools(prev => normalizeToolTagsSelection(values, prev))
   }
 
@@ -596,7 +611,7 @@ function CreateAgentModal({ onCreate, onClose, accent, surface, accentGradientBu
             </div>
             <h2 className={`text-base font-semibold text-foreground`}>{t('agents.newAgent')}</h2>
           </div>
-          <button onClick={onClose} className={`p-1.5 rounded-lg transition-colors hover:bg-muted/50`}>
+          <button onClick={onClose} className={`p-1.5 rounded-lg transition-colors hover:bg-muted/50 cursor-pointer`}>
             <X size={18} className={"text-muted-foreground"} />
           </button>
         </div>
@@ -608,7 +623,6 @@ function CreateAgentModal({ onCreate, onClose, accent, surface, accentGradientBu
               placeholder={t('agents.agentNamePlaceholder')}
               value={agentName}
               onChange={(e) => setAgentName(e.target.value)}
-              size="md"
               classNames={{ input: `text-foreground bg-background border-input ${colors.inputFocus}` }}
               style={{ borderRadius: '0.5rem' }}
             />
@@ -621,7 +635,6 @@ function CreateAgentModal({ onCreate, onClose, accent, surface, accentGradientBu
               placeholder={t('agents.fmDescriptionPlaceholder')}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              size="md"
               classNames={{ input: `text-foreground bg-background border-input ${colors.inputFocus}` }}
               style={{ borderRadius: '0.5rem' }}
             />
@@ -640,7 +653,7 @@ function CreateAgentModal({ onCreate, onClose, accent, surface, accentGradientBu
               onDropdownClose={() => setToolsDropdownOpened(false)}
               data={AVAILABLE_TOOL_TAGS.map(tag => ({ value: tag, label: tag === '*' ? '* (全部工具)' : tag }))}
               placeholder={t('agents.selectTools')}
-              searchable clearable size="md"
+              searchable clearable
               classNames={{
                 input: `text-foreground bg-background border-input ${colors.inputFocus}`,
                 dropdown: `glass-card border border-border`,
@@ -688,7 +701,7 @@ function CreateAgentModal({ onCreate, onClose, accent, surface, accentGradientBu
               }}
               onDropdownClose={() => setModelDropdownOpened(false)}
               data={AVAILABLE_MODELS}
-              size="md" clearable
+              clearable
               classNames={{
                 input: `text-foreground bg-background border-input ${colors.inputFocus}`,
                 dropdown: `glass-card border border-border`,
@@ -720,7 +733,6 @@ function CreateAgentModal({ onCreate, onClose, accent, surface, accentGradientBu
                   { value: 'user', label: t('kiroConfig.scopeUser') },
                   { value: 'project', label: t('kiroConfig.scopeProject') },
                 ]}
-                size="md"
                 classNames={{
                   input: `text-foreground bg-background border-input ${colors.inputFocus}`,
                   dropdown: `glass-card border border-border`,
@@ -746,7 +758,7 @@ function CreateAgentModal({ onCreate, onClose, accent, surface, accentGradientBu
           <button
             onClick={() => onCreate(agentName.trim(), description.trim(), tools, model, scope)}
             disabled={!agentName.trim()}
-            className={`w-full px-4 py-3 rounded-xl text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] ${accentGradientButtonClass}`}
+            className={`cursor-pointer w-full px-4 py-3 rounded-xl text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] ${accentGradientButtonClass}`}
           >
             {t('common.add')}
           </button>

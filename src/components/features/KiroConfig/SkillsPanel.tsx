@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
 import { useApp } from '../../../hooks/useApp'
@@ -13,12 +13,13 @@ import {
   getGradientAccentButton,
   getThemeSurfaceStyles} from './themeAccent'
 import { handleUiError } from '../../../utils/errorLogger'
+import React from 'react'
 
 // 格式化文件大小
-const formatSize = (bytes) => bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`
+const formatSize = (bytes: number) => bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`
 
 // 解析 SKILL.md frontmatter（name + description 必填）
-const parseSkillFrontMatter = (content) => {
+const parseSkillFrontMatter = (content: string) => {
   const match = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/)
   if (!match) return { name: '', description: '', body: content }
   const [, fm, body] = match
@@ -30,7 +31,7 @@ const parseSkillFrontMatter = (content) => {
 }
 
 // 组装 SKILL.md frontmatter
-const buildSkillContent = (name, description, body) => {
+const buildSkillContent = (name: string, description: string, body: string) => {
   let fm = '---'
   if (name) fm += `\nname: "${name}"`
   if (description) fm += `\ndescription: "${description}"`
@@ -38,7 +39,7 @@ const buildSkillContent = (name, description, body) => {
 }
 
 // scope 徽章
-const ScopeBadge = ({ scope, accent }) => {
+const ScopeBadge = ({ scope, accent }: any) => {
   if (scope === 'project') {
     return (
       <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-500 border border-amber-500/30">
@@ -53,16 +54,25 @@ const ScopeBadge = ({ scope, accent }) => {
   )
 }
 
-function SkillsPanel({ onCountChange, projectDir }) {
-  const { t, theme} = useApp()
-  const { showConfirm, showError, showSuccess } = useDialog()
+function SkillsPanel({ onCountChange, projectDir }: any) {
+  const { t, theme } = useApp()
+  const accent = useMemo(() => getThemeAccent(theme), [theme])
+  const { showConfirm, showSuccess } = useDialog()
   const surface = getThemeSurfaceStyles(theme)
-    const accentSolidButtonClass = getSolidAccentButton(accent)
+  const accentSolidButtonClass = getSolidAccentButton(accent)
   const accentGradientButtonClass = getGradientAccentButton(accent)
 
-  const [skills, setSkills] = useState([])
+  // 定义本地色彩系统
+  const colors = {
+    inputFocus: 'focus:ring-primary/20 focus:border-primary',
+    btnDisabled: 'opacity-50 cursor-not-allowed grayscale',
+    dialogHeader: 'border-b border-border bg-muted/30',
+    info: 'bg-primary/10'
+  }
+
+  const [skills, setSkills] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedSkill, setSelectedSkill] = useState(null)
+  const [selectedSkill, setSelectedSkill] = useState<any>(null)
   const [editState, setEditState] = useState({ name: '', description: '', body: '' })
   const [saving, setSaving] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
@@ -72,7 +82,7 @@ function SkillsPanel({ onCountChange, projectDir }) {
   const loadSkills = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await invoke('get_skills', { projectDir: projectDir || null })
+      const data = await invoke<any[]>('get_skills', { projectDir: projectDir || null })
       setSkills(data)
       onCountChange?.(data?.length || 0)
     } catch (e) {
@@ -89,7 +99,7 @@ function SkillsPanel({ onCountChange, projectDir }) {
     loadSkills()
   }, [loadSkills])
 
-  const handleSelect = async (skill) => {
+  const handleSelect = async (skill: any) => {
     if (hasChanges && !await showConfirm(t('skills.unsavedChanges'), t('skills.confirmSwitch'))) return
     setSelectedSkill(skill)
     const parsed = parseSkillFrontMatter(skill.content)
@@ -97,7 +107,7 @@ function SkillsPanel({ onCountChange, projectDir }) {
     setHasChanges(false)
   }
 
-  const updateEditState = (key, value) => {
+  const updateEditState = (key: string, value: any) => {
     const newState = { ...editState, [key]: value }
     setEditState(newState)
     if (selectedSkill) {
@@ -127,7 +137,7 @@ function SkillsPanel({ onCountChange, projectDir }) {
     }
   }
 
-  const handleDelete = async (skill) => {
+  const handleDelete = async (skill: any) => {
     if (!await showConfirm(t('skills.confirmDelete'), t('skills.confirmDeleteSkill', { name: skill.name }))) return
     try {
       await invoke('delete_skill', {
@@ -148,11 +158,11 @@ function SkillsPanel({ onCountChange, projectDir }) {
     }
   }
 
-  const handleCreate = async (skillName, description, scope) => {
+  const handleCreate = async (skillName: string, description: string, scope: string) => {
     const body = '\n<!-- 在此编写 Skill 指令 -->\n'
     const content = buildSkillContent(skillName, description, body)
     try {
-      const newSkill = await invoke('create_skill', {
+      const newSkill = await invoke<any>('create_skill', {
         name: skillName,
         content,
         scope,
@@ -180,7 +190,7 @@ function SkillsPanel({ onCountChange, projectDir }) {
     return useProjectScope ? 'project' : 'user'
   }
 
-  const upsertImportedSkill = (imported) => {
+  const upsertImportedSkill = (imported: any) => {
     const nextSkills = [
       ...skills.filter(skill => !(skill.name === imported.name && skill.scope === imported.scope)),
       imported
@@ -199,8 +209,8 @@ function SkillsPanel({ onCountChange, projectDir }) {
       if (!selected) return
 
       const scope = await resolveImportScope()
-      const imported = await invoke('import_skill_local', {
-        sourcePath: selected,
+      const imported = await invoke<any>('import_skill_local', {
+        sourcePath: selected as string,
         scope,
         projectDir: projectDir || null,
         overwrite: false})
@@ -211,10 +221,10 @@ function SkillsPanel({ onCountChange, projectDir }) {
     }
   }
 
-  const handleImportGithub = async ({ repoUrl, pathInRepo, branch, targetName }) => {
+  const handleImportGithub = async ({ repoUrl, pathInRepo, branch, targetName }: any) => {
     try {
       const scope = await resolveImportScope()
-      const imported = await invoke('import_skill_from_github', {
+      const imported = await invoke<any>('import_skill_from_github', {
         repoUrl: repoUrl.trim(),
         pathInRepo: pathInRepo.trim() || null,
         branch: branch.trim() || null,
@@ -386,11 +396,10 @@ function SkillsPanel({ onCountChange, projectDir }) {
                   value={editState.name}
                   onChange={(e) => updateEditState('name', e.target.value)}
                   placeholder={t('skills.fmNamePlaceholder')}
-                  size="xs"
                   classNames={{
                     input: `text-foreground bg-background border-input ${colors.inputFocus}`
                   }}
-                  style={{ width: '140px', borderRadius: '0.5rem' }}
+                  style={{ width: '140px', borderRadius: '0.5rem', height: '1.5rem', padding: '0 0.5rem', fontSize: '0.75rem' }}
                 />
               </div>
               <div className="flex items-center gap-2 flex-1">
@@ -399,11 +408,10 @@ function SkillsPanel({ onCountChange, projectDir }) {
                   value={editState.description}
                   onChange={(e) => updateEditState('description', e.target.value)}
                   placeholder={t('skills.fmDescriptionPlaceholder')}
-                  size="xs"
                   classNames={{
                     input: `text-foreground bg-background border-input ${colors.inputFocus}`
                   }}
-                  style={{ flex: 1, minWidth: '200px', borderRadius: '0.5rem' }}
+                  style={{ flex: 1, minWidth: '200px', borderRadius: '0.5rem', height: '1.5rem', padding: '0 0.5rem', fontSize: '0.75rem' }}
                 />
               </div>
             </div>
@@ -411,7 +419,7 @@ function SkillsPanel({ onCountChange, projectDir }) {
               <div className={`px-4 py-2 border-b border-border flex items-center gap-2 text-xs text-muted-foreground`}>
                 <FolderOpen size={14} />
                 <span>{t('skills.extraFiles')}:</span>
-                {selectedSkill.extraFiles.map(f => (
+                {selectedSkill.extraFiles.map((f: string) => (
                   <code key={f} className={`px-2 py-0.5 rounded-md bg-muted/30 font-mono`}>{f}</code>
                 ))}
               </div>
@@ -480,7 +488,7 @@ function SkillsPanel({ onCountChange, projectDir }) {
 }
 
 // 创建 Skill 弹窗
-function CreateSkillModal({ onCreate, onClose, accent, accentGradientButtonClass, colors, t, hasProjectDir }) {
+function CreateSkillModal({ onCreate, onClose, accent, accentGradientButtonClass, colors, t, hasProjectDir }: any) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [scope, setScope] = useState('user')
@@ -501,7 +509,7 @@ function CreateSkillModal({ onCreate, onClose, accent, accentGradientButtonClass
             </div>
             <h2 className={`text-base font-semibold text-foreground`}>{t('skills.newSkill')}</h2>
           </div>
-          <button onClick={onClose} className={`p-1.5 rounded-lg transition-colors hover:bg-muted/50`}>
+          <button onClick={onClose} className={`p-1.5 rounded-lg transition-colors hover:bg-muted/50 cursor-pointer`}>
             <X size={18} className={"text-muted-foreground"} />
           </button>
         </div>
@@ -513,7 +521,6 @@ function CreateSkillModal({ onCreate, onClose, accent, accentGradientButtonClass
               placeholder={t('skills.skillNamePlaceholder')}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              size="md"
               classNames={{
                 input: `text-foreground bg-background border-input ${colors.inputFocus}`
               }}
@@ -528,7 +535,6 @@ function CreateSkillModal({ onCreate, onClose, accent, accentGradientButtonClass
               placeholder={t('skills.fmDescriptionPlaceholder')}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              size="md"
               classNames={{
                 input: `text-foreground bg-background border-input ${colors.inputFocus}`
               }}
@@ -555,7 +561,7 @@ function CreateSkillModal({ onCreate, onClose, accent, accentGradientButtonClass
           <button
             onClick={() => onCreate(name.trim(), description.trim(), scope)}
             disabled={!isValidName}
-            className={`w-full px-4 py-3 rounded-xl text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] ${accentGradientButtonClass}`}
+            className={`cursor-pointer w-full px-4 py-3 rounded-xl text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] ${accentGradientButtonClass}`}
           >
             {t('common.add')}
           </button>
@@ -565,7 +571,7 @@ function CreateSkillModal({ onCreate, onClose, accent, accentGradientButtonClass
   )
 }
 
-function ImportGithubSkillModal({ onImport, onClose, accent, accentGradientButtonClass, colors, t }) {
+function ImportGithubSkillModal({ onImport, onClose, accent, accentGradientButtonClass, colors, t }: any) {
   const [repoUrl, setRepoUrl] = useState('')
   const [pathInRepo, setPathInRepo] = useState('')
   const [branch, setBranch] = useState('main')
@@ -587,7 +593,7 @@ function ImportGithubSkillModal({ onImport, onClose, accent, accentGradientButto
             </div>
             <h2 className={`text-base font-semibold text-foreground`}>{t('skills.importGithub')}</h2>
           </div>
-          <button onClick={onClose} className={`p-1.5 rounded-lg transition-colors hover:bg-muted/50`}>
+          <button onClick={onClose} className={`p-1.5 rounded-lg transition-colors hover:bg-muted/50 cursor-pointer`}>
             <X size={18} className={"text-muted-foreground"} />
           </button>
         </div>
@@ -599,7 +605,6 @@ function ImportGithubSkillModal({ onImport, onClose, accent, accentGradientButto
               placeholder="https://github.com/owner/repo"
               value={repoUrl}
               onChange={(e) => setRepoUrl(e.target.value)}
-              size="md"
               classNames={{ input: `text-foreground bg-background border-input ${colors.inputFocus}` }}
               style={{ borderRadius: '0.5rem' }}
             />
@@ -611,7 +616,6 @@ function ImportGithubSkillModal({ onImport, onClose, accent, accentGradientButto
               placeholder={t('skills.githubPathPlaceholder')}
               value={pathInRepo}
               onChange={(e) => setPathInRepo(e.target.value)}
-              size="md"
               classNames={{ input: `text-foreground bg-background border-input ${colors.inputFocus}` }}
               style={{ borderRadius: '0.5rem' }}
             />
@@ -624,7 +628,6 @@ function ImportGithubSkillModal({ onImport, onClose, accent, accentGradientButto
                 placeholder="main"
                 value={branch}
                 onChange={(e) => setBranch(e.target.value)}
-                size="md"
                 classNames={{ input: `text-foreground bg-background border-input ${colors.inputFocus}` }}
                 style={{ borderRadius: '0.5rem' }}
               />
@@ -635,7 +638,6 @@ function ImportGithubSkillModal({ onImport, onClose, accent, accentGradientButto
                 placeholder={t('skills.importTargetNamePlaceholder')}
                 value={targetName}
                 onChange={(e) => setTargetName(e.target.value)}
-                size="md"
                 classNames={{ input: `text-foreground bg-background border-input ${colors.inputFocus}` }}
                 style={{ borderRadius: '0.5rem' }}
               />
@@ -645,7 +647,7 @@ function ImportGithubSkillModal({ onImport, onClose, accent, accentGradientButto
           <button
             onClick={() => onImport({ repoUrl, pathInRepo, branch, targetName })}
             disabled={!canSubmit}
-            className={`w-full px-4 py-3 rounded-xl text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] ${accentGradientButtonClass}`}
+            className={`cursor-pointer w-full px-4 py-3 rounded-xl text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] ${accentGradientButtonClass}`}
           >
             {t('skills.importGithub')}
           </button>

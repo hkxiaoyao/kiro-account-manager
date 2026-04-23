@@ -7,9 +7,11 @@ import { Input } from '@/components/ui/input'
 import AddMCPModal from './AddMCPModal'
 import EditMCPModal from './EditMCPModal'
 import { handleUiError } from '../../../utils/errorLogger'
+import { getThemeAccent, getGradientAccentButton } from './themeAccent'
+import React from 'react'
 
 // 搜索框组件
-function SearchInput({ value, onChange, placeholder, colors, t, accent }) {
+function SearchInput({ value, onChange, placeholder, colors, t, accent }: any) {
   return (
     <div className="flex-1 max-w-xs relative">
       <Search size={16} className={`absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none`} />
@@ -33,26 +35,40 @@ function SearchInput({ value, onChange, placeholder, colors, t, accent }) {
   )
 }
 
-function MCPPanel({ onCountChange, projectDir }) {
-  const { t, theme} = useApp()
-    const accentGradientButtonClass = getGradientAccentButton(accent)
+function MCPPanel({ onCountChange, projectDir }: any) {
+  const { t, theme } = useApp()
+  const accent = useMemo(() => getThemeAccent(theme), [theme])
+  const accentGradientButtonClass = getGradientAccentButton(accent)
   const { showConfirm } = useDialog()
-  const [servers, setServers] = useState({})
+
+  // 定义本地色彩系统
+  const colors = {
+    inputFocus: 'focus:ring-primary/20 focus:border-primary',
+    badgeActive: 'bg-primary/20 text-primary border border-primary/30',
+    badgeDisabled: 'bg-muted/50 text-muted-foreground border border-border/50',
+    toggleOn: 'bg-primary',
+    toggleOff: 'bg-muted',
+    toggleThumb: 'bg-white',
+    warning: 'bg-amber-500/10',
+    warningBorder: 'border-amber-500/20'
+  }
+
+  const [servers, setServers] = useState<any>({})
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
-  const [editingServer, setEditingServer] = useState(null)
+  const [editingServer, setEditingServer] = useState<any>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [toolCount, setToolCount] = useState(0)
 
   const loadConfig = useCallback(async () => {
     try {
-      const config = await invoke('get_mcp_config', { projectDir: projectDir || null })
+      const config = await invoke<any>('get_mcp_config', { projectDir: projectDir || null })
       const mcpServers = config.mcpServers || {}
       setServers(mcpServers)
       onCountChange?.(Object.keys(mcpServers).length)
       
       // 加载工具统计
-      const stats = await invoke('get_mcp_tool_stats', { projectDir: projectDir || null })
+      const stats = await invoke<any>('get_mcp_tool_stats', { projectDir: projectDir || null })
       setToolCount(stats.estimatedTools)
     } catch (e) {
       handleUiError('加载 MCP 配置失败', e, { userMessage: '加载 MCP 配置失败' })
@@ -63,22 +79,22 @@ function MCPPanel({ onCountChange, projectDir }) {
 
   useEffect(() => { loadConfig() }, [loadConfig])
 
-  const handleToggle = async (name, disabled) => {
+  const handleToggle = async (name: string, disabled: boolean) => {
     const oldDisabled = servers[name]?.disabled
-    setServers(prev => ({ ...prev, [name]: { ...prev[name], disabled } }))
+    setServers((prev: any) => ({ ...prev, [name]: { ...prev[name], disabled } }))
     try {
       await invoke('toggle_mcp_server', { name, disabled, projectDir: projectDir || null })
     } catch (e) {
-      setServers(prev => ({ ...prev, [name]: { ...prev[name], disabled: oldDisabled } }))
+      setServers((prev: any) => ({ ...prev, [name]: { ...prev[name], disabled: oldDisabled } }))
       handleUiError('切换 MCP 状态失败', e, { userMessage: '切换状态失败' })
     }
   }
 
-  const handleDelete = async (name) => {
+  const handleDelete = async (name: string) => {
     if (!await showConfirm(t('mcp.confirmDelete'), `${t('common.confirm')} ${name}?`)) return
     try {
       await invoke('delete_mcp_server', { name, projectDir: projectDir || null })
-      setServers(prev => { const next = { ...prev }; delete next[name]; return next })
+      setServers((prev: any) => { const next = { ...prev }; delete next[name]; return next })
     } catch (e) {
       handleUiError('删除 MCP 服务失败', e, { userMessage: '删除失败' })
     }
@@ -88,7 +104,7 @@ function MCPPanel({ onCountChange, projectDir }) {
   const filteredServers = useMemo(() => {
     if (!searchQuery.trim()) return serverList
     const q = searchQuery.toLowerCase()
-    return serverList.filter(([name, cfg]) => 
+    return serverList.filter(([name, cfg]: [string, any]) => 
       name.toLowerCase().includes(q) || [cfg.command, ...(cfg.args || [])].join(' ').toLowerCase().includes(q)
     )
   }, [serverList, searchQuery])
@@ -144,7 +160,7 @@ function MCPPanel({ onCountChange, projectDir }) {
           </div>
         ) : (
           <div className="space-y-3">
-            {filteredServers.map(([name, config]) => (
+            {filteredServers.map(([name, config]: [string, any]) => (
               <MCPServerItem
                 key={name}
                 name={name}
@@ -152,7 +168,7 @@ function MCPPanel({ onCountChange, projectDir }) {
                 accent={accent}
                 colors={colors}
                 t={t}
-                onToggle={(disabled) => handleToggle(name, disabled)}
+                onToggle={(disabled: boolean) => handleToggle(name, disabled)}
                 onEdit={() => setEditingServer({ name, config })}
                 onDelete={() => handleDelete(name)}
               />
@@ -182,7 +198,7 @@ function MCPPanel({ onCountChange, projectDir }) {
 }
 
 // MCP 服务器卡片
-function MCPServerItem({ name, config, accent, colors, onToggle, onEdit, onDelete, t }) {
+function MCPServerItem({ name, config, accent, colors, onToggle, onEdit, onDelete, t }: any) {
   const isDisabled = config.disabled
   const commandStr = [config.command, ...(config.args || [])].join(' ')
   const envCount = Object.keys(config.env || {}).length
