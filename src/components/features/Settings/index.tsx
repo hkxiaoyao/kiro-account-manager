@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { emit } from '@tauri-apps/api/event'
 import { Palette, Settings as SettingsIcon, Network, LayoutDashboard, Cpu, Bot, Bell } from 'lucide-react'
@@ -79,7 +79,7 @@ function Settings() {
     const [machineGuidAction, setMachineGuidAction] = useState<string | null>(null) // 'reset'
 
     // 加载设置（指纹延迟加载，不阻塞页面）
-    const loadSettings = async () => {
+    const loadSettings = useCallback(async () => {
         setLoading(true)
         try {
             // 先加载核心设置（快速）
@@ -139,11 +139,11 @@ function Settings() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [])
 
     useEffect(() => {
         loadSettings()
-    }, [])
+    }, [loadSettings])
 
     const saveAppSettings = (updates: any, notifyChange = false) => persistAppSettings({
         updates,
@@ -200,10 +200,6 @@ function Settings() {
         setLockModel(checked)
         await saveAppSettings({ lockModel: checked, lockedModel: checked ? aiModel : null })
     }
-
-    const handleLockModelCheckboxChange = (checked: boolean) => {
-        handleLockModelChange(checked);
-    };
 
     const handleAutoRefreshChange = async (checked: boolean) => {
         setAutoRefresh(checked)
@@ -293,18 +289,10 @@ function Settings() {
         await runKiroCommand('set_kiro_usage_summary', { enabled: checked }, { usageSummary: checked })
     }
 
-    const handleUsageSummaryCheckboxChange = (checked: boolean) => {
-        handleUsageSummaryChange(checked);
-    };
-
     const handleCodeReferencesChange = async (checked: boolean) => {
         setCodeReferences(checked)
         await runKiroCommand('set_kiro_code_references', { enabled: checked }, { codeReferences: checked })
     }
-
-    const handleCodeReferencesCheckboxChange = (checked: boolean) => {
-        handleCodeReferencesChange(checked);
-    };
 
     const handleDebugLogsChange = async (checked: boolean) => {
         setEnableDebugLogs(checked)
@@ -449,33 +437,22 @@ function Settings() {
                     <TabsContent value="general">
                         <SettingsGeneral
                             autoRefresh={autoRefresh}
-                            setAutoRefresh={setAutoRefresh}
                             autoRefreshInterval={autoRefreshInterval}
-                            setAutoRefreshInterval={setAutoRefreshInterval}
                             autoChangeMachineId={autoChangeMachineId}
-                            setAutoChangeMachineId={setAutoChangeMachineId}
                             machineIdMode={machineIdMode}
-                            setMachineIdMode={setMachineIdMode}
                             privacyMode={privacyMode}
                             setPrivacyMode={setPrivacyMode}
                             autoSwitchEnabled={autoSwitchEnabled}
-                            setAutoSwitchEnabled={setAutoSwitchEnabled}
                             autoSwitchThreshold={autoSwitchThreshold}
-                            setAutoSwitchThreshold={setAutoSwitchThreshold}
                             autoSwitchInterval={autoSwitchInterval}
-                            setAutoSwitchInterval={setAutoSwitchInterval}
                             browserPath={browserPath}
                             setBrowserPath={setBrowserPath}
                             originalBrowserPath={originalBrowserPath}
-                            setOriginalBrowserPath={setOriginalBrowserPath}
                             savingBrowser={savingBrowser}
-                            setSavingBrowser={setSavingBrowser}
                             detectedBrowsers={detectedBrowsers}
-                            setDetectedBrowsers={setDetectedBrowsers}
                             showBrowserList={showBrowserList}
                             setShowBrowserList={setShowBrowserList}
                             systemMachineInfo={systemMachineInfo}
-                            setSystemMachineInfo={setSystemMachineInfo}
                             machineGuidAction={machineGuidAction}
                             handleResetSystemMachineGuid={handleResetSystemMachineGuid}
                             handleDetectBrowsers={handleDetectBrowsers}

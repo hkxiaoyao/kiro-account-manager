@@ -1,27 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { listen, UnlistenFn } from '@tauri-apps/api/event'
 import { Loader, ArrowRight } from 'lucide-react'
 import { useApp } from '../../../hooks/useApp'
 import { Button } from '../../shared/button'
 import React from 'react'
-
-// 样式定义
-const colors = {
-  error: 'bg-destructive/10 text-destructive border-destructive/20',
-  errorBorder: 'border-destructive/20',
-  inputFocus: 'focus:ring-primary/20 focus:border-primary',
-  dialogFooter: 'bg-muted/30 border-t border-border'
-}
-
-const accent = {
-  gradientFrom: 'from-primary',
-  gradientTo: 'to-primary/80',
-  shadow: 'shadow-primary/20',
-  text: 'text-primary',
-  hoverBorder: 'hover:border-primary/50',
-  iconBadgeBg: 'bg-primary/10'
-}
 
 const DEFAULT_PROVIDER_ORDER = ['Google', 'Github', 'BuilderId', 'Enterprise']
 
@@ -67,6 +50,24 @@ interface LoginProps {
 
 function Login({ onLogin }: LoginProps) {
   const { t } = useApp()
+
+  // 样式系统
+  const colors = useMemo(() => ({
+    error: 'bg-destructive/10 text-destructive border-destructive/20',
+    errorBorder: 'border-destructive/20',
+    inputFocus: 'focus:ring-primary/20 focus:border-primary',
+    dialogFooter: 'bg-muted/30 border-t border-border'
+  }), [])
+
+  const accent = useMemo(() => ({
+    gradientFrom: 'from-primary',
+    gradientTo: 'to-primary/80',
+    shadow: 'shadow-primary/20',
+    text: 'text-primary',
+    hoverBorder: 'hover:border-primary/50',
+    iconBadgeBg: 'bg-primary/10'
+  }), [])
+
   const [supportedProviders, setSupportedProviders] = useState<string[]>(DEFAULT_PROVIDER_ORDER)
   const [loadingProvider, setLoadingProvider] = useState<string | null>(null)
   const [loginPending, setLoginPending] = useState(false)
@@ -218,9 +219,9 @@ function Login({ onLogin }: LoginProps) {
     }
   }
 
-  const providers = supportedProviders.map((provider) => ({
+  const providers = useMemo(() => supportedProviders.map((provider) => ({
     id: provider,
-    ...getProviderMeta(provider, t)}))
+    ...getProviderMeta(provider, t)})), [supportedProviders, t])
 
   return (
     <div className={`h-full flex flex-col items-center justify-center glass-main relative overflow-hidden`}>

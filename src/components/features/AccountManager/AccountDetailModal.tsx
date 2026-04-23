@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, memo } from 'react'
+import { useState, useRef, useEffect, memo, useMemo } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { Copy, Check, RefreshCw, User, CreditCard, Shield } from 'lucide-react'
 import { useApp } from '../../../hooks/useApp'
@@ -13,9 +13,22 @@ import {
   DialogBody,
   DialogFooter} from '../../shared/dialog'
 import { Button } from '../../shared/button'
+import { Account } from '../../../types/account'
+import React from 'react'
+
+interface QuotaCardProps {
+  title: string;
+  used: number;
+  quota: number;
+  icon: string | React.ReactNode;
+  status?: string;
+  expiry?: string | null;
+  colors: any;
+  t: any;
+}
 
 // 配额卡片组件（优化性能）
-const QuotaCard = memo(({ title, used, quota, icon, status, expiry, colors, t }) => {
+const QuotaCard = memo(({ title, used, quota, icon, status, expiry, colors, t }: QuotaCardProps) => {
   const isActive = status === 'ACTIVE'
   const hasQuota = quota > 0
   
@@ -69,12 +82,24 @@ const QuotaCard = memo(({ title, used, quota, icon, status, expiry, colors, t })
 
 QuotaCard.displayName = 'QuotaCard'
 
-function AccountDetailModal({ account, onClose }) {
-  const { t} = useApp()
+interface AccountDetailModalProps {
+  account: Account;
+  onClose: () => void;
+}
+
+function AccountDetailModal({ account, onClose }: AccountDetailModalProps) {
+  const { t } = useApp()
   const { showError } = useDialog()
-  const [currentAccount, setCurrentAccount] = useState(account)
+  const [currentAccount, setCurrentAccount] = useState<Account>(account)
+
+  // 样式定义
+  const colors = useMemo(() => ({
+    inputFocus: 'focus:ring-primary/20 focus:border-primary'
+  }), [])
+
   const initQuota = currentAccount.usageData?.usageBreakdownList?.[0]?.usageLimit ?? currentAccount.quota ?? 0
   const initUsed = currentAccount.usageData?.usageBreakdownList?.[0]?.currentUsage ?? currentAccount.used ?? 0
+  
   const [form, setForm] = useState({
     email: currentAccount.email || getAccountDisplayName(currentAccount),
     label: currentAccount.label || '',
@@ -85,8 +110,8 @@ function AccountDetailModal({ account, onClose }) {
     refreshToken: currentAccount.refreshToken || ''})
 
   const [refreshing, setRefreshing] = useState(false)
-  const [copied, setCopied] = useState(null)
-  const copiedTimerRef = useRef(null)
+  const [copied, setCopied] = useState<string | null>(null)
+  const copiedTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   // 清理timer
   useEffect(() => {
@@ -112,7 +137,7 @@ function AccountDetailModal({ account, onClose }) {
   const handleRefresh = async () => {
     setRefreshing(true)
     try {
-      const result = await invoke('sync_account', { id: account.id })
+      const result = await invoke<{ account: Account, warning?: string }>('sync_account', { id: account.id })
       const updated = result.account
       setCurrentAccount(updated)
       
@@ -141,7 +166,7 @@ function AccountDetailModal({ account, onClose }) {
     }
   }
 
-  const handleCopy = (text, field) => {
+  const handleCopy = (text: string, field: string) => {
     navigator.clipboard.writeText(text).catch(e => console.error('Copy failed:', e))
     setCopied(field)
     if (copiedTimerRef.current) {
@@ -208,9 +233,9 @@ function AccountDetailModal({ account, onClose }) {
                 <span className={`px-2 py-0.5 rounded-md text-xs font-medium whitespace-nowrap shadow-sm ${
                   (currentAccount.usageData?.subscriptionInfo?.subscriptionTitle?.toUpperCase()?.includes('ENTERPRISE'))
                     ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-amber-500/30'
-                    : (currentAccount.usageData?.subscriptionInfo?.type?.includes('PRO+') || currentAccount.usageData?.subscriptionInfo?.subscriptionTitle?.includes('PRO+'))
+                    : (currentAccount.usageData?.subscriptionInfo?.subscriptionTitle?.includes('PRO+'))
                       ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-purple-500/30'
-                      : (currentAccount.usageData?.subscriptionInfo?.type?.includes('PRO') || currentAccount.usageData?.subscriptionInfo?.subscriptionTitle?.includes('PRO'))
+                      : (currentAccount.usageData?.subscriptionInfo?.subscriptionTitle?.includes('PRO'))
                         ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-blue-500/30'
                         : (currentAccount.usageData?.subscriptionInfo?.subscriptionTitle?.toUpperCase()?.includes('KIRO'))
                           ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-teal-500/30'
@@ -243,7 +268,7 @@ function AccountDetailModal({ account, onClose }) {
                   </code>
                   <button 
                     type="button"
-                    onClick={() => handleCopy(currentAccount.machineId, 'machineId')}
+                    onClick={() => handleCopy(currentAccount.machineId || '', 'machineId')}
                     className={`p-0.5 rounded hover:bg-muted/50 cursor-pointer transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/30`}
                   >
                     {copied === 'machineId' ? <Check size={10} className="text-green-500" /> : <Copy size={10} className={"text-muted-foreground"} />}
@@ -344,7 +369,7 @@ function AccountDetailModal({ account, onClose }) {
             
             {/* Bonuses 列表 */}
             {bonuses.length > 0 && (
-              <div className="mt-6 pt-5 border-t" style={{ borderColor: "border-border" }}>
+              <div className="mt-6 pt-5 border-t border-border">
                 <div className="flex items-center gap-2 mb-4">
                   <span className="text-lg">🎁</span>
                   <span className={`text-sm font-medium text-foreground`}>{t('detail.bonusDetails')}</span>
@@ -355,9 +380,7 @@ function AccountDetailModal({ account, onClose }) {
                     <div key={idx} className={`flex items-center justify-between p-4 rounded-xl border transition-colors duration-200 hover:shadow-md ${
                       bonus.status === 'ACTIVE' 
                         ? 'bg-purple-500/10 border-purple-500/30' 
-                        : bonus.status === 'EXHAUSTED' 
-                          ? `bg-muted/30 border-border` 
-                          : `bg-muted/30 border-border`
+                        : `bg-muted/30 border-border`
                     }`}>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
@@ -389,7 +412,7 @@ function AccountDetailModal({ account, onClose }) {
             )}
             
             {/* 订阅信息 */}
-            <div className="mt-6 pt-5 border-t" style={{ borderColor: "border-border" }}>
+            <div className="mt-6 pt-5 border-t border-border">
               <div className="flex items-center gap-2 mb-4">
                 <span className="text-lg">📋</span>
                 <span className={`text-sm font-medium text-foreground`}>订阅信息</span>

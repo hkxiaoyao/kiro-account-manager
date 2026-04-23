@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { AlertTriangle, CheckCircle, XCircle, Info, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react'
 import { useApp } from '../../../hooks/useApp'
 import {
@@ -9,18 +9,24 @@ import {
   DialogBody,
   DialogFooter} from '../../shared/dialog'
 import { Button } from '../../shared/button'
+import { getThemeAccent } from '../KiroConfig/themeAccent'
+import React from 'react'
+
+interface ConfirmModalProps {
+  type?: 'confirm' | 'success' | 'error' | 'info';
+  title: string;
+  message: string;
+  rawData?: any;
+  onConfirm: () => void;
+  onCancel: () => void;
+  confirmText?: string;
+  cancelText?: string;
+  loading?: boolean;
+  customContent?: React.ReactNode;
+}
 
 /**
  * 通用确认/提示模态框
- * @param {string} type - 'confirm' | 'success' | 'error' | 'info'
- * @param {string} title - 标题
- * @param {string} message - 内容
- * @param {object} rawData - 原始响应数据（可选，用于展开查看）
- * @param {function} onConfirm - 确认回调
- * @param {function} onCancel - 取消回调
- * @param {string} confirmText - 确认按钮文字
- * @param {string} cancelText - 取消按钮文字
- * @param {ReactNode} customContent - 自定义内容（可选）
  */
 function ConfirmModal({
   type = 'confirm',
@@ -32,11 +38,16 @@ function ConfirmModal({
   confirmText,
   cancelText,
   loading = false,
-  customContent}) {
+  customContent}: ConfirmModalProps) {
   const { t, theme } = useApp()
-    const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(false)
   const [copied, setCopied] = useState(false)
   
+  const accent = useMemo(() => getThemeAccent(theme), [theme])
+  const colors = useMemo(() => ({
+    codeBlock: 'bg-muted/30 border border-border text-foreground',
+  }), [])
+
   // Use i18n defaults if not provided
   const finalConfirmText = confirmText || t('common.ok')
   const finalCancelText = cancelText || t('common.cancel')
@@ -46,22 +57,22 @@ function ConfirmModal({
       icon: AlertTriangle,
       iconColor: 'text-amber-400',
       iconBg: 'bg-gradient-to-br from-amber-500/20 to-orange-500/10',
-      btnVariant: 'primary'},
+      btnVariant: 'primary' as const},
     success: {
       icon: CheckCircle,
       iconColor: 'text-emerald-400',
       iconBg: 'bg-gradient-to-br from-emerald-500/20 to-green-500/10',
-      btnVariant: 'success'},
+      btnVariant: 'success' as const},
     error: {
       icon: XCircle,
       iconColor: 'text-red-400',
       iconBg: 'bg-gradient-to-br from-red-500/20 to-rose-500/10',
-      btnVariant: 'danger'},
+      btnVariant: 'danger' as const},
     info: {
       icon: Info,
       iconColor: accent.text,
       iconBg: accent.iconBadgeBg,
-      btnVariant: 'primary'}}
+      btnVariant: 'primary' as const}}
 
   const { icon: Icon, iconColor, iconBg, btnVariant } = config[type]
 
@@ -73,7 +84,7 @@ function ConfirmModal({
         </DialogHeader>
 
         <DialogBody>
-          <p className="text-sm leading-relaxed whitespace-pre-line">
+          <p className="text-sm leading-relaxed whitespace-pre-line text-foreground">
             {message}
           </p>
           
@@ -85,7 +96,7 @@ function ConfirmModal({
             <div className="mt-4">
               <button
                 onClick={() => setExpanded(!expanded)}
-                className={`flex items-center gap-1.5 text-xs text-muted-foreground ${accent.textHover} transition-colors`}
+                className={`flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors cursor-pointer`}
               >
                 {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 {expanded ? '收起原始响应' : '查看原始响应'}
@@ -98,7 +109,7 @@ function ConfirmModal({
                       setCopied(true)
                       setTimeout(() => setCopied(false), 2000)
                     }}
-                    className={`absolute top-2 right-2 p-1.5 rounded hover:bg-muted/50 transition-colors`}
+                    className={`absolute top-2 right-2 p-1.5 rounded hover:bg-muted/50 transition-colors cursor-pointer`}
                     title="复制"
                   >
                     {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} className={"text-muted-foreground"} />}

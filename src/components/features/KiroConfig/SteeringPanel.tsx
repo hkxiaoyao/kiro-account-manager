@@ -566,9 +566,7 @@ function Editor({ file, editState, hasChanges, saving, refining, inclusionOption
                 value={editState.filePattern}
                 onChange={(e) => onFilePatternChange(e.target.value)}
                 placeholder="**/*.jsx"
-                classNames={{
-                  input: `text-foreground bg-background border-input ${colors.inputFocus}`
-                }}
+                className={`text-foreground bg-background border-input ${colors.inputFocus}`}
                 style={{ width: '128px', borderRadius: '0.5rem', height: '1.5rem', padding: '0 0.5rem', fontSize: '0.75rem' }}
               />
             </div>
@@ -581,9 +579,7 @@ function Editor({ file, editState, hasChanges, saving, refining, inclusionOption
               value={editState.name}
               onChange={(e) => onNameChange(e.target.value)}
               placeholder={t('steering.fmNamePlaceholder')}
-              classNames={{
-                input: `text-foreground bg-background border-input ${colors.inputFocus}`
-              }}
+              className={`text-foreground bg-background border-input ${colors.inputFocus}`}
               style={{ width: '140px', borderRadius: '0.5rem', height: '1.5rem', padding: '0 0.5rem', fontSize: '0.75rem' }}
             />
           </div>
@@ -593,9 +589,7 @@ function Editor({ file, editState, hasChanges, saving, refining, inclusionOption
               value={editState.description}
               onChange={(e) => onDescriptionChange(e.target.value)}
               placeholder={t('steering.fmDescriptionPlaceholder')}
-              classNames={{
-                input: `text-foreground bg-background border-input ${colors.inputFocus}`
-              }}
+              className={`text-foreground bg-background border-input ${colors.inputFocus}`}
               style={{ flex: 1, minWidth: '200px', borderRadius: '0.5rem', height: '1.5rem', padding: '0 0.5rem', fontSize: '0.75rem' }}
             />
           </div>
@@ -606,25 +600,11 @@ function Editor({ file, editState, hasChanges, saving, refining, inclusionOption
           value={editState.content}
           onChange={(e) => onContentChange(e.target.value)}
           placeholder={t('steering.contentPlaceholder')}
-          classNames={{
-            input: `${colors.inputFocus}`
-          }}
-          styles={{
-            root: { height: '100%', display: 'flex', flexDirection: 'column' },
-            wrapper: { flex: 1, display: 'flex' },
-            input: {
-              flex: 1,
-              height: '100%',
-              minHeight: '400px',
-              padding: '1rem',
-              borderRadius: '0.75rem',
-              fontSize: '0.875rem',
-              lineHeight: '1.5',
-              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-              resize: 'none',
-              color: surface.editorText,
-              backgroundColor: surface.editorBg,
-              borderColor: surface.editorBorder}
+          className={`flex-1 w-full h-full min-h-[400px] p-4 rounded-xl text-sm leading-relaxed font-mono resize-none border border-input ${colors.inputFocus}`}
+          style={{ 
+            color: surface.editorText,
+            backgroundColor: surface.editorBg,
+            borderColor: surface.editorBorder
           }}
         />
       </div>
@@ -668,9 +648,7 @@ function CreateModal({ inclusionOptions, onCreate, onClose, accent, colors, t, h
               placeholder={t('steering.fileNamePlaceholder')}
               value={fileName}
               onChange={(e) => setFileName(e.target.value)}
-              classNames={{
-                input: `text-foreground bg-background border-input ${colors.inputFocus}`
-              }}
+              className={`text-foreground bg-background border-input ${colors.inputFocus}`}
               style={{ borderRadius: '0.5rem' }}
             />
             <p className={`text-xs text-muted-foreground mt-1`}>{t('steering.fileNameHint')}</p>
@@ -682,9 +660,7 @@ function CreateModal({ inclusionOptions, onCreate, onClose, accent, colors, t, h
               placeholder={t('steering.fmNamePlaceholder')}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              classNames={{
-                input: `text-foreground bg-background border-input ${colors.inputFocus}`
-              }}
+              className={`text-foreground bg-background border-input ${colors.inputFocus}`}
               style={{ borderRadius: '0.5rem' }}
             />
           </div>
@@ -695,9 +671,7 @@ function CreateModal({ inclusionOptions, onCreate, onClose, accent, colors, t, h
               placeholder={t('steering.fmDescriptionPlaceholder')}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              classNames={{
-                input: `text-foreground bg-background border-input ${colors.inputFocus}`
-              }}
+              className={`text-foreground bg-background border-input ${colors.inputFocus}`}
               style={{ borderRadius: '0.5rem' }}
             />
           </div>
@@ -740,9 +714,7 @@ function CreateModal({ inclusionOptions, onCreate, onClose, accent, colors, t, h
                 placeholder={t('steering.filePatternPlaceholder')}
                 value={filePattern}
                 onChange={(e) => setFilePattern(e.target.value)}
-                classNames={{
-                  input: `text-foreground bg-background border-input ${colors.inputFocus}`
-                }}
+                className={`text-foreground bg-background border-input ${colors.inputFocus}`}
                 style={{ borderRadius: '0.5rem' }}
               />
             </div>

@@ -16,54 +16,60 @@ import AccountHeader from './AccountHeader'
 import AccountTable from './AccountTable'
 import AccountListView from './AccountListView'
 import ImportAccountModal from './ImportAccountModal'
-import RefreshProgressModal from './RefreshProgressModal'
 import AccountDetailModal from './AccountDetailModal'
 import EditAccountModal from './EditAccountModal'
 import BatchTagModal from './BatchTagModal'
 import ConfirmModal from './ConfirmModal'
 import { AccountListSkeleton, AccountTableSkeleton } from '../../shared/Skeleton'
+import { getThemeAccent } from '../KiroConfig/themeAccent'
+import React from 'react'
 
-function AccountManager({ onNavigate }) {
+interface AccountManagerProps {
+  onNavigate: (path: string) => void;
+}
+
+function AccountManager({ onNavigate }: AccountManagerProps) {
   const { t, theme } = useApp()
-    const { showConfirm } = useDialog()
+  const accent = useMemo(() => getThemeAccent(theme), [theme])
+  const { showConfirm } = useDialog()
+  
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedIds, setSelectedIds] = useState([])
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
   
   // 优化：将 selectedIds 转为 Set，提升查找性能（O(1) vs O(n)）
   const selectedIdsSet = useMemo(() => new Set(selectedIds), [selectedIds])
-  const [editingAccount, setEditingAccount] = useState(null)
-  const [editingLabelAccount, setEditingLabelAccount] = useState(null)
+  const [editingAccount, setEditingAccount] = useState<any>(null)
+  const [editingLabelAccount, setEditingLabelAccount] = useState<any>(null)
   const [showImportModal, setShowImportModal] = useState(false)
   const [showBatchTagModal, setShowBatchTagModal] = useState(false)
-  const [copiedId, setCopiedId] = useState(null)
-  const [selectedTag, setSelectedTag] = useState(null)
-  const [selectedStatus, setSelectedStatus] = useState(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [selectedTag, setSelectedTag] = useState<string | null>(null)
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('accountViewMode') || 'card')
-  const [tagDefinitions, setTagDefinitions] = useState([])
-  const [groupDefinitions, setGroupDefinitions] = useState([])
-  const [selectedGroup, setSelectedGroup] = useState(null)
-  const [availableModelsById, setAvailableModelsById] = useState({})
-  const [availableModelsLoadingById, setAvailableModelsLoadingById] = useState({})
-  const [availableModelsErrorById, setAvailableModelsErrorById] = useState({})
-  const [advancedFilters, setAdvancedFilters] = useState({
+  const [tagDefinitions, setTagDefinitions] = useState<any[]>([])
+  const [groupDefinitions, setGroupDefinitions] = useState<any[]>([])
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null)
+  const [availableModelsById, setAvailableModelsById] = useState<Record<string, any>>({})
+  const [availableModelsLoadingById, setAvailableModelsLoadingById] = useState<Record<string, boolean>>({})
+  const [availableModelsErrorById, setAvailableModelsErrorById] = useState<Record<string, string>>({})
+  const [advancedFilters, setAdvancedFilters] = useState<any>({
     subscriptions: [],
     statuses: [],
     providers: [],
     usageRange: null
   })
   const [sortBy, setSortBy] = useState('trialAsc')
-  const [refreshingTokenId, setRefreshingTokenId] = useState(null)
+  const [refreshingTokenId, setRefreshingTokenId] = useState<string | null>(null)
   
   // 当前登录的本地 token
-  const [localToken, setLocalToken] = useState(null)
+  const [localToken, setLocalToken] = useState<any>(null)
   
   // 用于管理复制提示的timer
-  const copiedTimerRef = useRef(null)
+  const copiedTimerRef = useRef<NodeJS.Timeout | null>(null)
   
   // 切换账号 hook
   const {
     switchingId,
-    setSwitchingId,
     switchDialog,
     handleSwitchAccount,
     confirmSwitch,
@@ -74,7 +80,7 @@ function AccountManager({ onNavigate }) {
     ideInstalled} = useSwitchAccount(setLocalToken)
   
   useEffect(() => {
-    invoke('get_kiro_local_token').then(setLocalToken).catch(() => setLocalToken(null))
+    invoke<any>('get_kiro_local_token').then(setLocalToken).catch(() => setLocalToken(null))
   }, [])
 
   // 加载标签定义
@@ -83,7 +89,7 @@ function AccountManager({ onNavigate }) {
       .then(tags => {
         setTagDefinitions(tags)
       })
-      .catch(err => {
+      .catch(() => {
         // 静默处理
       })
   }, [])
@@ -96,7 +102,7 @@ function AccountManager({ onNavigate }) {
   useEffect(() => {
     loadTagDefinitions()
     loadGroupDefinitions()
-  }, [])
+  }, [loadTagDefinitions, loadGroupDefinitions])
 
   // 清理timer
   useEffect(() => {
@@ -120,7 +126,7 @@ function AccountManager({ onNavigate }) {
     handleRefreshStatus,
     handleExport} = useAccounts()
 
-  const clearAvailableModelsState = useCallback((id) => {
+  const clearAvailableModelsState = useCallback((id: string) => {
     setAvailableModelsById(prev => {
       if (!(id in prev)) return prev
       const next = { ...prev }
@@ -141,20 +147,20 @@ function AccountManager({ onNavigate }) {
     })
   }, [])
 
-  const removeAccountsLocally = useCallback((ids) => {
+  const removeAccountsLocally = useCallback((ids: string[]) => {
     const idSet = new Set(ids)
     setAccounts(prev => prev.filter(account => !idSet.has(account.id)))
     setSelectedIds(prev => prev.filter(id => !idSet.has(id)))
     ids.forEach(clearAvailableModelsState)
   }, [clearAvailableModelsState, setAccounts])
 
-  const patchAccountLocally = useCallback((updatedAccount) => {
+  const patchAccountLocally = useCallback((updatedAccount: any) => {
     if (!updatedAccount?.id) return
     const normalizedAccount = normalizeAccountForUi(updatedAccount)
     setAccounts(prev => prev.map(account => account.id === normalizedAccount.id ? normalizedAccount : account))
   }, [setAccounts])
 
-  const handleLoadAvailableModels = useCallback(async (id, options = {}) => {
+  const handleLoadAvailableModels = useCallback(async (id: string, options: any = {}) => {
     const { forceRefresh = false } = options
     setAvailableModelsLoadingById(prev => ({ ...prev, [id]: true }))
     setAvailableModelsErrorById(prev => {
@@ -165,7 +171,7 @@ function AccountManager({ onNavigate }) {
     })
 
     try {
-      const response = await invoke('list_available_models', { id, forceRefresh })
+      const response = await invoke<any>('list_available_models', { id, forceRefresh })
       const models = Array.isArray(response?.models) ? response.models : []
       setAvailableModelsById(prev => ({ ...prev, [id]: models }))
       setAccounts(prev => prev.map(account => (
@@ -186,10 +192,10 @@ function AccountManager({ onNavigate }) {
     } finally {
       setAvailableModelsLoadingById(prev => ({ ...prev, [id]: false }))
     }
-  }, [])
+  }, [setAccounts])
 
   // 包装刷新函数，添加 toast 通知
-  const handleRefreshWithNotify = useCallback(async (id) => {
+  const handleRefreshWithNotify = useCallback(async (id: string) => {
     const result = await handleRefreshStatus(id)
     if (result.success) {
       clearAvailableModelsState(id)
@@ -210,10 +216,10 @@ function AccountManager({ onNavigate }) {
   }, [clearAvailableModelsState, handleRefreshStatus, t])
 
   // 刷新 Token
-  const handleRefreshToken = useCallback(async (id) => {
+  const handleRefreshToken = useCallback(async (id: string) => {
     setRefreshingTokenId(id)
     try {
-      const account = await invoke('refresh_account_token', { id })
+      const account = await invoke<any>('refresh_account_token', { id })
       patchAccountLocally(account)
       clearAvailableModelsState(id)
       showSuccess('Token 刷新成功')
@@ -238,9 +244,9 @@ function AccountManager({ onNavigate }) {
   // 获取所有标签（从标签定义中获取）
   const allTags = useMemo(() => {
     // 收集账号中使用的标签 ID（从 tagLinks 中提取）
-    const usedTagIds = new Set()
+    const usedTagIds = new Set<string>()
     accounts.forEach(a => {
-      if (a.tagLinks) a.tagLinks.forEach(link => usedTagIds.add(link.tagId))
+      if (a.tagLinks) a.tagLinks.forEach((link: any) => usedTagIds.add(link.tagId))
     })
     // 返回被使用的标签定义
     return tagDefinitions.filter(t => usedTagIds.has(t.id))
@@ -260,7 +266,7 @@ function AccountManager({ onNavigate }) {
   }, [tagDefinitions])
 
   const normalizedAccounts = useMemo(() => accounts.map((account) => {
-    const tagIds = (account.tagLinks || []).map(link => link.tagId)
+    const tagIds = (account.tagLinks || []).map((link: any) => link.tagId)
     const displayName = getAccountDisplayName(account).toLowerCase()
     const label = String(account.label || '').toLowerCase()
     const tagNames = tagIds
@@ -277,13 +283,13 @@ function AccountManager({ onNavigate }) {
       displayName}
   }), [accounts, tagDefinitionsMap])
 
-  const getTrialExpiry = useCallback((account) => {
+  const getTrialExpiry = useCallback((account: any) => {
     const expiry = account.usageData?.usageBreakdownList?.[0]?.freeTrialInfo?.freeTrialExpiry
     if (!expiry) return Number.POSITIVE_INFINITY
     return Number(expiry)
   }, [])
 
-  const getUsagePercent = useCallback((account) => {
+  const getUsagePercent = useCallback((account: any) => {
     const breakdown = account.usageData?.usageBreakdownList?.[0]
     if (!breakdown) return 0
 
@@ -291,7 +297,7 @@ function AccountManager({ onNavigate }) {
     const mainLimit = Number(breakdown.usageLimit || 0)
     const trialUsed = Number(breakdown.freeTrialInfo?.currentUsage || 0)
     const trialLimit = Number(breakdown.freeTrialInfo?.usageLimit || 0)
-    const bonusTotals = (breakdown.bonuses || []).reduce((sum, bonus) => ({
+    const bonusTotals = (breakdown.bonuses || []).reduce((sum: any, bonus: any) => ({
       used: sum.used + Number(bonus.currentUsage || 0),
       limit: sum.limit + Number(bonus.usageLimit || 0)}), { used: 0, limit: 0 })
 
@@ -344,9 +350,9 @@ function AccountManager({ onNavigate }) {
         case 'trialDesc':
           return getTrialExpiry(accountB) - getTrialExpiry(accountA)
         case 'addedAsc':
-          return new Date(accountA.addedAt || 0) - new Date(accountB.addedAt || 0)
+          return new Date(accountA.addedAt || 0).getTime() - new Date(accountB.addedAt || 0).getTime()
         case 'addedDesc':
-          return new Date(accountB.addedAt || 0) - new Date(accountA.addedAt || 0)
+          return new Date(accountB.addedAt || 0).getTime() - new Date(accountA.addedAt || 0).getTime()
         default:
           return 0
       }
@@ -356,7 +362,7 @@ function AccountManager({ onNavigate }) {
   }, [advancedFilters, getTrialExpiry, getUsagePercent, normalizedAccounts, searchTerm, selectedGroup, selectedStatus, selectedTag, sortBy])
 
   const accountRowStateById = useMemo(() => {
-    const result = {}
+    const result: Record<string, any> = {}
     for (const account of filteredAccounts) {
       const id = account.id
       result[id] = {
@@ -372,22 +378,22 @@ function AccountManager({ onNavigate }) {
   }, [filteredAccounts, refreshingId, refreshingTokenId, switchingId, copiedId, availableModelsById, availableModelsLoadingById, availableModelsErrorById])
 
 
-  const handleSearchChange = useCallback((term) => { setSearchTerm(term) }, [])
-  const handleGroupFilter = useCallback((group) => { setSelectedGroup(group) }, [])
-  const handleTagFilter = useCallback((tag) => { setSelectedTag(tag) }, [])
-  const handleStatusFilter = useCallback((status) => { setSelectedStatus(status) }, [])
-  const handleViewModeChange = useCallback((mode) => {
+  const handleSearchChange = useCallback((term: string) => { setSearchTerm(term) }, [])
+  const handleGroupFilter = useCallback((group: string | null) => { setSelectedGroup(group) }, [])
+  const handleTagFilter = useCallback((tag: string | null) => { setSelectedTag(tag) }, [])
+  const handleStatusFilter = useCallback((status: string | null) => { setSelectedStatus(status) }, [])
+  const handleViewModeChange = useCallback((mode: string) => {
     setViewMode(mode)
     localStorage.setItem('accountViewMode', mode)
   }, [])
-  const handleSelectAll = useCallback((checked) => {
+  const handleSelectAll = useCallback((checked: boolean) => {
     setSelectedIds(checked ? filteredAccounts.map(a => a.id) : [])
   }, [filteredAccounts])
 
-  const handleSelectOne = useCallback((id, checked) => {
+  const handleSelectOne = useCallback((id: string, checked: boolean) => {
     setSelectedIds(prev => checked ? [...prev, id] : prev.filter(i => i !== id))
   }, [])
-  const handleCopy = useCallback((text, id) => { 
+  const handleCopy = useCallback((text: string, id: string) => { 
     navigator.clipboard.writeText(text).catch(e => console.error('Copy failed:', e))
     setCopiedId(id)
     if (copiedTimerRef.current) {
@@ -397,7 +403,7 @@ function AccountManager({ onNavigate }) {
   }, [])
   
   // 删除单个账号
-  const handleDelete = useCallback(async (id) => {
+  const handleDelete = useCallback(async (id: string) => {
     // 防呆：检查是否是当前账号
     const account = accounts.find(a => a.id === id)
     const isCurrent = localToken?.refreshToken && account?.refreshToken === localToken.refreshToken
@@ -418,7 +424,7 @@ function AccountManager({ onNavigate }) {
   }, [accounts, localToken, removeAccountsLocally, showConfirm, t])
 
   // 远程删除账号（从 AWS 服务端注销）
-  const handleDeleteRemote = useCallback(async (account) => {
+  const handleDeleteRemote = useCallback(async (account: any) => {
     const confirmed = await showConfirm(
       '⚠️ ' + t('accountCard.deleteRemote'),
       '远程删除将从 AWS 服务端注销此账号！\n\n此操作不可恢复，账号将永久失效。\n\n' + t('accountCard.deleteRemoteConfirm')
@@ -482,7 +488,6 @@ function AccountManager({ onNavigate }) {
           batchRefreshAccounts(selectedIds, accounts)
         }}
         autoRefreshing={autoRefreshing}
-        lastRefreshTime={lastRefreshTime}
         refreshProgress={refreshProgress}
         allGroups={groupDefinitions}
         selectedGroup={selectedGroup}
@@ -500,6 +505,7 @@ function AccountManager({ onNavigate }) {
         onAdvancedFiltersChange={setAdvancedFilters}
         totalCount={filteredAccounts.length}
         onSelectAll={handleSelectAll}
+        onDeselectAll={() => setSelectedIds([])}
       />
       <div className="flex-1 flex flex-col min-h-0">
       {loading ? (
@@ -523,7 +529,7 @@ function AccountManager({ onNavigate }) {
             {!searchTerm && !selectedGroup && !selectedTag && !selectedStatus && (
               <button
                 onClick={() => setShowImportModal(true)}
-                className={`px-6 py-3 rounded-xl text-sm font-medium text-white bg-gradient-to-r ${accent.gradientFrom} ${accent.gradientTo} shadow-lg ${accent.shadow} hover:shadow-xl transition-all duration-200 hover:scale-105 flex items-center gap-2 mx-auto`}
+                className={`px-6 py-3 rounded-xl text-sm font-medium text-white bg-gradient-to-r ${accent.gradientFrom} ${accent.gradientTo} shadow-lg ${accent.shadow} hover:shadow-xl transition-all duration-200 hover:scale-105 flex items-center gap-2 mx-auto cursor-pointer`}
               >
                 <Upload size={18} />
                 导入账号
@@ -536,7 +542,6 @@ function AccountManager({ onNavigate }) {
           accounts={filteredAccounts}
           totalCount={accounts.length}
           selectedIds={selectedIds}
-          selectedIdsSet={selectedIdsSet}
           onSelectAll={handleSelectAll}
           onSelectOne={handleSelectOne}
           copiedId={copiedId}
@@ -549,6 +554,9 @@ function AccountManager({ onNavigate }) {
           onDelete={handleDelete}
           onDeleteRemote={handleDeleteRemote}
           onAdd={() => setShowImportModal(true)}
+          localToken={localToken}
+          tagDefinitions={tagDefinitions}
+          groupDefinitions={groupDefinitions}
           accountRowStateById={accountRowStateById}
           onLoadAvailableModels={handleLoadAvailableModels}
         />
@@ -576,6 +584,7 @@ function AccountManager({ onNavigate }) {
           onLoadAvailableModels={handleLoadAvailableModels}
           sortBy={sortBy}
           onSortChange={setSortBy}
+          onDeselectAll={() => setSelectedIds([])}
         />
 
       )}
@@ -590,7 +599,7 @@ function AccountManager({ onNavigate }) {
         <EditAccountModal
           account={editingLabelAccount}
           onClose={() => setEditingLabelAccount(null)}
-          onSuccess={(updatedAccount) => {
+          onSuccess={(updatedAccount: any) => {
             setEditingLabelAccount(null)
             if (updatedAccount) {
               patchAccountLocally(updatedAccount)
@@ -607,7 +616,7 @@ function AccountManager({ onNavigate }) {
             setShowImportModal(false)
             setAccounts(prev => {
               const next = [...prev]
-              const upsert = (entry) => {
+              const upsert = (entry: any) => {
                 const account = normalizeAccountForUi(entry?.account)
                 if (!account?.id) return
                 const index = next.findIndex(item => item.id === account.id)

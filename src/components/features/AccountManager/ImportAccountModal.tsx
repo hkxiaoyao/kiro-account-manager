@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { Stack, Group } from '@/components/shared/layout'
@@ -22,8 +22,17 @@ import {
   DialogBody,
   DialogFooter} from '../../shared/dialog'
 import { Button } from '../../shared/button'
+import { getThemeAccent } from '../KiroConfig/themeAccent'
+import { Account } from '../../../types/account'
+import React from 'react'
 
-function LegacyButton({ color, leftSection, className = '', children, ...props }) {
+interface ImportAccountModalProps {
+  onClose: () => void;
+  onSuccess?: (data: { added: any[]; updated: any[] }) => void;
+  onNavigate?: (path: string) => void;
+}
+
+function LegacyButton({ color, leftSection, className = '', children, ...props }: any) {
   const colorClass = color === 'red'
     ? 'text-red-600 hover:text-red-700'
     : color === 'blue'
@@ -39,10 +48,10 @@ function LegacyButton({ color, leftSection, className = '', children, ...props }
   )
 }
 
-function FileButton({ onChange, accept, children }) {
-  const inputRef = useRef(null)
+function FileButton({ onChange, accept, children }: any) {
+  const inputRef = useRef<HTMLInputElement>(null)
   const triggerProps = { onClick: () => inputRef.current?.click() }
-  const handleChange = async (event) => {
+  const handleChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] || null
     if (file) {
       await onChange(file)
@@ -57,7 +66,7 @@ function FileButton({ onChange, accept, children }) {
   )
 }
 
-function validateAccount(item, index) {
+function validateAccount(item: any, index: number) {
   const errors = []
   const refreshToken = item.refreshToken
   if (!refreshToken) {
@@ -105,34 +114,39 @@ function validateAccount(item, index) {
 
   // Enterprise 账号不需要额外校验（region 可选，默认 us-east-1）
 
-  return { valid: true, errors: [], type: isSocial ? 'social' : 'idc', inferredProvider: normalizedProvider }
+  return { valid: true, errors: [] as string[], type: isSocial ? 'social' : 'idc', inferredProvider: normalizedProvider }
 }
 
-function ImportAccountModal({ onClose, onSuccess, onNavigate }) {
+function ImportAccountModal({ onClose, onSuccess, onNavigate }: ImportAccountModalProps) {
   const { t, theme } = useApp()
-  
+  const accent = useMemo(() => getThemeAccent(theme), [theme])
+  const colors = useMemo(() => ({
+    inputFocus: 'focus:ring-primary/20 focus:border-primary',
+    ringColor: theme === 'dark' ? 'ring-primary/40' : 'ring-primary/20'
+  }), [theme])
+
   const [activeTab, setActiveTab] = useState('json')
   const [osType, setOsType] = useState('')
   const [jsonText, setJsonText] = useState('')
-  const [parseResult, setParseResult] = useState(null)
+  const [parseResult, setParseResult] = useState<any>(null)
   const [importing, setImporting] = useState(false)
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 })
-  const [importResult, setImportResult] = useState(null)
+  const [importResult, setImportResult] = useState<any>(null)
 
   // 从 Kiro 导入相关状态
-  const [kiroAccounts, setKiroAccounts] = useState([])
+  const [kiroAccounts, setKiroAccounts] = useState<any[]>([])
   const [kiroLoading, setKiroLoading] = useState(false)
-  const [kiroError, setKiroError] = useState(null)
+  const [kiroError, setKiroError] = useState<string | null>(null)
   const [kiroImporting, setKiroImporting] = useState(false)
   const [kiroProgress, setKiroProgress] = useState({ current: 0, total: 0 })
-  const [kiroResult, setKiroResult] = useState(null)
+  const [kiroResult, setKiroResult] = useState<any>(null)
 
   // 从 kiro-cli 导入相关状态
   const [kiroCliDbPath, setKiroCliDbPath] = useState('')
   const [kiroCliDetected, setKiroCliDetected] = useState(false)
   const [kiroCliDetecting, setKiroCliDetecting] = useState(false)
   const [kiroCliImporting, setKiroCliImporting] = useState(false)
-  const [kiroCliResult, setKiroCliResult] = useState(null)
+  const [kiroCliResult, setKiroCliResult] = useState<any>(null)
   const isWindowsOs = osType === 'windows'
 
   useEffect(() => {
@@ -140,7 +154,7 @@ function ImportAccountModal({ onClose, onSuccess, onNavigate }) {
 
     const detectOsType = async () => {
       try {
-        const info = await invoke('get_system_machine_guid')
+        const info = await invoke<any>('get_system_machine_guid')
         if (isMounted && info?.osType) {
           setOsType(info.osType)
           return
@@ -177,7 +191,7 @@ function ImportAccountModal({ onClose, onSuccess, onNavigate }) {
   const detectKiroCliPath = async () => {
     setKiroCliDetecting(true)
     try {
-      const defaultPath = await invoke('get_kiro_cli_default_path')
+      const defaultPath = await invoke<string>('get_kiro_cli_default_path')
       if (defaultPath) {
         setKiroCliDbPath(defaultPath)
         setKiroCliDetected(true)
@@ -203,7 +217,7 @@ function ImportAccountModal({ onClose, onSuccess, onNavigate }) {
     setKiroLoading(true)
     setKiroError(null)
     try {
-      const accounts = await invoke('read_kiro_accounts')
+      const accounts = await invoke<any[]>('read_kiro_accounts')
       setKiroAccounts(accounts)
     } catch (e) {
       setKiroError(String(e))
@@ -213,7 +227,7 @@ function ImportAccountModal({ onClose, onSuccess, onNavigate }) {
     }
   }
 
-  const parseJson = (text) => {
+  const parseJson = (text: string) => {
     if (!text.trim()) {
       setParseResult(null)
       return
@@ -223,9 +237,9 @@ function ImportAccountModal({ onClose, onSuccess, onNavigate }) {
       let data = JSON.parse(text)
       if (!Array.isArray(data)) data = [data]
 
-      const valid = []
-      const invalid = []
-      const errors = []
+      const valid: any[] = []
+      const invalid: any[] = []
+      const errors: string[] = []
 
       data.forEach((item, index) => {
         const result = validateAccount(item, index)
@@ -238,19 +252,19 @@ function ImportAccountModal({ onClose, onSuccess, onNavigate }) {
       })
 
       setParseResult({ valid, invalid, errors })
-    } catch (e) {
+    } catch (e: any) {
       setParseResult({ valid: [], invalid: [], errors: [`JSON 解析失败: ${e.message}`] })
     }
   }
 
-  const handleFileSelect = async (file) => {
+  const handleFileSelect = async (file: File) => {
     if (!file) return
     const text = await file.text()
     setJsonText(text)
     parseJson(text)
   }
 
-  const runConcurrent = async (items, handler, onProgress) => {
+  const runConcurrent = async (items: any[], handler: any, onProgress: any) => {
     const results = []
     let completed = 0
     const concurrency = getConcurrency(items.length)
@@ -276,13 +290,13 @@ function ImportAccountModal({ onClose, onSuccess, onNavigate }) {
     setImporting(true)
     setImportProgress({ current: 0, total: parseResult.valid.length })
 
-    const added = []
-    const updated = []
-    const failed = []
+    const added: any[] = []
+    const updated: any[] = []
+    const failed: any[] = []
 
-    const importOne = async (item) => {
+    const importOne = async (item: any) => {
       try {
-        let result
+        let result: any
         const provider = item._inferredProvider || item.provider
         if (item._type === 'social') {
           result = await invoke('add_account_by_social', {
@@ -326,7 +340,7 @@ function ImportAccountModal({ onClose, onSuccess, onNavigate }) {
     const results = await runConcurrent(
       parseResult.valid,
       importOne,
-      (completed) => setImportProgress({ current: completed, total: parseResult.valid.length })
+      (completed: number) => setImportProgress({ current: completed, total: parseResult.valid.length })
     )
 
     results.forEach(r => {
@@ -352,13 +366,13 @@ function ImportAccountModal({ onClose, onSuccess, onNavigate }) {
     setKiroImporting(true)
     setKiroProgress({ current: 0, total: kiroAccounts.length })
 
-    const added = []
-    const updated = []
-    const failed = []
+    const added: any[] = []
+    const updated: any[] = []
+    const failed: any[] = []
 
-    const importOne = async (account) => {
+    const importOne = async (account: any) => {
       try {
-        let result
+        let result: any
         if (account.authMethod === 'IdC') {
           // IdC 账号：统一调用 add_account_by_idc
           const params = {
@@ -401,7 +415,7 @@ function ImportAccountModal({ onClose, onSuccess, onNavigate }) {
     const results = await runConcurrent(
       kiroAccounts,
       importOne,
-      (completed) => setKiroProgress({ current: completed, total: kiroAccounts.length })
+      (completed: number) => setKiroProgress({ current: completed, total: kiroAccounts.length })
     )
 
     results.forEach(r => {
@@ -431,7 +445,7 @@ function ImportAccountModal({ onClose, onSuccess, onNavigate }) {
     setKiroCliResult(null)
 
     try {
-      const result = await invoke('import_from_kiro_cli', {
+      const result = await invoke<any>('import_from_kiro_cli', {
         dbPath: kiroCliDbPath
       })
 
@@ -461,13 +475,13 @@ function ImportAccountModal({ onClose, onSuccess, onNavigate }) {
     }
   }
 
-  const renderResult = (result) => (
+  const renderResult = (result: any) => (
   <Stack gap="md" p="sm">
     {result.added && result.added.length > 0 && (
       <Alert icon={<CheckCircle size={20} />} color="teal">
         <div className={`font-medium text-foreground`}>✅ 新增 {result.added.length} 个账号</div>
         {result.added.length > 0 && (
-          <div className={`text-sm mt-2 text-foreground`}>{result.added.map(s => s.email).join(', ')}</div>
+          <div className={`text-sm mt-2 text-foreground`}>{result.added.map((s: any) => s.email).join(', ')}</div>
         )}
       </Alert>
     )}
@@ -476,7 +490,7 @@ function ImportAccountModal({ onClose, onSuccess, onNavigate }) {
       <Alert icon={<CheckCircle size={20} />} color="blue">
         <div className={`font-medium text-foreground`}>📝 更新 {result.updated.length} 个账号</div>
         {result.updated.length > 0 && (
-          <div className={`text-sm mt-2 text-foreground`}>{result.updated.map(s => s.email).join(', ')}</div>
+          <div className={`text-sm mt-2 text-foreground`}>{result.updated.map((s: any) => s.email).join(', ')}</div>
         )}
       </Alert>
     )}
@@ -485,7 +499,7 @@ function ImportAccountModal({ onClose, onSuccess, onNavigate }) {
       <Alert icon={<AlertCircle size={20} />} color="red">
         <div className={`font-medium text-foreground`}>❌ 失败 {result.failed.length} 个</div>
         <Stack gap={4} mt="xs" p={0}>
-          {result.failed.map((f, i) => (
+          {result.failed.map((f: any, i: number) => (
             <div key={i} className={`text-sm text-foreground`}>{f.error}</div>
           ))}
         </Stack>
@@ -518,7 +532,6 @@ return (
               <Alert
                 icon={kiroCliResult.success ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
                 color={kiroCliResult.success ? "teal" : "red"}
-               
               >
                 <div className={`text-sm font-medium text-foreground`}>
                   {kiroCliResult.success
@@ -538,7 +551,7 @@ return (
             <div className={`p-5 rounded-xl bg-muted/30 border border-border`}>
               <div className="flex items-center gap-4 mb-4">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-muted/30`}>
-                  <Loader2 size={20} className={"text-primary"} />
+                  <Loader2 size={20} className={"text-primary animate-spin"} />
                 </div>
                 <div>
                   <div className={`font-medium text-foreground`}>
@@ -550,24 +563,20 @@ return (
                 </div>
               </div>
               <Progress
-                value={(importing ? importProgress : kiroProgress).current /
-                  (importing ? importProgress : kiroProgress).total * 100}
+                value={((importing ? importProgress : kiroProgress).total > 0) ? ((importing ? importProgress : kiroProgress).current /
+                  (importing ? importProgress : kiroProgress).total * 100) : 0}
                 size="lg"
                 radius="xl"
-                classNames={{
-                  root: "bg-muted/30",
-                  bar: "text-primary"
-                }}
               />
             </div>
           </div>
         ) : (
-          <Tabs value={activeTab} onChange={setActiveTab}>
-            <Tabs.List className="px-6 pt-2 pb-3 border-b-0">
-              <div className={`grid grid-cols-3 gap-1 p-1 rounded-xl border border-border bg-muted/30`}>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="px-6 pt-2 pb-3 border-b-0 bg-transparent h-auto">
+              <div className={`grid grid-cols-3 gap-1 p-1 rounded-xl border border-border bg-muted/30 w-full`}>
                 <button
                   onClick={() => setActiveTab('json')}
-                  className={`py-2 px-3 text-sm rounded-lg transition-all duration-200 font-medium ${activeTab === 'json'
+                  className={`py-2 px-3 text-sm rounded-lg transition-all duration-200 font-medium cursor-pointer ${activeTab === 'json'
                       ? `glass-card shadow-sm ring-1 ${colors.ringColor} text-foreground`
                       : `hover:bg-muted/50 text-muted-foreground`
                     }`}
@@ -579,7 +588,7 @@ return (
                 </button>
                 <button
                   onClick={() => setActiveTab('kiro')}
-                  className={`py-2 px-3 text-sm rounded-lg transition-all duration-200 font-medium ${activeTab === 'kiro'
+                  className={`py-2 px-3 text-sm rounded-lg transition-all duration-200 font-medium cursor-pointer ${activeTab === 'kiro'
                       ? `glass-card shadow-sm ring-1 ${colors.ringColor} text-foreground`
                       : `hover:bg-muted/50 text-muted-foreground`
                     }`}
@@ -591,7 +600,7 @@ return (
                 </button>
                 <button
                   onClick={() => setActiveTab('kiro-cli')}
-                  className={`py-2 px-3 text-sm rounded-lg transition-all duration-200 font-medium ${activeTab === 'kiro-cli'
+                  className={`py-2 px-3 text-sm rounded-lg transition-all duration-200 font-medium cursor-pointer ${activeTab === 'kiro-cli'
                       ? `glass-card shadow-sm ring-1 ${colors.ringColor} text-foreground`
                       : `hover:bg-muted/50 text-muted-foreground`
                     }`}
@@ -602,32 +611,31 @@ return (
                   </div>
                 </button>
               </div>
-            </Tabs.List>
+            </TabsList>
 
-            <Tabs.Panel value="json" pt="md" className="px-6 pb-4">
+            <TabsContent value="json" className="px-6 pb-4 pt-4 outline-none">
               <Stack gap="lg">
                 <Group>
                   <FileButton onChange={handleFileSelect} accept=".json">
-                    {(props) => <LegacyButton {...props} leftSection={<FileJson size={16} />}>{t('import.selectFile')}</LegacyButton>}
+                    {(props: any) => <LegacyButton {...props} leftSection={<FileJson size={16} />}>{t('import.selectFile')}</LegacyButton>}
                   </FileButton>
-                  <LegacyButton color="blue" size="sm" onClick={() => setJsonText(JSON.stringify([{ refreshToken: "", provider: "Google" }], null, 2))}>
+                  <LegacyButton color="blue" size="sm" onClick={() => { const text = JSON.stringify([{ refreshToken: "", provider: "Google" }], null, 2); setJsonText(text); parseJson(text) }}>
                     Social 模板
                   </LegacyButton>
-                  <LegacyButton color="violet" size="sm" onClick={() => setJsonText(JSON.stringify([{ refreshToken: "", clientId: "", clientSecret: "", provider: "BuilderId" }], null, 2))}>
+                  <LegacyButton color="violet" size="sm" onClick={() => { const text = JSON.stringify([{ refreshToken: "", clientId: "", clientSecret: "", provider: "BuilderId" }], null, 2); setJsonText(text); parseJson(text) }}>
                     BuilderId 模板
                   </LegacyButton>
-                  <LegacyButton color="grape" size="sm" onClick={() => setJsonText(JSON.stringify([{ refreshToken: "", clientId: "", clientSecret: "", provider: "Enterprise" }], null, 2))}>
+                  <LegacyButton color="grape" size="sm" onClick={() => { const text = JSON.stringify([{ refreshToken: "", clientId: "", clientSecret: "", provider: "Enterprise" }], null, 2); setJsonText(text); parseJson(text) }}>
                     Enterprise 模板
                   </LegacyButton>
                 </Group>
 
-                <Textarea
-                 
+                <textarea
                   value={jsonText}
                   onChange={(e) => { setJsonText(e.target.value); parseJson(e.target.value) }}
                   rows={10}
                   placeholder={`[{"refreshToken": "aor...", "provider": "Google"}]`}
-                  className={`text-foreground bg-background border-input ${colors.inputFocus} font-mono`}
+                  className={`w-full p-4 rounded-xl text-foreground bg-background border border-input ${colors.inputFocus} font-mono text-sm outline-none resize-none`}
                 />
 
                 {parseResult && (
@@ -641,7 +649,7 @@ return (
                       <Alert icon={<AlertCircle size={16} />} color="red">
                         <div className={`text-sm font-medium text-foreground`}>{t('import.validationError')}</div>
                         <Stack gap={2} mt="xs">
-                          {parseResult.errors.slice(0, 5).map((err, i) => (
+                          {parseResult.errors.slice(0, 5).map((err: string, i: number) => (
                             <div key={i} className={`text-xs text-foreground`}>{err}</div>
                           ))}
                           {parseResult.errors.length > 5 && (
@@ -653,9 +661,9 @@ return (
                   </Stack>
                 )}
               </Stack>
-            </Tabs.Panel>
+            </TabsContent>
 
-            <Tabs.Panel value="kiro" pt="md" className="px-6 pb-4">
+            <TabsContent value="kiro" className="px-6 pb-4 pt-4 outline-none">
               <Stack gap="lg">
                 <Alert color="indigo">
                   <div className={`text-sm font-medium text-foreground`}>从 Kiro IDE 导入账号</div>
@@ -676,10 +684,9 @@ return (
                     <div className={`text-sm font-medium text-foreground`}>检测失败</div>
                     <div className={`text-xs mt-1 text-muted-foreground`}>{kiroError}</div>
                     <LegacyButton
-                     
                       color="red"
                       size="xs"
-                      mt="sm"
+                      className="mt-3"
                       leftSection={<RefreshCw size={14} />}
                       onClick={detectKiroAccounts}
                     >
@@ -692,7 +699,7 @@ return (
                       <div className={`text-sm font-medium text-foreground`}>检测到 {kiroAccounts.length} 个账号</div>
                     </Alert>
 
-                    <div className={`p-4 rounded-xl bg-muted/30 border border-border`}>
+                    <div className={`p-4 rounded-xl bg-muted/30 border border-border max-h-[240px] overflow-y-auto`}>
                       <Stack gap="sm">
                         {kiroAccounts.map((account, index) => (
                           <div key={index} className={`p-3 rounded-lg glass-card border border-border`}>
@@ -723,9 +730,9 @@ return (
                   </Alert>
                 )}
               </Stack>
-            </Tabs.Panel>
+            </TabsContent>
 
-            <Tabs.Panel value="kiro-cli" pt="md" className="px-6 pb-4">
+            <TabsContent value="kiro-cli" className="px-6 pb-4 pt-4 outline-none">
               <Stack gap="lg">
                 <Alert color="violet">
                   <div className={`text-sm font-medium text-foreground`}>{t('import.kiroCliTitle')}</div>
@@ -782,10 +789,10 @@ return (
                             setKiroCliDetected(false)
                           }}
                           placeholder={t('import.kiroCliPathPlaceholder')}
-                          className={`flex-1 px-4 py-3 border rounded-xl text-foreground bg-background border-input ${colors.inputFocus} focus:ring-2 transition-all`}
+                          className={`flex-1 px-4 py-3 border rounded-xl text-foreground bg-background border-input ${colors.inputFocus} focus:ring-2 transition-all outline-none`}
                         />
                         <FileButton
-                          onChange={(file) => {
+                          onChange={(file: any) => {
                             if (file) {
                               setKiroCliDbPath(file.path)
                               setKiroCliDetected(false)
@@ -793,151 +800,37 @@ return (
                           }}
                           accept=".sqlite3,.db"
                         >
-                          {(props) => (
+                          {(props: any) => (
                             <LegacyButton
                               {...props}
-                             
                               className="px-4"
                             >
-                              {t('import.browse')}
+                              浏览
                             </LegacyButton>
                           )}
                         </FileButton>
                       </div>
-                      <div className={`text-xs mt-1 text-muted-foreground`}>
-                        {kiroCliDetected ? t('import.kiroCliPathHintDetected') : t('import.kiroCliPathHintManual')}
-                      </div>
                     </div>
-
-                    {kiroCliResult && (
-                      <Alert
-                        icon={kiroCliResult.success ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
-                        color={kiroCliResult.success ? "teal" : "red"}
-                       
-                      >
-                        <div className={`text-sm font-medium text-foreground`}>
-                          {kiroCliResult.success 
-                            ? (kiroCliResult.isNew 
-                                ? `✅ 新增账号: ${kiroCliResult.email}`
-                                : `📝 更新账号: ${kiroCliResult.email}`)
-                            : '❌ 导入失败'}
-                        </div>
-                        {kiroCliResult.error && (
-                          <div className={`text-xs mt-1 text-muted-foreground`}>{kiroCliResult.error}</div>
-                        )}
-                      </Alert>
-                    )}
                   </Stack>
                 </div>
               </Stack>
-            </Tabs.Panel>
+            </TabsContent>
           </Tabs>
         )}
       </DialogBody>
 
       <DialogFooter>
-        <div></div>
-        {importResult || kiroResult || kiroCliResult ? (
-          <div className="flex gap-3">
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setImportResult(null)
-                setKiroResult(null)
-                setKiroCliResult(null)
-                setJsonText('')
-                setParseResult(null)
-              }}
-            >
-              {t('import.continueImport')}
-            </Button>
-            <Button variant="success" onClick={onClose}>
-              {t('import.done')}
-            </Button>
-          </div>
-        ) : importing || kiroImporting || kiroCliImporting ? (
-          <div></div>
-        ) : activeTab === 'json' ? (
-          <div className="flex justify-between w-full">
-            <Button
-              variant="secondary"
-              onClick={() => {
-                onClose()
-                onNavigate?.('desktopOAuth')
-              }}
-              className="flex items-center gap-2"
-            >
-              <LogIn size={16} />
-              在线登录
-            </Button>
-            <div className="flex gap-3">
-              <Button variant="secondary" onClick={onClose}>
-                {t('common.cancel')}
-              </Button>
-              <Button
-                onClick={handleJsonImport}
-                disabled={!parseResult?.valid.length}
-                className="flex items-center gap-2"
-              >
-                <Upload size={16} />
-                {t('import.import')} {parseResult?.valid.length ? `(${parseResult.valid.length})` : ''}
-              </Button>
-            </div>
-          </div>
-        ) : activeTab === 'kiro' ? (
-          <div className="flex justify-between w-full">
-            <Button
-              variant="secondary"
-              onClick={() => {
-                onClose()
-                onNavigate?.('desktopOAuth')
-              }}
-              className="flex items-center gap-2"
-            >
-              <LogIn size={16} />
-              在线登录
-            </Button>
-            <div className="flex gap-3">
-              <Button variant="secondary" onClick={onClose}>
-                {t('common.cancel')}
-              </Button>
-              <Button
-                onClick={handleKiroImport}
-                disabled={kiroAccounts.length === 0}
-                className="flex items-center gap-2"
-              >
-                <Database size={16} />
-                导入 ({kiroAccounts.length})
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex justify-between w-full">
-            <Button
-              variant="secondary"
-              onClick={() => {
-                onClose()
-                onNavigate?.('desktopOAuth')
-              }}
-              className="flex items-center gap-2"
-            >
-              <LogIn size={16} />
-              在线登录
-            </Button>
-            <div className="flex gap-3">
-              <Button variant="secondary" onClick={onClose}>
-                {t('common.cancel')}
-              </Button>
-              <Button
-                onClick={handleKiroCliImport}
-                disabled={!kiroCliDbPath}
-                className="flex items-center gap-2"
-              >
-                <Database size={16} />
-                导入
-              </Button>
-            </div>
-          </div>
+        <Button variant="secondary" onClick={onClose} disabled={importing || kiroImporting || kiroCliImporting}>
+          {importResult || kiroResult || kiroCliResult ? t('common.close') : t('common.cancel')}
+        </Button>
+        {!(importResult || kiroResult || kiroCliResult) && (
+          <Button
+            onClick={activeTab === 'json' ? handleJsonImport : activeTab === 'kiro' ? handleKiroImport : handleKiroCliImport}
+            disabled={importing || kiroImporting || kiroCliImporting || (activeTab === 'json' && !parseResult?.valid.length) || (activeTab === 'kiro' && kiroAccounts.length === 0) || (activeTab === 'kiro-cli' && !kiroCliDbPath)}
+            loading={importing || kiroImporting || kiroCliImporting}
+          >
+            {t('common.import')}
+          </Button>
         )}
       </DialogFooter>
     </DialogContent>
@@ -946,5 +839,3 @@ return (
 }
 
 export default ImportAccountModal
-
-

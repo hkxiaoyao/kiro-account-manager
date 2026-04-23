@@ -5,6 +5,7 @@ import { useApp } from '../../../hooks/useApp'
 import { useDialog } from '../../../contexts/DialogContext'
 import { useAccount } from '../../../contexts/AccountContext'
 import { usePrivacy } from '../../../contexts/PrivacyContext'
+import { getThemeAccent } from '../KiroConfig/themeAccent'
 
 // 子组件
 import LoadingSkeleton from './LoadingSkeleton'
@@ -15,22 +16,32 @@ import AccountQuotaDetail from './AccountQuotaDetail'
 import UsageDistribution from './UsageDistribution'
 import QuotaPieChart from './QuotaPieChart'
 import UsageTrendChart from './UsageTrendChart'
+import React from 'react'
 
-function Home({ onNavigate }) {
-  const { t, theme} = useApp()
-    const { showError } = useDialog()
+interface HomeProps {
+  onNavigate: (path: string) => void;
+}
+
+function Home({ onNavigate }: HomeProps) {
+  const { t, theme } = useApp()
+  const accent = useMemo(() => getThemeAccent(theme), [theme])
+  const colors = useMemo(() => ({
+    inputFocus: 'focus:ring-primary/20 focus:border-primary',
+  }), [])
+
+  const { showError } = useDialog()
   const { maskEmail } = usePrivacy()
   const { 
     accounts: tokens, 
     localToken, 
     loading, 
-    refreshing, 
     stats, 
     currentAccount,
     currentQuotaInfo,
     refresh,
     refreshAccount 
   } = useAccount()
+  
   const [refreshingAccount, setRefreshingAccount] = useState(false)
   const [mcpToolCount, setMcpToolCount] = useState(0)
 
@@ -40,8 +51,8 @@ function Home({ onNavigate }) {
   useEffect(() => {
     const loadMcpToolCount = async () => {
       try {
-        const stats = await invoke('get_mcp_tool_stats', { projectDir: null })
-        setMcpToolCount(stats.estimatedTools)
+        const statsResult = await invoke<any>('get_mcp_tool_stats', { projectDir: null })
+        setMcpToolCount(statsResult.estimatedTools)
       } catch (e) {
         // 静默处理
       }
@@ -78,7 +89,7 @@ function Home({ onNavigate }) {
       onClick: () => onNavigate?.('kiroConfig'),
       warning: mcpToolCount > 50
     },
-  ], [colors, accent.text, stats, mcpToolCount, t, onNavigate])
+  ], [accent, stats, mcpToolCount, t, onNavigate])
 
   if (loading) {
     return <LoadingSkeleton colors={colors} />
@@ -113,7 +124,6 @@ function Home({ onNavigate }) {
           {/* 当前账号 */}
           <CurrentAccountCard 
             localToken={localToken}
-            refreshing={refreshing}
             handleRefresh={handleRefresh}
             colors={colors}
             t={t}

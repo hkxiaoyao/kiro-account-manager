@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { X, Tag, Plus } from 'lucide-react'
 import { useApp } from '../../../hooks/useApp'
 import { useDialog } from '../../../contexts/DialogContext'
@@ -13,23 +13,37 @@ import {
   DialogBody,
   DialogFooter} from '../../shared/dialog'
 import { Button } from '../../shared/button'
+import { getThemeAccent } from '../KiroConfig/themeAccent'
+import { Account, TagDefinition } from '../../../types/account'
+import React from 'react'
 
 const PRESET_COLORS = [
   '#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', 
   '#ef4444', '#ec4899', '#06b6d4', '#84cc16'
 ]
 
-function BatchTagModal({ accountIds, accounts = [], onClose, onSuccess }) {
+interface BatchTagModalProps {
+  accountIds: string[];
+  accounts?: Account[];
+  onClose: () => void;
+  onSuccess?: (data: { accountIds: string[]; selectedTagIds: string[] }) => void;
+}
+
+function BatchTagModal({ accountIds, accounts = [], onClose, onSuccess }: BatchTagModalProps) {
   const { t, theme } = useApp()
-    const accentGradientButtonClass = getGradientAccentButton(accent)
   const { showError } = useDialog()
+
+  const accent = useMemo(() => getThemeAccent(theme), [theme])
+  const colors = useMemo(() => ({
+    inputFocus: 'focus:ring-primary/20 focus:border-primary'
+  }), [])
   
-  const [tags, setTags] = useState([])
-  const [selectedTagIds, setSelectedTagIds] = useState([])
+  const [tags, setTags] = useState<TagDefinition[]>([])
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([])
   const [newTagName, setNewTagName] = useState('')
   const [loading, setLoading] = useState(false)
   const [showDropdown, setShowDropdown] = useState(false)
-  const inputContainerRef = useRef(null)
+  const inputContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     getTags().then(setTags).catch(() => {})
@@ -37,8 +51,8 @@ function BatchTagModal({ accountIds, accounts = [], onClose, onSuccess }) {
 
   // 点击外部关闭下拉
   useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (inputContainerRef.current && !inputContainerRef.current.contains(e.target)) {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (inputContainerRef.current && !inputContainerRef.current.contains(e.target as Node)) {
         setShowDropdown(false)
       }
     }
@@ -63,7 +77,7 @@ function BatchTagModal({ accountIds, accounts = [], onClose, onSuccess }) {
     setSelectedTagIds([...commonTags])
   }, [accounts, accountIds])
 
-  const handleToggleTag = (tagId) => {
+  const handleToggleTag = (tagId: string) => {
     setSelectedTagIds(prev => 
       prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]
     )
@@ -85,12 +99,12 @@ function BatchTagModal({ accountIds, accounts = [], onClose, onSuccess }) {
     
     const color = PRESET_COLORS[Math.floor(Math.random() * PRESET_COLORS.length)]
     try {
-      const newTag = await invoke('add_tag', { name: safeName, color })
+      const newTag = await invoke<TagDefinition>('add_tag', { name: safeName, color })
       setTags([...tags, newTag])
       setSelectedTagIds([...selectedTagIds, newTag.id])
       setNewTagName('')
     } catch (e) {
-      await showError(t('common.error'), e.toString())
+      await showError(t('common.error'), String(e))
     }
   }
 
@@ -99,9 +113,9 @@ function BatchTagModal({ accountIds, accounts = [], onClose, onSuccess }) {
     try {
       await Promise.all(accountIds.map(id => setAccountTags(id, selectedTagIds)))
       onSuccess?.({ accountIds, selectedTagIds })
-
+      onClose()
     } catch (e) {
-      await showError(t('common.error'), e.toString())
+      await showError(t('common.error'), String(e))
     } finally {
       setLoading(false)
     }
@@ -169,14 +183,14 @@ function BatchTagModal({ accountIds, accounts = [], onClose, onSuccess }) {
                     }
                   }}
                   placeholder={t('tags.searchOrCreate') || '搜索或输入新标签...'}
-                  className={`w-full px-4 py-3 border-2 rounded-xl text-foreground bg-background border-input ${colors.inputFocus} focus:ring-2 transition-all`}
+                  className={`w-full px-4 py-3 border-2 rounded-xl text-foreground bg-background border-input ${colors.inputFocus} focus:ring-2 transition-all outline-none`}
                 />
                 {/* 搜索建议下拉 - 聚焦就显示 */}
                 {showDropdown && availableTags.length > 0 && (
                   <div className={`absolute top-full left-0 right-0 mt-1 glass-card border border-border rounded-xl shadow-lg z-10 max-h-48 overflow-y-auto`}>
                     {filteredTags.map(tag => (
                       <button key={tag.id} onClick={() => { setSelectedTagIds([...selectedTagIds, tag.id]); setNewTagName(''); setShowDropdown(false) }}
-                        className={`w-full px-3 py-2 text-left text-sm text-foreground hover:opacity-80 flex items-center gap-2 transition-colors hover:bg-muted/50 rounded-lg`}
+                        className={`w-full px-3 py-2 text-left text-sm text-foreground hover:opacity-80 flex items-center gap-2 transition-colors hover:bg-muted/50 rounded-lg cursor-pointer`}
                       >
                         <span className="w-3 h-3 rounded-full" style={{ backgroundColor: tag.color }} />
                         {tag.name}
@@ -194,7 +208,7 @@ function BatchTagModal({ accountIds, accounts = [], onClose, onSuccess }) {
                 type="button" 
                 onClick={handleAddTag} 
                 disabled={!newTagName.trim()}
-                className={`px-4 py-3 ${accent.solidBg} text-white rounded-xl text-sm ${accent.solidHoverBg} disabled:opacity-50 transition-all shadow-lg ${accent.shadow} hover:shadow-xl disabled:shadow-none`}
+                className={`px-4 py-3 ${accent.solidBg} text-white rounded-xl text-sm ${accent.solidHoverBg} disabled:opacity-50 transition-all shadow-lg ${accent.shadow} hover:shadow-xl disabled:shadow-none cursor-pointer`}
                 title={t('tags.addTag')}
               >
                 <Plus size={18} />
@@ -212,7 +226,6 @@ function BatchTagModal({ accountIds, accounts = [], onClose, onSuccess }) {
             onClick={handleSubmit}
             disabled={loading}
             loading={loading}
-            className={accentGradientButtonClass}
           >
             {loading ? t('common.saving') : t('common.confirm')}
           </Button>
