@@ -22,8 +22,6 @@ import {
   DialogFooter} from '../../shared/dialog'
 import { Button } from '../../shared/button'
 import { getThemeAccent } from '../KiroConfig/themeAccent'
-import { Account } from '../../../types/account'
-import React from 'react'
 
 interface ImportAccountModalProps {
   onClose: () => void;
@@ -487,7 +485,8 @@ function ImportAccountModal({ onClose, onSuccess, onNavigate }: ImportAccountMod
   const renderResult = (result: any) => (
   <Stack gap="md" p="sm">
     {result.added && result.added.length > 0 && (
-      <Alert icon={<CheckCircle size={20} />} color="teal">
+      <Alert variant="success">
+        <CheckCircle size={20} />
         <div className={`font-medium text-foreground`}>✅ 新增 {result.added.length} 个账号</div>
         {result.added.length > 0 && (
           <div className={`text-sm mt-2 text-foreground`}>{result.added.map((s: any) => s.email).join(', ')}</div>
@@ -496,7 +495,8 @@ function ImportAccountModal({ onClose, onSuccess, onNavigate }: ImportAccountMod
     )}
 
     {result.updated && result.updated.length > 0 && (
-      <Alert icon={<CheckCircle size={20} />} color="blue">
+      <Alert variant="info">
+        <CheckCircle size={20} />
         <div className={`font-medium text-foreground`}>📝 更新 {result.updated.length} 个账号</div>
         {result.updated.length > 0 && (
           <div className={`text-sm mt-2 text-foreground`}>{result.updated.map((s: any) => s.email).join(', ')}</div>
@@ -505,7 +505,8 @@ function ImportAccountModal({ onClose, onSuccess, onNavigate }: ImportAccountMod
     )}
 
     {result.failed && result.failed.length > 0 && (
-      <Alert icon={<AlertCircle size={20} />} color="red">
+      <Alert variant="destructive">
+        <AlertCircle size={20} />
         <div className={`font-medium text-foreground`}>❌ 失败 {result.failed.length} 个</div>
         <Stack gap={4} mt="xs" p={0}>
           {result.failed.map((f: any, i: number) => (
@@ -538,10 +539,8 @@ return (
             {importResult && renderResult(importResult)}
             {kiroResult && renderResult(kiroResult)}
             {kiroCliResult && (
-              <Alert
-                icon={kiroCliResult.success ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
-                color={kiroCliResult.success ? "teal" : "red"}
-              >
+              <Alert variant={kiroCliResult.success ? "success" : "destructive"}>
+                {kiroCliResult.success ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
                 <div className={`text-sm font-medium text-foreground`}>
                   {kiroCliResult.success
                     ? (kiroCliResult.isNew
@@ -574,8 +573,7 @@ return (
               <Progress
                 value={((importing ? importProgress : kiroProgress).total > 0) ? ((importing ? importProgress : kiroProgress).current /
                   (importing ? importProgress : kiroProgress).total * 100) : 0}
-                size="lg"
-                radius="xl"
+                className="h-3 rounded-xl"
               />
             </div>
           </div>
@@ -650,12 +648,14 @@ return (
                 {parseResult && (
                   <Stack gap="xs">
                     {parseResult.valid.length > 0 && (
-                      <Alert icon={<CheckCircle size={16} />} color="teal">
+                      <Alert variant="success">
+                        <CheckCircle size={16} />
                         {t('import.parseSuccess')}: {parseResult.valid.length} {t('import.validRecords')}
                       </Alert>
                     )}
                     {parseResult.errors.length > 0 && (
-                      <Alert icon={<AlertCircle size={16} />} color="red">
+                      <Alert variant="destructive">
+                        <AlertCircle size={16} />
                         <div className={`text-sm font-medium text-foreground`}>{t('import.validationError')}</div>
                         <Stack gap={2} mt="xs">
                           {parseResult.errors.slice(0, 5).map((err: string, i: number) => (
@@ -674,7 +674,7 @@ return (
 
             <TabsContent value="kiro" className="px-6 pb-4 pt-4 outline-none">
               <Stack gap="lg">
-                <Alert color="indigo">
+                <Alert variant="info">
                   <div className={`text-sm font-medium text-foreground`}>从 Kiro IDE 导入账号</div>
                   <div className={`text-xs mt-1 text-muted-foreground`}>
                     自动读取 Kiro IDE 缓存的账号信息（~/.aws/sso/cache/kiro-auth-token.json）
@@ -689,7 +689,8 @@ return (
                     </div>
                   </div>
                 ) : kiroError ? (
-                  <Alert icon={<AlertCircle size={16} />} color="red">
+                  <Alert variant="destructive">
+                    <AlertCircle size={16} />
                     <div className={`text-sm font-medium text-foreground`}>检测失败</div>
                     <div className={`text-xs mt-1 text-muted-foreground`}>{kiroError}</div>
                     <LegacyButton
@@ -704,7 +705,8 @@ return (
                   </Alert>
                 ) : kiroAccounts.length > 0 ? (
                   <>
-                    <Alert icon={<CheckCircle size={16} />} color="teal">
+                    <Alert variant="success">
+                      <CheckCircle size={16} />
                       <div className={`text-sm font-medium text-foreground`}>检测到 {kiroAccounts.length} 个账号</div>
                     </Alert>
 
@@ -731,7 +733,8 @@ return (
                     </div>
                   </>
                 ) : (
-                  <Alert icon={<AlertCircle size={16} />} color="gray">
+                  <Alert variant="default">
+                    <AlertCircle size={16} />
                     <div className={`text-sm text-foreground`}>未检测到 Kiro IDE 账号</div>
                     <div className={`text-xs mt-1 text-muted-foreground`}>
                       请先在 Kiro IDE 中登录账号
@@ -743,7 +746,7 @@ return (
 
             <TabsContent value="kiro-cli" className="px-6 pb-4 pt-4 outline-none">
               <Stack gap="lg">
-                <Alert color="violet">
+                <Alert variant="info">
                   <div className={`text-sm font-medium text-foreground`}>{t('import.kiroCliTitle')}</div>
                   <div className={`text-xs mt-1 text-muted-foreground`}>
                     {t('import.kiroCliHint')}
@@ -754,7 +757,8 @@ return (
                 </Alert>
 
                 {isWindowsOs && (
-                  <Alert icon={<AlertCircle size={16} />} color="blue">
+                  <Alert variant="info">
+                    <AlertCircle size={16} />
                     <div className={`text-sm font-medium text-foreground`}>{t('import.kiroCliWindowsTitle')}</div>
                     <div className={`text-xs mt-1 text-muted-foreground`}>
                       {t('import.kiroCliWindowsHint')}
@@ -770,12 +774,14 @@ return (
                     </div>
                   </div>
                 ) : kiroCliDetected ? (
-                  <Alert icon={<CheckCircle size={16} />} color="teal">
+                  <Alert variant="success">
+                    <CheckCircle size={16} />
                     <div className={`text-sm font-medium text-foreground`}>{t('import.kiroCliDetected')}</div>
                     <div className={`text-xs mt-1 text-muted-foreground`}>{kiroCliDbPath}</div>
                   </Alert>
                 ) : (
-                  <Alert icon={<AlertCircle size={16} />} color="gray">
+                  <Alert variant="default">
+                    <AlertCircle size={16} />
                     <div className={`text-sm text-foreground`}>{t('import.kiroCliNotDetected')}</div>
                     <div className={`text-xs mt-1 text-muted-foreground`}>
                       {t('import.kiroCliPathHintManual')}

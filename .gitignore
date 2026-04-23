@@ -48,3 +48,4 @@ src-tauri/clippy_warnings.txt
 
 .breezell/
 scratch/
+artifacts/test_api_multi.py

@@ -910,7 +910,6 @@ async fn add_account_by_idc_internal(
                 }
                 Err(e) => return Err(e),
             }
-        }
     } else {
         // 没有 access_token，直接刷新
         let metadata = RefreshMetadata {
@@ -1355,6 +1354,15 @@ pub async fn list_available_models(
                 }
             }
             Ok(response)
+        }
+        Err(error) if error.starts_with("BANNED:") => {
+            // 更新账号状态为封禁
+            let mut store = lock_store(&state.store, "store")?;
+            if let Some(stored_account) = store.accounts.iter_mut().find(|item| item.id == id) {
+                stored_account.status = "banned".to_string();
+                save_store(&store)?;
+            }
+            Err(error)
         }
         Err(error) => Err(error),
     }

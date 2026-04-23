@@ -293,6 +293,8 @@ const AccountCard = memo(function AccountCard({
           <DialogBody className="py-6">
             {availableModelsLoading ? (
               <div className="flex justify-center py-12"><Repeat className="animate-spin text-primary" size={32} /></div>
+            ) : availableModelsError ? (
+              <div className="text-center py-12 text-red-500">{availableModelsError}</div>
             ) : hasLoadedAvailableModels ? (
               <div className="flex flex-wrap gap-2">
                 {(resolvedAvailableModels as any[]).map(m => (

@@ -139,8 +139,7 @@ function AgentsPanel({ onCountChange, projectDir }: any) {
   const [saving, setSaving] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [editToolsDropdownOpened, setEditToolsDropdownOpened] = useState(false)
-  const [editModelDropdownOpened, setEditModelDropdownOpened] = useState(false)
+
 
   const loadAgents = useCallback(async () => {
     setLoading(true)
@@ -397,7 +396,7 @@ function AgentsPanel({ onCountChange, projectDir }: any) {
                     value={editState.name}
                     onChange={(e) => updateEditState('name', e.target.value)}
                     placeholder={t('agents.fmNamePlaceholder')}
-                    classNames={{ input: `text-foreground bg-background border-input ${colors.inputFocus}` }}
+                    className={`text-foreground bg-background border-input ${colors.inputFocus}`}
                     style={{ width: '140px', borderRadius: '0.5rem', height: '1.5rem', padding: '0 0.5rem', fontSize: '0.75rem' }}
                   />
                 </div>
@@ -407,7 +406,7 @@ function AgentsPanel({ onCountChange, projectDir }: any) {
                     value={editState.description}
                     onChange={(e) => updateEditState('description', e.target.value)}
                     placeholder={t('agents.fmDescriptionPlaceholder')}
-                    classNames={{ input: `text-foreground bg-background border-input ${colors.inputFocus}` }}
+                    className={`text-foreground bg-background border-input ${colors.inputFocus}`}
                     style={{ flex: 1, minWidth: '200px', borderRadius: '0.5rem', height: '1.5rem', padding: '0 0.5rem', fontSize: '0.75rem' }}
                   />
                 </div>
@@ -419,55 +418,12 @@ function AgentsPanel({ onCountChange, projectDir }: any) {
                 <div className="flex-1">
                   <MultiSelect
                     value={editState.tools}
-                    onValueChange={(v) => updateEditState('tools', v)}
-                    dropdownOpened={editToolsDropdownOpened}
-                    onDropdownOpen={() => {
-                      setEditToolsDropdownOpened(true)
-                      setEditModelDropdownOpened(false)
-                    }}
-                    onDropdownClose={() => setEditToolsDropdownOpened(false)}
-                    data={AVAILABLE_TOOL_TAGS.map(tag => ({ value: tag, label: tag === '*' ? '* (全部工具)' : tag }))}
+                    onChange={(v) => updateEditState('tools', v)}
+                    options={AVAILABLE_TOOL_TAGS.map(tag => ({ value: tag, label: tag === '*' ? '* (全部工具)' : tag }))}
                     placeholder={t('agents.selectTools')}
                     searchable
                     clearable
-                    classNames={{
-                      input: `text-foreground bg-background border-input ${colors.inputFocus}`,
-                      dropdown: `glass-card border border-border`,
-                      option: `text-foreground`,
-                      pillsList: 'gap-1'
-                    }}
-                    styles={{
-                      input: {
-                        borderRadius: '0.5rem',
-                        minHeight: '28px',
-                        backgroundColor: surface.inputBg,
-                        borderColor: surface.inputBorder,
-                        color: surface.inputText,
-                        padding: '2px 8px'},
-                      inputField: {
-                        color: surface.inputText,
-                        fontSize: '0.75rem',
-                        '&::placeholder': {
-                          color: surface.placeholder,
-                          opacity: 1
-                        }
-                      },
-                      dropdown: {
-                        backgroundColor: surface.dropdownBg,
-                        borderColor: surface.dropdownBorder},
-                      option: {
-                        color: surface.inputText,
-                        fontSize: '0.75rem',
-                        backgroundColor: 'transparent'},
-                      pill: {
-                        backgroundColor: surface.pillBg,
-                        color: surface.pillText,
-                        border: surface.pillBorder,
-                        borderRadius: '0.375rem',
-                        height: '20px',
-                        fontSize: '0.7rem'
-                      }
-                    }}
+                    className={`text-foreground bg-background border-input ${colors.inputFocus}`}
                   />
                 </div>
               </div>
@@ -477,41 +433,17 @@ function AgentsPanel({ onCountChange, projectDir }: any) {
                   <span className={`text-xs text-muted-foreground`}>{t('agents.model')}:</span>
                   <Select
                     value={editState.model}
-                    onChange={(v) => updateEditState('model', v || '')}
-                    dropdownOpened={editModelDropdownOpened}
-                    onDropdownOpen={() => {
-                      setEditModelDropdownOpened(true)
-                      setEditToolsDropdownOpened(false)
-                    }}
-                    onDropdownClose={() => setEditModelDropdownOpened(false)}
-                    data={AVAILABLE_MODELS}
-                    clearable
-                    classNames={{
-                      input: `text-foreground bg-background border-input ${colors.inputFocus}`,
-                      dropdown: `glass-card border border-border`,
-                      option: `text-foreground`,
-                      pill: `bg-muted/30 text-foreground border border-border`
-
-                    }}
-                    styles={{
-                      input: {
-                        minWidth: '180px',
-                        borderRadius: '0.5rem',
-                        height: '1.5rem',
-                        fontSize: '0.75rem',
-                        padding: '0 0.5rem',
-                        backgroundColor: surface.inputBg,
-                        borderColor: surface.inputBorder,
-                        color: surface.inputText},
-                      dropdown: {
-                        backgroundColor: surface.dropdownBg,
-                        borderColor: surface.dropdownBorder},
-                      option: {
-                        color: surface.inputText,
-                        fontSize: '0.75rem',
-                        backgroundColor: 'transparent'}
-                    }}
-                  />
+                    onValueChange={(v) => updateEditState('model', v || '')}
+                  >
+                    <SelectTrigger className={`min-w-[180px] h-6 text-xs ${colors.inputFocus}`}>
+                      <SelectValue placeholder={t('agents.model')} />
+                    </SelectTrigger>
+                    <SelectContent className="">
+                      {AVAILABLE_MODELS.map(m => (
+                        <SelectItem key={m.value} value={m.value} className="">{m.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="flex items-center gap-2">
                   <Switch
@@ -534,25 +466,11 @@ function AgentsPanel({ onCountChange, projectDir }: any) {
                 value={editState.body}
                 onChange={(e) => updateEditState('body', e.target.value)}
                 placeholder={t('agents.contentPlaceholder')}
-                classNames={{
-                  input: `${colors.inputFocus}`
-                }}
-                styles={{
-                  root: { height: '100%', display: 'flex', flexDirection: 'column' },
-                  wrapper: { flex: 1, display: 'flex' },
-                  input: {
-                    flex: 1,
-                    height: '100%',
-                    minHeight: '400px',
-                    padding: '1rem',
-                    borderRadius: '0.75rem',
-                    fontSize: '0.875rem',
-                    lineHeight: '1.5',
-                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                    resize: 'none',
-                    color: surface.editorText,
-                    backgroundColor: surface.editorBg,
-                    borderColor: surface.editorBorder}
+                className={`flex-1 h-full min-h-[400px] p-4 rounded-xl text-sm leading-relaxed font-mono resize-none ${colors.inputFocus}`}
+                style={{
+                  color: surface.editorText,
+                  backgroundColor: surface.editorBg,
+                  borderColor: surface.editorBorder
                 }}
               />
             </div>
@@ -590,8 +508,7 @@ function CreateAgentModal({ onCreate, onClose, accent, surface, accentGradientBu
   const [tools, setTools] = useState<string[]>([])
   const [model, setModel] = useState('')
   const [scope, setScope] = useState('user')
-  const [toolsDropdownOpened, setToolsDropdownOpened] = useState(false)
-  const [modelDropdownOpened, setModelDropdownOpened] = useState(false)
+
 
   const handleToolsChange = (values: string[]) => {
     setTools(prev => normalizeToolTagsSelection(values, prev))
@@ -623,7 +540,7 @@ function CreateAgentModal({ onCreate, onClose, accent, surface, accentGradientBu
               placeholder={t('agents.agentNamePlaceholder')}
               value={agentName}
               onChange={(e) => setAgentName(e.target.value)}
-              classNames={{ input: `text-foreground bg-background border-input ${colors.inputFocus}` }}
+              className={`text-foreground bg-background border-input ${colors.inputFocus}`}
               style={{ borderRadius: '0.5rem' }}
             />
             <p className={`text-xs text-muted-foreground mt-1`}>{t('agents.agentNameHint')}</p>
@@ -635,7 +552,7 @@ function CreateAgentModal({ onCreate, onClose, accent, surface, accentGradientBu
               placeholder={t('agents.fmDescriptionPlaceholder')}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              classNames={{ input: `text-foreground bg-background border-input ${colors.inputFocus}` }}
+              className={`text-foreground bg-background border-input ${colors.inputFocus}`}
               style={{ borderRadius: '0.5rem' }}
             />
           </div>
@@ -644,48 +561,11 @@ function CreateAgentModal({ onCreate, onClose, accent, surface, accentGradientBu
             <label className={`block text-xs font-medium text-muted-foreground mb-1.5`}>{t('agents.toolTags')}</label>
             <MultiSelect
               value={tools}
-              onValueChange={handleToolsChange}
-              dropdownOpened={toolsDropdownOpened}
-              onDropdownOpen={() => {
-                setToolsDropdownOpened(true)
-                setModelDropdownOpened(false)
-              }}
-              onDropdownClose={() => setToolsDropdownOpened(false)}
-              data={AVAILABLE_TOOL_TAGS.map(tag => ({ value: tag, label: tag === '*' ? '* (全部工具)' : tag }))}
+              onChange={handleToolsChange}
+              options={AVAILABLE_TOOL_TAGS.map(tag => ({ value: tag, label: tag === '*' ? '* (全部工具)' : tag }))}
               placeholder={t('agents.selectTools')}
               searchable clearable
-              classNames={{
-                input: `text-foreground bg-background border-input ${colors.inputFocus}`,
-                dropdown: `glass-card border border-border`,
-                option: `text-foreground`,
-                pillsList: 'gap-1'
-              }}
-              styles={{
-                input: {
-                  borderRadius: '0.5rem',
-                  backgroundColor: surface.inputBg,
-                  borderColor: surface.inputBorder,
-                  color: surface.inputText},
-                inputField: {
-                  color: surface.inputText,
-                  '&::placeholder': {
-                    color: surface.placeholder,
-                    opacity: 1
-                  }
-                },
-                dropdown: {
-                  backgroundColor: surface.dropdownBg,
-                  borderColor: surface.dropdownBorder},
-                option: {
-                  color: surface.inputText,
-                  backgroundColor: 'transparent'},
-                pill: {
-                  backgroundColor: surface.pillBg,
-                  color: surface.pillText,
-                  border: surface.pillBorder,
-                  borderRadius: '0.375rem'
-                }
-              }}
+              className={`text-foreground bg-background border-input ${colors.inputFocus}`}
             />
           </div>
 
@@ -693,34 +573,17 @@ function CreateAgentModal({ onCreate, onClose, accent, surface, accentGradientBu
             <label className={`block text-xs font-medium text-muted-foreground mb-1.5`}>{t('agents.model')}</label>
             <Select
               value={model}
-              onChange={(v) => setModel(v || '')}
-              dropdownOpened={modelDropdownOpened}
-              onDropdownOpen={() => {
-                setModelDropdownOpened(true)
-                setToolsDropdownOpened(false)
-              }}
-              onDropdownClose={() => setModelDropdownOpened(false)}
-              data={AVAILABLE_MODELS}
-              clearable
-              classNames={{
-                input: `text-foreground bg-background border-input ${colors.inputFocus}`,
-                dropdown: `glass-card border border-border`,
-                option: `text-foreground`
-              }}
-              styles={{
-                input: {
-                  borderRadius: '0.5rem',
-                  backgroundColor: surface.inputBg,
-                  borderColor: surface.inputBorder,
-                  color: surface.inputText},
-                dropdown: {
-                  backgroundColor: surface.dropdownBg,
-                  borderColor: surface.dropdownBorder},
-                option: {
-                  color: surface.inputText,
-                  backgroundColor: 'transparent'}
-              }}
-            />
+              onValueChange={(v) => setModel(v || '')}
+            >
+              <SelectTrigger className={`w-full ${colors.inputFocus}`}>
+                <SelectValue placeholder={t('agents.model')} />
+              </SelectTrigger>
+              <SelectContent className="">
+                {AVAILABLE_MODELS.map(m => (
+                  <SelectItem key={m.value} value={m.value} className="">{m.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {hasProjectDir && (
@@ -728,30 +591,16 @@ function CreateAgentModal({ onCreate, onClose, accent, surface, accentGradientBu
               <label className={`block text-xs font-medium text-muted-foreground mb-1.5`}>{t('kiroConfig.scope')}</label>
               <Select
                 value={scope}
-                onChange={setScope}
-                data={[
-                  { value: 'user', label: t('kiroConfig.scopeUser') },
-                  { value: 'project', label: t('kiroConfig.scopeProject') },
-                ]}
-                classNames={{
-                  input: `text-foreground bg-background border-input ${colors.inputFocus}`,
-                  dropdown: `glass-card border border-border`,
-                  option: `text-foreground`
-                }}
-                styles={{
-                  input: {
-                    borderRadius: '0.5rem',
-                    backgroundColor: surface.inputBg,
-                    borderColor: surface.inputBorder,
-                    color: surface.inputText},
-                  dropdown: {
-                    backgroundColor: surface.dropdownBg,
-                    borderColor: surface.dropdownBorder},
-                  option: {
-                    color: surface.inputText,
-                    backgroundColor: 'transparent'}
-                }}
-              />
+                onValueChange={setScope}
+              >
+                <SelectTrigger className={`w-full ${colors.inputFocus}`}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="">
+                  <SelectItem value="user" className="">{t('kiroConfig.scopeUser')}</SelectItem>
+                  <SelectItem value="project" className="">{t('kiroConfig.scopeProject')}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           )}
 
