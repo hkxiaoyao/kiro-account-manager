@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct NormalizedRequest {
     pub model: String,

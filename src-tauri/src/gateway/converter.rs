@@ -1150,7 +1150,10 @@ async fn extract_image_block(client: &Client, item: &Value) -> Option<ImageBlock
                 .unwrap_or("image/png");
             Some(ImageBlock {
                 format: media_type_to_format(media_type)?,
-                source: ImageSource { bytes },
+                source: ImageSource {
+                    source_type: "base64".to_string(),
+                    data: bytes,
+                },
             })
         }
         "image_url" => {
@@ -1161,7 +1164,10 @@ async fn extract_image_block(client: &Client, item: &Value) -> Option<ImageBlock
             let (format, bytes) = resolve_image_source(client, url).await?;
             Some(ImageBlock {
                 format,
-                source: ImageSource { bytes },
+                source: ImageSource {
+                    source_type: "base64".to_string(),
+                    data: bytes,
+                },
             })
         }
         "input_image" => {
@@ -1172,7 +1178,10 @@ async fn extract_image_block(client: &Client, item: &Value) -> Option<ImageBlock
             let (format, bytes) = resolve_image_source(client, url).await?;
             Some(ImageBlock {
                 format,
-                source: ImageSource { bytes },
+                source: ImageSource {
+                    source_type: "base64".to_string(),
+                    data: bytes,
+                },
             })
         }
         _ => None,

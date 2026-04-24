@@ -190,9 +190,13 @@ async fn fetch_available_models_page(
             ));
         }
 
-        // 403 → 直接判断为封禁
+        // 403 → 检查是否为封禁（AccessDeniedException + TemporarilySuspended）
         if status.as_u16() == 403 {
-            return Err(format!("BANNED: ListAvailableModels 403 封禁: {body}"));
+            if body.contains("AccessDeniedException") && body.contains("TemporarilySuspended") {
+                return Err(format!("BANNED: ListAvailableModels 403 封禁: {body}"));
+            }
+            // 其他 403 错误（如权限问题）不视为封禁
+            return Err(format!("AUTH_ERROR: ListAvailableModels 403: {body}"));
         }
 
         return Err(format!("ListAvailableModels failed ({status}): {body}"));
