@@ -120,8 +120,6 @@ pub struct UserInputMessage {
     pub images: Option<Vec<ImageBlock>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_input_message_context: Option<UserInputMessageContext>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub inference_config: Option<InferenceConfig>,
 }
 
 #[derive(Debug, Clone, Serialize)]

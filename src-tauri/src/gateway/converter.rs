@@ -269,7 +269,6 @@ pub async fn build_kiro_payload(
         .clone()
         .unwrap_or_else(|| Uuid::new_v4().to_string());
     let agent_continuation_id = conversation_id.clone();
-    let inference_config = build_inference_config(request);
     let (processed_tools, tool_docs) = process_tools_with_long_descriptions(&request.tools);
     let tool_docs_for_current = tool_docs.clone();
 
@@ -413,7 +412,6 @@ pub async fn build_kiro_payload(
                         normalize_tool_choice(&request.tool_choice, &processed_tools)?,
                         current_tool_results,
                     ),
-                    inference_config,
                 },
             },
             history,
