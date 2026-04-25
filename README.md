@@ -387,7 +387,7 @@ A: 网络超时，手动再刷新一次或换个网络试试。
 A: 这通常是 macOS 给应用打了隔离属性，不是安装包真的坏了。把应用拖到 `/Applications` 后执行：
 
 ```bash
-xattr -cr /Applications/Kiro\ Account\ Manager.app
+xattr -cr /Applications/KiroAccountManager.app
 ```
 
 然后重新打开应用即可。
