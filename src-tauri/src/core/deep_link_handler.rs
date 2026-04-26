@@ -5,7 +5,7 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-const DEEP_LINK_SCHEME: &str = "kiro-account-manager";
+const DEEP_LINK_SCHEME: &str = "kiro";
 const DEEP_LINK_REDIRECT_URI: &str = "kiro.kiroAgent/authenticate-success";
 
 /// OAuth 回调结果（state 已在 `handle_deep_link` 中验证）
