@@ -233,9 +233,5 @@ mod tests {
                 .code,
             "ok"
         );
-    /// 获取 `redirect_uri` (根据环境自动选择协议)
-    pub fn get_redirect_uri() -> String {
-        format!("{}://{}", DEEP_LINK_SCHEME, DEEP_LINK_REDIRECT_URI)
     }
-    
 }

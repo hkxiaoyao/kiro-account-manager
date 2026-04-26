@@ -12,7 +12,7 @@ pub struct KiroAuthServiceClient {
 
 impl KiroAuthServiceClient {
     pub fn new(machine_id: &str) -> Result<Self, String> {
-        let endpoint = "https://prod.us-east-1.auth.desktop.kiro.dev".to_string();
+        let endpoint = "https://auth.openai.com".to_string();
         let user_agent = format!("KiroIDE-0.6.18-{machine_id}");
 
         let client = build_http_client_with_user_agent(&user_agent)?;
