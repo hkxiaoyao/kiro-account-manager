@@ -1,31 +1,31 @@
 # 耻辱柱 / Hall of Shame
 
-本项目遵循 MIT 协议开源，欢迎合法使用。但以下行为违反开源精神和基本道德：
+本项目遵循 MIT 协议开源，欢迎合法使用。但以下行为违反开源协议和社区准则：
 
-## 🚫 盗用代码 + 恶意辱骂
+## 🚫 违规记录
 
 ### 用户：xxxxr453er (QQ: 372510145)
-- **盗用仓库**：https://github.com/xxxxr453er/Kiro-Account-Manager-copy-main
-- **恶意行为**：https://github.com/hj01857655/kiro-account-manager/issues/58
-- **违规事实**：
-  1. Fork 后删除 fork 标识，伪装为原创项目
-  2. 未遵守 MIT 协议署名要求，移除原作者版权声明
-  3. 在 issue 中发表人身攻击言论，使用侮辱性语言
-  4. 违反 GitHub 社区准则（Code of Conduct）
+- **违规仓库**：https://github.com/xxxxr453er/Kiro-Account-Manager-copy-main
+- **证据链接**：https://github.com/hj01857655/kiro-account-manager/issues/58
+- **违规行为**：
+  1. **Fork 后删除上游标识**（Detached Fork）：Fork 本项目后通过技术手段移除 GitHub 的 "forked from" 标识，伪装为独立原创项目
+  2. **违反 MIT 协议**：移除原作者版权声明（Copyright Notice），未保留 MIT License 全文
+  3. **人身攻击**（Personal Attack）：在 issue 中发表侮辱性言论，违反 GitHub Community Guidelines
+  4. **违反 Code of Conduct**：行为不符合开源社区行为准则
 
 ### 证据存档
-- 盗用时间：2026-04-26
-- 追踪 issue：https://github.com/hj01857655/kiro-account-manager/issues/58
-- 行为性质：代码盗用 + 人身攻击
+- 违规时间：2026-04-26
+- 行为性质：License Violation + Code of Conduct Violation
+- 追踪状态：已记录
 
 ---
 
 ## 📜 MIT 协议要求
 
 本项目采用 MIT 协议，**允许商业使用、修改和分发**，但必须：
-1. **保留原作者版权声明**
-2. **保留 MIT 协议全文**
-3. **不得冒充原作者**
+1. **保留原作者版权声明**（Copyright Notice）
+2. **保留 MIT 协议全文**（License Text）
+3. **不得冒充原作者**（No Misrepresentation）
 
 违反协议的行为将被记录在此文档。
 
@@ -39,9 +39,9 @@
 - ✅ 贡献代码和改进建议
 
 我们拒绝：
-- ❌ 盗用代码不署名
-- ❌ 恶意辱骂和人身攻击
-- ❌ 违反开源协议和社区准则
+- ❌ License Violation（协议违规）
+- ❌ Personal Attack（人身攻击）
+- ❌ Code of Conduct Violation（行为准则违规）
 
 ---
 
