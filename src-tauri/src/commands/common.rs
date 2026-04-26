@@ -154,9 +154,11 @@ pub async fn get_usage_by_provider(
     temp_account.provider = Some(provider.to_string());
     temp_account.machine_id = Some(get_machine_id());
 
-    // BuilderId 需要特殊处理 auth_method
-    if provider == "BuilderId" {
+    // 根据 provider 设置 auth_method（profile_arn 由 get_usage_by_account 统一处理）
+    if provider == "BuilderId" || provider == "Enterprise" {
         temp_account.auth_method = Some("IdC".to_string());
+    } else {
+        temp_account.auth_method = Some("social".to_string());
     }
 
     get_usage_by_account(&temp_account, access_token).await

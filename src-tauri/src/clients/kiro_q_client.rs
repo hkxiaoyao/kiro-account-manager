@@ -24,34 +24,36 @@ impl KiroQClient {
         machine_id: &str,
         region: &str,
         profile_arn: Option<&str>,
-        auth_method: Option<&str>,
-        provider: Option<&str>,
+        _auth_method: Option<&str>,
+        _provider: Option<&str>,
     ) -> Result<serde_json::Value, String> {
         let user_agent = build_kiro_custom_user_agent(machine_id);
 
-        // 构建 URL，参数顺序对齐 Kiro IDE 源码
-        let mut url = format!(
-            "{}/getUsageLimits?isEmailRequired=true&origin=AI_EDITOR",
-            build_q_service_url(region)
-        );
-
-        if let Some(arn) = profile_arn.filter(|s| !s.trim().is_empty()) {
-            url = format!("{}&profileArn={}", url, urlencoding::encode(arn));
-        }
-
-        url = format!("{}&resourceType=AGENTIC_REQUEST", url);
+        // 构建 URL，参数顺序：isEmailRequired → origin → profileArn → resourceType
+        let url = if let Some(arn) = profile_arn.filter(|s| !s.trim().is_empty()) {
+            format!(
+                "{}/getUsageLimits?isEmailRequired=true&origin=AI_EDITOR&profileArn={}&resourceType=AGENTIC_REQUEST",
+                build_q_service_url(region),
+                urlencoding::encode(arn)
+            )
+        } else {
+            format!(
+                "{}/getUsageLimits?isEmailRequired=true&origin=AI_EDITOR&resourceType=AGENTIC_REQUEST",
+                build_q_service_url(region)
+            )
+        };
 
         let invocation_id = Uuid::new_v4().to_string();
-        let request = apply_kiro_runtime_headers(
-            self.client.get(&url),
-            access_token,
-            &user_agent,
-            "application/json",
-            auth_method,
-            provider,
-        )
-        .header("amz-sdk-invocation-id", invocation_id)
-        .header("amz-sdk-request", "attempt=1; max=1");
+
+        // getUsageLimits 不需要 tokentype header，手动构建
+        let request = self.client
+            .get(&url)
+            .header("Authorization", format!("Bearer {}", access_token))
+            .header("accept", "application/json")
+            .header("user-agent", &user_agent)
+            .header("x-amz-user-agent", &user_agent)
+            .header("amz-sdk-invocation-id", invocation_id)
+            .header("amz-sdk-request", "attempt=1; max=1");
 
         let response = request
             .send()
@@ -76,7 +78,7 @@ impl KiroQClient {
                         .and_then(|m| m.as_str())
                         .unwrap_or("账号已被封禁");
 
-                    if reason == "TEMPORARILY_SUSPENDED" {
+                    if reason == "TemporarilySuspended" {
                         return Err(format!("BANNED: {}", message));
                     }
                 }
@@ -182,7 +184,7 @@ impl KiroQClient {
             if status_code == 403 {
                 if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&body) {
                     let reason = parsed.get("reason").and_then(|r| r.as_str());
-                    if reason == Some("TEMPORARILY_SUSPENDED") {
+                    if reason == Some("TemporarilySuspended") {
                         let message = parsed
                             .get("message")
                             .and_then(|m| m.as_str())
@@ -268,7 +270,7 @@ impl KiroQClient {
                         .and_then(|m| m.as_str())
                         .unwrap_or("账号已被封禁");
 
-                    if reason == "TEMPORARILY_SUSPENDED" {
+                    if reason == "TemporarilySuspended" {
                         return Err(format!("BANNED: {}", message));
                     }
                 }

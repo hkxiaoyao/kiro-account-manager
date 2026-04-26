@@ -78,7 +78,7 @@ interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 }
 
 /**
- * Badge component with color variants (adapted from Mantine)
+ * Badge component with color variants
  */
 export function Badge({ color, className = '', children, ...props }: BadgeProps) {
   const toneClass = color === 'green'
@@ -104,7 +104,7 @@ interface CardProps extends BaseProps {
 }
 
 /**
- * Card component with border and radius options (adapted from Mantine)
+ * Card component with border and radius options
  */
 export function Card({ withBorder, radius, className = '', children, ...props }: CardProps) {
   const borderClass = withBorder ? 'border border-gray-200 dark:border-gray-800' : ''

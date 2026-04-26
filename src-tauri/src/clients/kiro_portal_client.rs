@@ -129,8 +129,8 @@ impl KiroPortalClient {
                         .and_then(|m| m.as_str())
                         .unwrap_or("账号已被封禁");
 
-                    // 403 + reason 为 TEMPORARILY_SUSPENDED → 封禁
-                    if reason == "TEMPORARILY_SUSPENDED" {
+                    // 403 + reason 为 TemporarilySuspended → 封禁
+                    if reason == "TemporarilySuspended" {
                         return Err(format!("BANNED: {message}"));
                     }
                 }

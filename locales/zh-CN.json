@@ -564,6 +564,7 @@
   "editAccount.sessionId": "Session ID",
   "editAccount.profileArn": "Profile ARN",
   "editAccount.saveFailed": "保存失败",
+  "editAccount.verifyFailed": "验证失败",
 
   "accountCard.switchAccount": "切换账号",
   "accountCard.refresh": "刷新数据",

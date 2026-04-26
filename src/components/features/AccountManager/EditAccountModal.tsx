@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { invoke } from '@tauri-apps/api/core'
-import { Copy, Check, Folder, Plus, X } from 'lucide-react'
+import { Copy, Check, Folder, Plus, X, RefreshCw, Loader2, CheckCircle } from 'lucide-react'
 import { useApp } from '../../../hooks/useApp'
 import { useDialog } from '../../../contexts/DialogContext'
 import { setAccountTags, setAccountGroup, getGroups, addGroup } from '../../../api/groupTag'
@@ -18,7 +19,6 @@ import {
 import { Button } from '../../shared/button'
 import { getThemeAccent } from '../KiroConfig/themeAccent'
 import { Account, GroupDefinition } from '../../../types/account'
-import React from 'react'
 
 const PRESET_COLORS = [
   '#3b82f6', '#10b981', '#f59e0b', '#ef4444', 
@@ -117,6 +117,12 @@ interface EditAccountModalProps {
   onSuccess?: (account: Account) => void;
 }
 
+interface VerifyAccountResponse {
+  usageData: any;
+  accessToken: string;
+  refreshToken: string;
+}
+
 function EditAccountModal({ account, onClose, onSuccess }: EditAccountModalProps) {
   const { t, theme } = useApp()
   const { showError } = useDialog()
@@ -139,11 +145,37 @@ function EditAccountModal({ account, onClose, onSuccess }: EditAccountModalProps
   const [selectedGroupId, setSelectedGroupId] = useState(account.groupId || '')
   const [groups, setGroups] = useState<GroupDefinition[]>([])
   const [saving, setSaving] = useState(false)
+  const [verifying, setVerifying] = useState(false)
   const [copiedField, setCopiedField] = useState<string | null>(null)
+  
+  // 账号信息状态（验证后更新）
+  const [accountInfo, setAccountInfo] = useState<{
+    email: string;
+    subscriptionType: string;
+    usage: { current: number; limit: number };
+    daysRemaining?: number;
+  } | null>(null)
 
   useEffect(() => {
     getGroups().then(setGroups).catch(() => {})
-  }, [])
+    
+    // 初始化账号信息
+    if (account.usageData) {
+      const usageData = account.usageData
+      const userInfo = usageData.userInfo || {}
+      const subscriptionInfo = usageData.subscriptionInfo
+      
+      setAccountInfo({
+        email: account.email || userInfo.email || '',
+        subscriptionType: subscriptionInfo?.subscriptionTitle || subscriptionInfo?.type || 'Free',
+        usage: {
+          current: usageData.totalUsage || 0,
+          limit: usageData.limits?.[0] || 0
+        },
+        daysRemaining: usageData.daysUntilReset
+      })
+    }
+  }, [account])
 
   const handleCopy = async (text: string, field: string) => {
     try {
@@ -152,6 +184,57 @@ function EditAccountModal({ account, onClose, onSuccess }: EditAccountModalProps
       setTimeout(() => setCopiedField(null), 2000)
     } catch (e) {
       console.error('复制失败:', e)
+    }
+  }
+
+  const handleVerifyAndRefresh = async () => {
+    if (!form.refreshToken) {
+      await showError(t('editAccount.verifyFailed'), '请填写 Refresh Token')
+      return
+    }
+    if (isIdCAccount && (!form.clientId || !form.clientSecret)) {
+      await showError(t('editAccount.verifyFailed'), '请填写 Client ID 和 Client Secret')
+      return
+    }
+
+    setVerifying(true)
+    try {
+      const result = await invoke<VerifyAccountResponse>('verify_account', {
+        params: {
+          accessToken: form.accessToken,
+          refreshToken: form.refreshToken,
+          provider: account.provider,
+          clientId: isIdCAccount ? form.clientId : null,
+          clientSecret: isIdCAccount ? form.clientSecret : null,
+          region: null
+        }
+      })
+
+      // 更新表单中的 token
+      setForm(prev => ({
+        ...prev,
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken
+      }))
+
+      // 更新账号信息显示
+      const usageData = result.usageData
+      const userInfo = usageData.userInfo || {}
+      const subscriptionInfo = usageData.subscriptionInfo
+      
+      setAccountInfo({
+        email: userInfo.email || '',
+        subscriptionType: subscriptionInfo?.subscriptionTitle || subscriptionInfo?.type || 'Free',
+        usage: {
+          current: usageData.totalUsage || 0,
+          limit: usageData.limits?.[0] || 0
+        },
+        daysRemaining: usageData.daysUntilReset
+      })
+    } catch (e) {
+      await showError(t('editAccount.verifyFailed'), String(e))
+    } finally {
+      setVerifying(false)
     }
   }
 
@@ -180,15 +263,65 @@ function EditAccountModal({ account, onClose, onSuccess }: EditAccountModalProps
     }
   }
 
-  return (
+  const dialogContent = (
     <DialogRoot open={true} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent maxWidth="480px">
-        <DialogHeader icon={Folder} iconColor={accent.text} iconBg={accent.iconBadgeBg}>
-          <DialogTitle>{t('editAccount.title')}</DialogTitle>
-          <DialogDescription>{getAccountDisplayName(account)}</DialogDescription>
-        </DialogHeader>
+      <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
-        <DialogBody>
+        <div className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden bg-background rounded-2xl shadow-2xl z-10 animate-in zoom-in-95 duration-200 flex flex-col">
+          {/* Sticky Header */}
+          <div className="sticky top-0 bg-background/95 backdrop-blur-sm z-20 border-b border-border">
+            <DialogHeader icon={Folder} iconColor={accent.text} iconBg={accent.iconBadgeBg}>
+              <DialogTitle>{t('editAccount.title')}</DialogTitle>
+              <DialogDescription>{getAccountDisplayName(account)}</DialogDescription>
+            </DialogHeader>
+            <button
+              onClick={onClose}
+              className="absolute top-4 right-4 p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+              aria-label="Close"
+            >
+              <X size={20} className="text-muted-foreground" />
+            </button>
+          </div>
+
+          {/* Scrollable Body */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* 当前账号状态 */}
+          {accountInfo && (
+            <div className={`p-4 rounded-xl border space-y-3 ${accent.subtleBg} border-primary/10`}>
+              <div className="flex items-center justify-between border-b border-primary/10 pb-2">
+                <span className="text-sm font-semibold text-foreground/80">当前账号状态</span>
+                <div className="px-2.5 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs font-medium flex items-center gap-1.5">
+                  <CheckCircle size={14} />
+                  已验证
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-muted-foreground text-xs block mb-1">邮箱</span>
+                  <span className="font-medium font-mono text-xs truncate block" title={accountInfo.email}>
+                    {accountInfo.email}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground text-xs block mb-1">订阅计划</span>
+                  <span className="font-medium">{accountInfo.subscriptionType}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground text-xs block mb-1">使用额度</span>
+                  <span className="font-medium">
+                    {accountInfo.usage.current.toLocaleString()} / {accountInfo.usage.limit.toLocaleString()}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground text-xs block mb-1">剩余天数</span>
+                  <span className="font-medium">{accountInfo.daysRemaining ?? '-'} 天</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 账号别名 */}
           <div>
             <label className={`block text-sm font-medium text-foreground mb-2`}>
               {t('accounts.remark')}
@@ -202,7 +335,61 @@ function EditAccountModal({ account, onClose, onSuccess }: EditAccountModalProps
             />
           </div>
 
-          <div className="mt-4">
+          {/* Access Token（只读，可复制） */}
+          {form.accessToken && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className={`text-sm font-medium text-foreground`}>
+                  Access Token
+                </label>
+                <button
+                  onClick={() => handleCopy(form.accessToken, 'accessToken')}
+                  className={`text-xs px-2 py-1 rounded-lg hover:bg-muted/50 cursor-pointer flex items-center gap-1`}
+                >
+                  {copiedField === 'accessToken' ? (
+                    <>
+                      <Check size={12} className="text-green-500" />
+                      <span className="text-green-500">已复制</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={12} className="text-muted-foreground" />
+                      <span className="text-muted-foreground">复制</span>
+                    </>
+                  )}
+                </button>
+              </div>
+              <div className="w-full px-4 py-3 border rounded-xl text-sm bg-muted/50 font-mono text-muted-foreground truncate border-input">
+                {form.accessToken.slice(0, 50)}...
+              </div>
+            </div>
+          )}
+
+          {/* Refresh Token */}
+          <div>
+            <label className={`block text-sm font-medium text-foreground mb-2`}>
+              Refresh Token {isIdCAccount && <span className="text-destructive">*</span>}
+            </label>
+            <div className="relative">
+              <textarea
+                placeholder="aorAAAAA..."
+                value={form.refreshToken}
+                onChange={(e) => setForm({ ...form, refreshToken: e.target.value })}
+                rows={3}
+                className={`w-full px-4 py-3 pr-10 border rounded-xl text-sm text-foreground bg-background border-input ${colors.inputFocus} focus:ring-2 resize-none outline-none font-mono`}
+              />
+              <button
+                onClick={() => handleCopy(form.refreshToken, 'refreshToken')}
+                className={`absolute right-3 top-3 p-1.5 rounded-lg hover:bg-muted/50 cursor-pointer`}
+                title={copiedField === 'refreshToken' ? '已复制' : '复制'}
+              >
+                {copiedField === 'refreshToken' ? <Check size={16} className="text-green-500" /> : <Copy size={16} className={"text-muted-foreground"} />}
+              </button>
+            </div>
+          </div>
+
+          {/* Machine ID */}
+          <div>
             <label className={`block text-sm font-medium text-foreground mb-2`}>
               {t('addAccount.machineId')}
             </label>
@@ -226,9 +413,9 @@ function EditAccountModal({ account, onClose, onSuccess }: EditAccountModalProps
 
           {isIdCAccount && (
             <>
-              <div className="mt-4">
+              <div>
                 <label className={`block text-sm font-medium text-foreground mb-2`}>
-                  Client ID
+                  Client ID <span className="text-destructive">*</span>
                 </label>
                 <div className="relative">
                   <input
@@ -236,7 +423,7 @@ function EditAccountModal({ account, onClose, onSuccess }: EditAccountModalProps
                     placeholder="刷新 Token 需要"
                     value={form.clientId}
                     onChange={(e) => setForm({ ...form, clientId: e.target.value })}
-                    className={`w-full px-4 py-3 pr-10 border rounded-xl text-sm text-foreground bg-background border-input ${colors.inputFocus} focus:ring-2 outline-none`}
+                    className={`w-full px-4 py-3 pr-10 border rounded-xl text-sm text-foreground bg-background border-input ${colors.inputFocus} focus:ring-2 outline-none font-mono`}
                   />
                   <button
                     onClick={() => handleCopy(form.clientId, 'clientId')}
@@ -247,9 +434,9 @@ function EditAccountModal({ account, onClose, onSuccess }: EditAccountModalProps
                   </button>
                 </div>
               </div>
-              <div className="mt-4">
+              <div>
                 <label className={`block text-sm font-medium text-foreground mb-2`}>
-                  Client Secret
+                  Client Secret <span className="text-destructive">*</span>
                 </label>
                 <div className="relative">
                   <textarea
@@ -257,7 +444,7 @@ function EditAccountModal({ account, onClose, onSuccess }: EditAccountModalProps
                     value={form.clientSecret}
                     onChange={(e) => setForm({ ...form, clientSecret: e.target.value })}
                     rows={2}
-                    className={`w-full px-4 py-3 pr-10 border rounded-xl text-sm text-foreground bg-background border-input ${colors.inputFocus} focus:ring-2 resize-none outline-none`}
+                    className={`w-full px-4 py-3 pr-10 border rounded-xl text-sm text-foreground bg-background border-input ${colors.inputFocus} focus:ring-2 resize-none outline-none font-mono`}
                   />
                   <button
                     onClick={() => handleCopy(form.clientSecret, 'clientSecret')}
@@ -271,7 +458,28 @@ function EditAccountModal({ account, onClose, onSuccess }: EditAccountModalProps
             </>
           )}
 
-          <div className="mt-4">
+          {/* 验证并刷新按钮 */}
+          <Button
+            variant="secondary"
+            className="w-full h-10 rounded-xl font-medium"
+            onClick={handleVerifyAndRefresh}
+            disabled={verifying || !form.refreshToken || (isIdCAccount && (!form.clientId || !form.clientSecret))}
+          >
+            {verifying ? (
+              <>
+                <Loader2 size={16} className="mr-2 animate-spin" />
+                验证中...
+              </>
+            ) : (
+              <>
+                <RefreshCw size={16} className="mr-2" />
+                验证并刷新凭证信息
+              </>
+            )}
+          </Button>
+
+          {/* 分组 */}
+          <div>
             <div className={`text-sm font-medium mb-2 flex items-center gap-1.5 text-foreground`}>
               <Folder size={14} />
               {t('groups.title') || '分组'}
@@ -284,19 +492,22 @@ function EditAccountModal({ account, onClose, onSuccess }: EditAccountModalProps
             />
           </div>
 
-          <div className="mt-4">
+          {/* 标签 */}
+          <div>
             <TagSelector 
               selectedTagIds={selectedTagIds} 
               onChange={setSelectedTagIds} 
             />
           </div>
 
-          <div className="mt-4">
+          {/* Token JSON */}
+          <div>
             <TokenJsonView account={account} defaultExpanded={false} />
           </div>
-        </DialogBody>
+        </div>
 
-        <DialogFooter>
+        {/* Sticky Footer */}
+        <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm p-4 border-t border-border flex justify-end gap-3 z-20">
           <Button variant="secondary" onClick={onClose}>
             {t('common.cancel')}
           </Button>
@@ -308,10 +519,13 @@ function EditAccountModal({ account, onClose, onSuccess }: EditAccountModalProps
           >
             {t('common.save')}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </DialogRoot>
+        </div>
+      </div>
+    </div>
+  </DialogRoot>
   )
+
+  return createPortal(dialogContent, document.body)
 }
 
 export default EditAccountModal

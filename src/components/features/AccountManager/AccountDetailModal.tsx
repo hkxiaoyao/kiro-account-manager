@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, memo, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { invoke } from '@tauri-apps/api/core'
-import { Copy, Check, RefreshCw, User, CreditCard, Shield } from 'lucide-react'
+import { Copy, Check, RefreshCw, User, CreditCard, Shield, Cpu, Loader2, FileText, Image as ImageIcon, Zap, Hash } from 'lucide-react'
 import { useApp } from '../../../hooks/useApp'
 import { useDialog } from '../../../contexts/DialogContext'
 import { formatUsage, getAccountDisplayName } from '../../../utils/accountStats'
@@ -112,6 +113,11 @@ function AccountDetailModal({ account, onClose }: AccountDetailModalProps) {
   const [refreshing, setRefreshing] = useState(false)
   const [copied, setCopied] = useState<string | null>(null)
   const copiedTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Models 相关 state
+  const [models, setModels] = useState<any[]>([])
+  const [modelsLoading, setModelsLoading] = useState(false)
+  const [modelsError, setModelsError] = useState<string | null>(null)
 
   // 清理timer
   useEffect(() => {
@@ -566,7 +572,7 @@ function AccountDetailModal({ account, onClose }: AccountDetailModalProps) {
                           )}
                           {model.inputTypes?.includes('IMAGE') && (
                             <span className="text-[10px] px-1.5 h-5 bg-purple-500/10 text-purple-600 border-0 rounded inline-flex items-center gap-0.5 font-medium">
-                              <Image size={12} />Image
+                              <ImageIcon size={12} />Image
                             </span>
                           )}
                           {model.rateMultiplier !== undefined && (
