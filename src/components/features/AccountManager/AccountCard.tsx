@@ -1,13 +1,11 @@
-import { memo, useCallback, useMemo, useState } from 'react'
-import { Eye, Copy, Check, Edit2, RefreshCcw, Key, Package, LogIn, LogOut, Trash2 } from 'lucide-react'
+import { memo, useCallback, useMemo } from 'react'
+import { Eye, Copy, Check, Edit2, RefreshCcw, Key, LogIn, LogOut, Trash2 } from 'lucide-react'
 import { useApp } from '../../../hooks/useApp'
 import { usePrivacy } from '../../../contexts/PrivacyContext'
-import { DialogRoot, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../shared/dialog'
 import { getUsagePercent, getProgressBarColor } from './hooks/useAccountStats'
 import { getQuota, getUsed, getSubType, getSubPlan, formatUsage, getAccountDisplayName } from '../../../utils/accountStats'
 import { getAccountStatusMeta, isBannedStatus, isUnavailableStatus } from '../../../utils/accountStatus'
 import { getProviderDisplayName, isGitHubProvider } from '../../../utils/accountProvider'
-import { resolveAvailableModels } from './utils/availableModelsState'
 import { Account, TagDefinition, GroupDefinition } from '../../../types/account'
 
 interface AccountCardProps {
@@ -61,7 +59,6 @@ const AccountCard = memo(function AccountCard({
 }: AccountCardProps) {
   const { t } = useApp()
   const { maskEmail } = usePrivacy()
-  const [modelsModalOpen, setModelsModalOpen] = useState(false)
 
   const isSelected = selectedIdsSet?.has(account.id) ?? false
 
@@ -83,34 +80,11 @@ const AccountCard = memo(function AccountCard({
   }, [account, t])
 
   const { quota, used, subPlan, percent, statusMeta, isBanned, isNormal, isUnavailable, breakdown, nextDateReset } = cardData
-  const resolvedAvailableModels = useMemo(
-    () => resolveAvailableModels(availableModels, account),
-    [availableModels, account],
-  )
-  const hasLoadedAvailableModels = Array.isArray(resolvedAvailableModels)
-  const availableModelsCache = account.availableModelsCache
-  const availableModelsCachedAtText = availableModelsCache?.cachedAt
-    ? new Date(availableModelsCache.cachedAt * 1000).toLocaleString()
-    : ''
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     onContextMenuOpen(e.clientX, e.clientY)
   }, [onContextMenuOpen])
-
-  const handleOpenAvailableModels = useCallback(async () => {
-    if (availableModelsLoading) return
-    setModelsModalOpen(true)
-    if (!hasLoadedAvailableModels) {
-      await onLoadAvailableModels?.(account.id).catch(() => { })
-    }
-  }, [account.id, availableModelsLoading, hasLoadedAvailableModels, onLoadAvailableModels])
-
-  const handleRefreshAvailableModels = useCallback(async () => {
-    if (availableModelsLoading) return
-    if (!modelsModalOpen) setModelsModalOpen(true)
-    await onLoadAvailableModels?.(account.id, { forceRefresh: true }).catch(() => { })
-  }, [account.id, availableModelsLoading, modelsModalOpen, onLoadAvailableModels])
 
   const cardStatusClass = isSelected
     ? "border-primary bg-primary/5 shadow-primary/10"
@@ -230,28 +204,6 @@ const AccountCard = memo(function AccountCard({
           </div>
         </div>
 
-        <div className="flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={handleOpenAvailableModels}
-            className="flex items-center justify-between px-3 py-2 rounded-xl bg-muted/30 border border-border/50 hover:bg-muted/50 transition-colors group"
-          >
-            <div className="flex items-center gap-2">
-              <Package size={14} className="text-muted-foreground group-hover:text-primary transition-colors" />
-              <span className="text-[11px] font-bold text-foreground">{t('accountCard.availableModels')}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              {availableModelsLoading ? (
-                <RefreshCcw size={12} className="animate-spin text-primary" />
-              ) : (
-                <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-md">
-                  {hasLoadedAvailableModels ? (resolvedAvailableModels as any[]).length : '--'}
-                </span>
-              )}
-            </div>
-          </button>
-        </div>
-
         <div className="mt-auto pt-3 border-t border-border/50 flex items-center justify-between">
           <div className="flex items-center gap-1">
             {account.machineId && (
@@ -291,32 +243,6 @@ const AccountCard = memo(function AccountCard({
           </div>
         </div>
       </div>
-
-      <DialogRoot open={modelsModalOpen} onOpenChange={setModelsModalOpen}>
-        <DialogContent maxWidth="600px">
-          <DialogHeader icon={Package} className="border-b pb-4">
-            <DialogTitle>{t('accountCard.availableModels')}</DialogTitle>
-            <DialogDescription>{account.email || getAccountDisplayName(account)}</DialogDescription>
-          </DialogHeader>
-          <DialogBody className="py-6">
-            {availableModelsLoading ? (
-              <div className="flex justify-center py-12"><RefreshCcw className="animate-spin text-primary" size={32} /></div>
-            ) : availableModelsError ? (
-              <div className="text-center py-12 text-red-500">{availableModelsError}</div>
-            ) : hasLoadedAvailableModels ? (
-              <div className="flex flex-wrap gap-2">
-                {(resolvedAvailableModels as any[]).map(m => (
-                  <span key={m.modelId} className="px-3 py-1.5 rounded-full bg-muted border border-border text-xs font-medium text-foreground">
-                    {m.modelName || m.modelId}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12 text-muted-foreground">{t('accountCard.noAvailableModels')}</div>
-            )}
-          </DialogBody>
-        </DialogContent>
-      </DialogRoot>
     </div>
   )
 })

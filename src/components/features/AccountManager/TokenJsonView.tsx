@@ -93,7 +93,7 @@ export function TokenJsonView({ account, defaultExpanded = false }) {
 
   // 解析可用模型
   const availableModels = useMemo(() => {
-    const cached = account?.availableModelsCache?.response?.models
+    const cached = account?.availableModelsCache?.response?.availableModels
     return Array.isArray(cached) ? cached : null
   }, [account])
   

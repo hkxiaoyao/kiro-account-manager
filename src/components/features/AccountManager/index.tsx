@@ -168,7 +168,7 @@ function AccountManager({ onNavigate }: AccountManagerProps) {
 
     try {
       const response = await invoke<any>('list_available_models', { id, forceRefresh })
-      const models = Array.isArray(response?.models) ? response.models : []
+      const models = Array.isArray(response?.availableModels) ? response.availableModels : []
       setAvailableModelsById(prev => ({ ...prev, [id]: models }))
       setAccounts(prev => prev.map(account => (
         account.id === id
