@@ -92,7 +92,10 @@ export function TokenJsonView({ account, defaultExpanded = false }) {
   const jsonStr = useMemo(() => JSON.stringify(credentialsJson, null, 2), [credentialsJson])
 
   // 解析可用模型
-  const availableModels = useMemo(() => resolveAvailableModels(account.availableModelsCache, account), [account])
+  const availableModels = useMemo(() => {
+    const cached = account?.availableModelsCache?.response?.models
+    return Array.isArray(cached) ? cached : null
+  }, [account])
   
   useEffect(() => () => copiedTimerRef.current && clearTimeout(copiedTimerRef.current), [])
   
