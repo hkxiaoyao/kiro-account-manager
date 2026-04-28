@@ -1,6 +1,6 @@
 import { useRef, useMemo, memo, useState, useCallback } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { Users, Plus, RefreshCw, Repeat,Eye, Edit2, Trash2, Copy, UserX, ChevronUp, ChevronDown, Sparkles, Key, LogIn } from 'lucide-react'
+import { Users, Plus, RefreshCw,Eye, Edit2, Trash2, Copy, UserX, ChevronUp, ChevronDown, Key, LogIn,LogOut } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useApp } from '../../../hooks/useApp'
 import { usePrivacy } from '../../../contexts/PrivacyContext'
@@ -66,13 +66,13 @@ const ListRow = memo(function ListRow({
   const handleCopyJson = useCallback(() => {
     onCopy(JSON.stringify(account, null, 2), account.id)
   }, [account, onCopy])
-
   const getMenuItems = useCallback(() => [
     { icon: Eye, label: t('accountCard.viewDetails'), onClick: () => onEdit(account) },
     { icon: Edit2, label: t('accountCard.editRemark'), onClick: () => onEditLabel(account) },
     { icon: Copy, label: t('accountCard.copyJson'), onClick: handleCopyJson },
     { divider: true },
-    { icon: Key, label: t('accountCard.refresh'), onClick: () => onRefresh(account.id), disabled: isRefreshing },
+    { icon: RefreshCw, label: t('accountCard.refresh'), onClick: () => onRefresh(account.id), disabled: isRefreshing },
+    { icon: Key, label: t('accountCard.refreshToken'), onClick: () => onRefreshToken?.(account.id), disabled: isRefreshingToken },
     isCurrent
       ? { icon: LogOut, label: t('accountCard.LogOut'), onClick: () => onSwitch(account), disabled: isSwitching, danger: true }
       : { icon: LogIn, label: t('accountCard.LogIn'), onClick: () => onSwitch(account), disabled: isSwitching || isUnavailable },
@@ -81,8 +81,7 @@ const ListRow = memo(function ListRow({
     ...(account.provider !== 'Enterprise' && !isBanned && onDeleteRemote ? [
       { icon: UserX, label: t('accountCard.deleteRemote'), onClick: () => onDeleteRemote(account), danger: true },
     ] : []),
-  ], [t, account, handleCopyJson, onEdit, onEditLabel, onRefresh, onSwitch, onDelete, onDeleteRemote, isRefreshing, isSwitching, isBanned, isUnavailable, isCurrent])
-
+  ], [t, account, handleCopyJson, onEdit, onEditLabel, onRefresh, onRefreshToken, onSwitch, onDelete, onDeleteRemote, isRefreshing, isRefreshingToken, isSwitching, isBanned, isUnavailable, isCurrent])
   return (
     <div
       onContextMenu={handleContextMenu}
@@ -204,6 +203,7 @@ interface AccountListViewProps {
   onSelectOne: (id: string, checked: any) => void
   onSwitch: (account: Account) => void
   onRefresh: (id: string) => void
+  onRefreshToken:(id:string) => void
   onEdit: (account: Account) => void
   onEditLabel: (account: Account) => void
   onDelete: (id: string) => void
