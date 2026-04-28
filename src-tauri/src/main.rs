@@ -31,6 +31,7 @@ use commands::account_cmd::{
 use commands::app_settings_cmd::{
     bind_machine_id_to_account, get_all_bound_machine_ids, get_app_settings, get_bound_machine_id,
     get_usage_history, save_app_settings, save_usage_history_entry, unbind_machine_id_from_account,
+    get_custom_kiro_path, set_custom_kiro_path, clear_custom_kiro_path,
 };
 use commands::auth_cmd::{
     cancel_kiro_login, get_current_user, get_supported_providers, handle_kiro_social_callback,
@@ -341,10 +342,13 @@ fn main() {
             get_supported_providers,
             handle_kiro_social_callback,
             reveal_main_window,
-
-            get_kiro_local_token,
             check_ide_installation,
+            get_kiro_local_token,
+            read_kiro_accounts,
             switch_kiro_account,
+            set_custom_kiro_path,
+            get_custom_kiro_path,
+            clear_custom_kiro_path,
             read_kiro_accounts,
             // 进程管理命令
             close_kiro_ide,

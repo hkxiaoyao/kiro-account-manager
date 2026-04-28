@@ -1,4 +1,4 @@
-import { Clock, Globe, Search, Shield, Shuffle, AlertTriangle, Eye, EyeOff, Repeat, RefreshCw, Check, Copy } from 'lucide-react'
+import { Clock, Globe, Search, Shield, Shuffle, AlertTriangle, Eye, EyeOff, Repeat, RefreshCw, Check, Copy, Cpu, X } from 'lucide-react'
 import { Card, CardContent } from '../../ui/card'
 import { Input } from '../../ui/input'
 import { Switch } from '../../ui/switch'
@@ -36,6 +36,9 @@ interface SettingsGeneralProps {
   detectedBrowsers: BrowserInfo[];
   showBrowserList: boolean;
   setShowBrowserList: (show: boolean) => void;
+  customKiroPath: string | null;
+  handleBrowseKiroPath: () => void;
+  handleClearKiroPath: () => void;
   systemMachineInfo: SystemMachineInfo | null;
   machineGuidAction: string | null;
   handleResetSystemMachineGuid: () => void;
@@ -51,35 +54,38 @@ interface SettingsGeneralProps {
   t: TFunction;
 }
 
-function SettingsGeneral({ 
-  autoRefresh, 
-  autoRefreshInterval, 
-  autoChangeMachineId, 
-  machineIdMode, 
+function SettingsGeneral({
+  autoRefresh,
+  autoRefreshInterval,
+  autoChangeMachineId,
+  machineIdMode,
   privacyMode,
   setPrivacyMode,
-  autoSwitchEnabled, 
-  autoSwitchThreshold, 
-  autoSwitchInterval, 
-  browserPath, 
-  setBrowserPath, 
-  originalBrowserPath, 
-  savingBrowser, 
-  detectedBrowsers, 
-  showBrowserList, 
-  setShowBrowserList, 
-  systemMachineInfo, 
-  machineGuidAction, 
-  handleResetSystemMachineGuid, 
-  handleDetectBrowsers, 
-  handleApplyBrowser, 
-  handleAutoRefreshChange, 
-  handleAutoRefreshIntervalChange, 
-  handleAutoChangeMachineIdChange, 
-  handleMachineIdModeChange, 
-  handleAutoSwitchEnabledChange, 
-  handleAutoSwitchThresholdChange, 
-  handleAutoSwitchIntervalChange, 
+  autoSwitchEnabled,
+  autoSwitchThreshold,
+  autoSwitchInterval,
+  browserPath,
+  setBrowserPath,
+  originalBrowserPath,
+  savingBrowser,
+  detectedBrowsers,
+  showBrowserList,
+  setShowBrowserList,
+  customKiroPath,
+  handleBrowseKiroPath,
+  handleClearKiroPath,
+  systemMachineInfo,
+  machineGuidAction,
+  handleResetSystemMachineGuid,
+  handleDetectBrowsers,
+  handleApplyBrowser,
+  handleAutoRefreshChange,
+  handleAutoRefreshIntervalChange,
+  handleAutoChangeMachineIdChange,
+  handleMachineIdModeChange,
+  handleAutoSwitchEnabledChange,
+  handleAutoSwitchThresholdChange,
+  handleAutoSwitchIntervalChange,
   t
 }: SettingsGeneralProps) {
   const accountToggleContainerClass = "bg-card hover:bg-muted/50 border border-border text-foreground"
@@ -285,6 +291,48 @@ function SettingsGeneral({
           )}
 
           <p className="text-xs text-muted-foreground mt-3">{t('settings.browserTip')}</p>
+        </CardContent>
+      </Card>
+
+      {/* Kiro IDE 路径设置 */}
+      <Card className="card-glow animate-slide-in-left delay-275 mb-6">
+        <CardContent className="p-6">
+          <div className="flex items-center gap-2 mb-1">
+            <Cpu size={18} className="text-primary" />
+            <h2 className="text-lg font-semibold text-foreground">{t('settings.kiroIdePath')}</h2>
+          </div>
+          <p className="text-sm text-muted-foreground mb-4">{t('settings.kiroIdePathDesc')}</p>
+
+          <div className="mb-3">
+            <label className="block text-sm text-muted-foreground mb-2">{t('settings.customKiroPath')}</label>
+            <div className="flex gap-3">
+              <Input
+                value={customKiroPath || t('settings.useDefaultPath')}
+                readOnly
+                className="text-foreground bg-background border-border flex-1"
+              />
+              <button
+                onClick={handleBrowseKiroPath}
+                className="px-4 py-3 border rounded-xl bg-card hover:bg-muted/50 border-border text-foreground flex items-center gap-2"
+                title={t('settings.browse')}
+              >
+                <Search size={16} />
+                {t('settings.browse')}
+              </button>
+              {customKiroPath && (
+                <button
+                  onClick={handleClearKiroPath}
+                  className="px-4 py-3 border rounded-xl bg-card hover:bg-red-500/10 border-border text-red-500 flex items-center gap-2"
+                  title={t('settings.clear')}
+                >
+                  <X size={16} />
+                  {t('settings.clear')}
+                </button>
+              )}
+            </div>
+          </div>
+
+          <p className="text-xs text-muted-foreground">{t('settings.kiroPathTip')}</p>
         </CardContent>
       </Card>
 
