@@ -84,14 +84,16 @@ function Settings() {
         setLoading(true)
         try {
             // 先加载核心设置（快速）
-            const [kiroSettings, appSettings, sysMachine, kiroPath] = await Promise.all([
+            const [kiroSettings, appSettings, sysMachine, kiroPath, ideInfo] = await Promise.all([
                 invoke<any>('get_kiro_settings').catch(() => null),
                 invoke<any>('get_app_settings').catch(() => null),
                 invoke<any>('get_system_machine_guid').catch(() => null),
-                invoke<string | null>('get_custom_kiro_path').catch(() => null)
+                invoke<string | null>('get_custom_kiro_path').catch(() => null),
+                invoke<any>('check_ide_installation').catch(() => null)
             ])
             setSystemMachineInfo(sysMachine)
-            setCustomKiroPath(kiroPath)
+            // 优先显示自定义路径，否则显示检测到的默认路径
+            setCustomKiroPath(kiroPath || (ideInfo?.ide_path || null))
 
             // 从 Kiro IDE 设置读取
             if (kiroSettings) {
