@@ -10,12 +10,12 @@ import { getProviderDisplayName, isGitHubProvider } from '../../../utils/account
 import ContextMenu from './ContextMenu'
 import { buildAccountListMaps } from './utils/accountListMaps'
 import type { Account, TagDefinition, GroupDefinition } from '../../../types/account'
-
 interface ListRowProps {
   account: Account
   isSelected: boolean
   isCurrent: boolean
   isRefreshing: boolean
+  isRefreshingToken: boolean
   isSwitching: boolean
   tagMap: Map<string, any>
   groupMap: Map<string, any>
@@ -24,18 +24,19 @@ interface ListRowProps {
   onSelectOne: (id: string, checked: any) => void
   onSwitch: (account: Account) => void
   onRefresh: (id: string) => void
+  onRefreshToken: (id: string) => void
   onEdit: (account: Account) => void
   onEditLabel: (account: Account) => void
   onDelete: (id: string) => void
   onDeleteRemote?: (account: Account) => void
   onCopy: (text: string, id: string) => void
 }
-
 const ListRow = memo(function ListRow({
   account,
   isSelected,
   isCurrent,
   isRefreshing,
+  isRefreshingToken,
   isSwitching,
   tagMap,
   groupMap,
@@ -44,6 +45,7 @@ const ListRow = memo(function ListRow({
   onSelectOne,
   onSwitch,
   onRefresh,
+  onRefreshToken,
   onEdit,
   onEditLabel,
   onDelete,
@@ -210,7 +212,7 @@ interface AccountListViewProps {
   onDeleteRemote?: (account: Account) => void
   onCopy: (text: string, id: string) => void
   onAdd: () => void
-  accountRowStateById?: Record<string, { isRefreshing?: boolean; isSwitching?: boolean }>
+  accountRowStateById?: Record<string, { isRefreshing?: boolean; isRefreshingToken?: boolean; isSwitching?: boolean }>
   localToken?: { refreshToken?: string } | null
   tagDefinitions?: TagDefinition[]
   groupDefinitions?: GroupDefinition[]

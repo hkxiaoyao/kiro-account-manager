@@ -140,8 +140,8 @@ function AccountTable({
       { icon: Edit2, label: t('accountCard.editRemark'), onClick: () => onEditLabel(account) },
       { icon: Copy, label: t('accountCard.copyJson'), onClick: () => onCopy(JSON.stringify(account, null, 2), account.id) },
       { divider: true },
-      { icon: KeyRound , label: t('accountCard.refreshToken'), onClick: () => onRefreshToken?.(account.id), disabled: Boolean(rowState.isRefreshingToken) },
       { icon: Key , label: t('accountCard.refreshQuota'), onClick: () => onRefresh(account.id), disabled: Boolean(rowState.isRefreshing) },
+      { icon: KeyRound , label: t('accountCard.refreshToken'), onClick: () => onRefreshToken?.(account.id), disabled: Boolean(rowState.isRefreshingToken) },
       { icon: LogIn, label: isUnavailable ? `${statusMeta.label}账号不可切换` : t('accountCard.LogIn'), onClick: () => onSwitch(account), disabled: Boolean(rowState.isSwitching) || isUnavailable },
       { icon: Trash2, label: t('accountCard.delete'), onClick: () => onDelete(account.id), danger: true },
     ]
