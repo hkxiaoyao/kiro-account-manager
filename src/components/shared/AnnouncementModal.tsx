@@ -18,7 +18,12 @@ export default function AnnouncementModal() {
   const [show, setShow] = useState(false)
   const [announcement, setAnnouncement] = useState(null)
   const [agreed, setAgreed] = useState(false)
-
+  const colors = {
+    inputFocus: 'focus:ring-primary/20 focus:border-primary',
+    btnDisabled: 'opacity-50 cursor-not-allowed grayscale',
+    dialogHeader: 'border-b border-border bg-muted/30',
+    info: 'bg-primary/10'
+  }
   useEffect(() => {
     fetchAnnouncement()
   }, [])
