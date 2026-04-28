@@ -1,6 +1,6 @@
 import { useRef, useMemo, useState, useEffect, useCallback, memo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { Users, Plus, Eye, Edit2, Copy, Key, BarChart3, Repeat, Trash2, UserX } from 'lucide-react'
+import { Users, Plus, Edit2, Copy, KeyRound , Eye , Key, Trash2, UserX, LogIn } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useApp } from '../../../hooks/useApp'
 import { getAccountStatusMeta, isBannedStatus, isUnavailableStatus } from '../../../utils/accountStatus'
@@ -57,6 +57,7 @@ const VirtualRow = memo(function VirtualRow({
             onRefresh={onRefresh}
             onRefreshToken={onRefreshToken}
             onEdit={onEdit}
+            onDelete={onDelete}
             isRefreshing={Boolean(accountRowStateById?.[item.id]?.isRefreshing)}
             isRefreshingToken={Boolean(accountRowStateById?.[item.id]?.isRefreshingToken)}
             isSwitching={Boolean(accountRowStateById?.[item.id]?.isSwitching)}
@@ -139,10 +140,9 @@ function AccountTable({
       { icon: Edit2, label: t('accountCard.editRemark'), onClick: () => onEditLabel(account) },
       { icon: Copy, label: t('accountCard.copyJson'), onClick: () => onCopy(JSON.stringify(account, null, 2), account.id) },
       { divider: true },
-      { icon: Key, label: t('accountCard.refreshToken'), onClick: () => onRefreshToken?.(account.id), disabled: Boolean(rowState.isRefreshingToken) },
-      { icon: BarChart3, label: t('accountCard.refreshQuota'), onClick: () => onRefresh(account.id), disabled: Boolean(rowState.isRefreshing) },
-      { icon: Repeat, label: isUnavailable ? `${statusMeta.label}账号不可切换` : t('accountCard.switchAccount'), onClick: () => onSwitch(account), disabled: Boolean(rowState.isSwitching) || isUnavailable },
-      { divider: true },
+      { icon: Key , label: t('accountCard.refreshQuota'), onClick: () => onRefresh(account.id), disabled: Boolean(rowState.isRefreshing) },
+      { icon: KeyRound , label: t('accountCard.refreshToken'), onClick: () => onRefreshToken?.(account.id), disabled: Boolean(rowState.isRefreshingToken) },
+      { icon: LogIn, label: isUnavailable ? `${statusMeta.label}账号不可切换` : t('accountCard.LogIn'), onClick: () => onSwitch(account), disabled: Boolean(rowState.isSwitching) || isUnavailable },
       { icon: Trash2, label: t('accountCard.delete'), onClick: () => onDelete(account.id), danger: true },
     ]
 

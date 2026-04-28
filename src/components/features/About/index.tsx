@@ -24,7 +24,8 @@ const LINKS = {
   website: 'https://kiro-website-six.vercel.app',
   github: 'https://github.com/hj01857655/kiro-account-manager',
   tutorial: 'https://xcn46cm1l4ir.feishu.cn/wiki/YfaAw3qnoixFJgkzTSmcgtPfntc',
-  qqGroup: 'https://qm.qq.com/q/xi0AglEqGs',
+  qqGroup1: 'https://qm.qq.com/q/Vh7mUrNpa8',
+  qqGroup2:'https://qm.qq.com/q/xi0AglEqGs',
   gateway: 'https://github.com/hj01857655/kiro-gateway'
 }
 
@@ -154,12 +155,7 @@ function About() {
     t('about.benefit3')
   ], [t])
 
-  // 付费服务列表
-  const paidServices = useMemo(() => [
-    t('about.service1'),
-    t('about.service2'),
-    t('about.service3')
-  ], [t])
+  
 
   useEffect(() => {
     getVersion().then(setVersion)
@@ -199,18 +195,7 @@ function About() {
     }
   }, [])
 
-  const handleContactQQ = useCallback(async () => {
-    try {
-      await openUrl(`tencent://message/?uin=${QQ_NUMBER}&Site=&Menu=yes`)
-    } catch {
-      try {
-        await navigator.clipboard.writeText(QQ_NUMBER)
-        showSuccess(t('common.copied'), `QQ: ${QQ_NUMBER}`)
-      } catch {
-        showInfo(t('about.contactQQ'), `QQ: ${QQ_NUMBER}`)
-      }
-    }
-  }, [showSuccess, showInfo, t])
+  
 
   const closePreview = useCallback(() => setPreviewImg(null), [])
 
@@ -275,17 +260,18 @@ function About() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
-                  <LinkButton href={LINKS.tutorial} icon={BookOpen}>
+                  {/* <LinkButton href={LINKS.tutorial} icon={BookOpen}>
                     {t('about.tutorial')}
+                  </LinkButton> */}
+                  <LinkButton href={LINKS.qqGroup1} icon={QQIcon}>
+                    {t('about.qqGroup1')}
                   </LinkButton>
-                  <LinkButton href={LINKS.qqGroup} icon={QQIcon}>
-                    {t('about.qqGroup')}
+                  <LinkButton href={LINKS.qqGroup2} icon={QQIcon}>
+                    {t('about.qqGroup2')}
                   </LinkButton>
                 </div>
 
-                <LinkButton href={LINKS.gateway} icon={Github} fullWidth>
-                  {t('about.shop')}
-                </LinkButton>
+                
               </div>
             </CardContent>
           </Card>
@@ -338,36 +324,7 @@ function About() {
           </Card>
         </div>
 
-        {/* 付费服务 */}
-        <div className={`transition-all duration-400 delay-300 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-          <Card className={`glass-card border border-border shadow-lg`}>
-            <CardContent className="p-6 sm:p-8">
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-center gap-2">
-                  <MessageCircle size={20} className={accent.text} />
-                  <h2 className={`text-lg font-semibold text-foreground`}>{t('about.paidServices')}</h2>
-                </div>
-
-                <p className={`text-sm text-center leading-relaxed text-foreground`}>
-                  {t('about.paidServicesDesc')}
-                </p>
-
-                <InfoCard items={paidServices} colors={colors} />
-
-                <div className="flex items-center justify-center gap-4 mt-2">
-                  <Button
-                    onClick={handleContactQQ}
-                    variant="secondary"
-                    className="gap-2 transition-all duration-200 hover:shadow-lg"
-                  >
-                    <MessageCircle size={16} />
-                    {t('about.contactQQ')}
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        
 
         {/* 底部 */}
         <div className={`transition-all duration-400 delay-400 ${mounted ? 'opacity-100' : 'opacity-0'}`}>

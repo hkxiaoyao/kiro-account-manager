@@ -1,6 +1,6 @@
 import { useRef, useMemo, memo, useState, useCallback } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { Users, Plus, RefreshCw, Repeat, Eye, Edit2, Trash2, Copy, UserX, ChevronUp, ChevronDown, Sparkles } from 'lucide-react'
+import { Users, Plus, RefreshCw,Eye, Edit2, Trash2, Copy, UserX, ChevronUp, ChevronDown, Key, LogIn,LogOut } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useApp } from '../../../hooks/useApp'
 import { usePrivacy } from '../../../contexts/PrivacyContext'
@@ -10,12 +10,12 @@ import { getProviderDisplayName, isGitHubProvider } from '../../../utils/account
 import ContextMenu from './ContextMenu'
 import { buildAccountListMaps } from './utils/accountListMaps'
 import type { Account, TagDefinition, GroupDefinition } from '../../../types/account'
-
 interface ListRowProps {
   account: Account
   isSelected: boolean
   isCurrent: boolean
   isRefreshing: boolean
+  isRefreshingToken: boolean
   isSwitching: boolean
   tagMap: Map<string, any>
   groupMap: Map<string, any>
@@ -24,18 +24,19 @@ interface ListRowProps {
   onSelectOne: (id: string, checked: any) => void
   onSwitch: (account: Account) => void
   onRefresh: (id: string) => void
+  onRefreshToken: (id: string) => void
   onEdit: (account: Account) => void
   onEditLabel: (account: Account) => void
   onDelete: (id: string) => void
   onDeleteRemote?: (account: Account) => void
   onCopy: (text: string, id: string) => void
 }
-
 const ListRow = memo(function ListRow({
   account,
   isSelected,
   isCurrent,
   isRefreshing,
+  isRefreshingToken,
   isSwitching,
   tagMap,
   groupMap,
@@ -44,11 +45,12 @@ const ListRow = memo(function ListRow({
   onSelectOne,
   onSwitch,
   onRefresh,
+  onRefreshToken,
   onEdit,
   onEditLabel,
   onDelete,
   onDeleteRemote,
-  onCopy}: ListRowProps) {
+  onCopy }: ListRowProps) {
   const [contextMenu, setContextMenu] = useState(null)
   const used = getUsed(account)
   const limit = getQuota(account)
@@ -57,7 +59,7 @@ const ListRow = memo(function ListRow({
   const isBanned = isBannedStatus(account)
   const isUnavailable = isUnavailableStatus(account)
   const statusMeta = getAccountStatusMeta(account, t)
-
+  //处理右键
   const handleContextMenu = useCallback((e) => {
     e.preventDefault()
     setContextMenu({ x: e.clientX, y: e.clientY })
@@ -66,27 +68,27 @@ const ListRow = memo(function ListRow({
   const handleCopyJson = useCallback(() => {
     onCopy(JSON.stringify(account, null, 2), account.id)
   }, [account, onCopy])
-
   const getMenuItems = useCallback(() => [
     { icon: Eye, label: t('accountCard.viewDetails'), onClick: () => onEdit(account) },
     { icon: Edit2, label: t('accountCard.editRemark'), onClick: () => onEditLabel(account) },
     { icon: Copy, label: t('accountCard.copyJson'), onClick: handleCopyJson },
     { divider: true },
     { icon: RefreshCw, label: t('accountCard.refresh'), onClick: () => onRefresh(account.id), disabled: isRefreshing },
-    { icon: Repeat, label: t('accountCard.switchAccount'), onClick: () => onSwitch(account), disabled: isSwitching || isUnavailable },
+    { icon: Key, label: t('accountCard.refreshToken'), onClick: () => onRefreshToken?.(account.id), disabled: isRefreshingToken },
+    isCurrent
+      ? { icon: LogOut, label: t('accountCard.LogOut'), onClick: () => onSwitch(account), disabled: isSwitching, danger: true }
+      : { icon: LogIn, label: t('accountCard.LogIn'), onClick: () => onSwitch(account), disabled: isSwitching || isUnavailable },
     { divider: true },
     { icon: Trash2, label: t('accountCard.delete'), onClick: () => onDelete(account.id), danger: true },
     ...(account.provider !== 'Enterprise' && !isBanned && onDeleteRemote ? [
       { icon: UserX, label: t('accountCard.deleteRemote'), onClick: () => onDeleteRemote(account), danger: true },
     ] : []),
-  ], [t, account, handleCopyJson, onEdit, onEditLabel, onRefresh, onSwitch, onDelete, onDeleteRemote, isRefreshing, isSwitching, isBanned, isUnavailable])
-
+  ], [t, account, handleCopyJson, onEdit, onEditLabel, onRefresh, onRefreshToken, onSwitch, onDelete, onDeleteRemote, isRefreshing, isRefreshingToken, isSwitching, isBanned, isUnavailable, isCurrent])
   return (
     <div
       onContextMenu={handleContextMenu}
-      className={`flex items-center gap-3 px-4 h-[56px] border-b border-border hover:bg-muted/30 cursor-context-menu animate-stagger ${
-        isCurrent ? "bg-green-500/5" : ""
-      }`}
+      className={`flex items-center gap-3 px-4 h-[56px] border-b border-border hover:bg-muted/30 cursor-context-menu animate-stagger ${isCurrent ? "bg-green-500/5" : ""
+        }`}
       style={{ animationDelay: `${Math.min(account._index || 0, 20) * 30}ms` }}
     >
       {contextMenu && (
@@ -109,19 +111,17 @@ const ListRow = memo(function ListRow({
         {account.label && <span className="text-[11px] text-muted-foreground truncate block mt-0.5">{account.label}</span>}
       </div>
 
-      <span className={`text-[10px] px-2 py-1 rounded w-20 text-center shrink-0 font-bold border ${
-        account.provider === 'Google' ? "bg-red-500/10 text-red-500 border-red-500/20"
+      <span className={`text-[10px] px-2 py-1 rounded w-20 text-center shrink-0 font-bold border ${account.provider === 'Google' ? "bg-red-500/10 text-red-500 border-red-500/20"
           : isGitHubProvider(account.provider) ? "bg-slate-500/10 text-slate-500 border-slate-500/20"
             : "bg-muted text-muted-foreground border-border/50"
-      }`}>{getProviderDisplayName(account.provider) || 'Unknown'}</span>
+        }`}>{getProviderDisplayName(account.provider) || 'Unknown'}</span>
 
-      <span className={`text-[10px] px-2 py-1 rounded w-20 text-center shrink-0 font-bold border ${
-        account.usageData?.subscriptionInfo?.subscriptionTitle?.toUpperCase()?.includes('ENTERPRISE')
+      <span className={`text-[10px] px-2 py-1 rounded w-20 text-center shrink-0 font-bold border ${account.usageData?.subscriptionInfo?.subscriptionTitle?.toUpperCase()?.includes('ENTERPRISE')
           ? "bg-orange-500 text-white border-orange-600"
           : account.usageData?.subscriptionInfo?.subscriptionTitle?.includes('PRO')
             ? "bg-primary text-primary-foreground border-primary/20"
             : "bg-muted text-muted-foreground border-border/50"
-      }`}>{account.usageData?.subscriptionInfo?.subscriptionTitle || 'Free'}</span>
+        }`}>{account.usageData?.subscriptionInfo?.subscriptionTitle || 'Free'}</span>
 
       <div className="w-24 shrink-0">
         <div className={`text-[11px] font-bold ${remaining > 0 ? 'text-green-500' : 'text-red-500'}`}>{formatUsage(used)}/{formatUsage(limit)}</div>
@@ -130,9 +130,8 @@ const ListRow = memo(function ListRow({
         </div>
       </div>
 
-      <span className={`text-[10px] px-2 py-1 rounded w-12 text-center shrink-0 font-bold uppercase ${
-        statusMeta.key === 'active' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
-      }`}>
+      <span className={`text-[10px] px-2 py-1 rounded w-12 text-center shrink-0 font-bold uppercase ${statusMeta.key === 'active' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
+        }`}>
         {statusMeta.label}
       </span>
 
@@ -206,13 +205,14 @@ interface AccountListViewProps {
   onSelectOne: (id: string, checked: any) => void
   onSwitch: (account: Account) => void
   onRefresh: (id: string) => void
+  onRefreshToken:(id:string) => void
   onEdit: (account: Account) => void
   onEditLabel: (account: Account) => void
   onDelete: (id: string) => void
   onDeleteRemote?: (account: Account) => void
   onCopy: (text: string, id: string) => void
   onAdd: () => void
-  accountRowStateById?: Record<string, { isRefreshing?: boolean; isSwitching?: boolean }>
+  accountRowStateById?: Record<string, { isRefreshing?: boolean; isRefreshingToken?: boolean; isSwitching?: boolean }>
   localToken?: { refreshToken?: string } | null
   tagDefinitions?: TagDefinition[]
   groupDefinitions?: GroupDefinition[]
@@ -230,6 +230,7 @@ function AccountListView({
   onSelectOne,
   onSwitch,
   onRefresh,
+  onRefreshToken,
   onEdit,
   onEditLabel,
   onDelete,
@@ -241,7 +242,7 @@ function AccountListView({
   tagDefinitions = [],
   groupDefinitions = [],
   sortBy,
-  onSortChange}: AccountListViewProps) {
+  onSortChange }: AccountListViewProps) {
   const { t } = useApp()
   const { maskEmail } = usePrivacy()
   const scrollRef = useRef(null)
@@ -250,7 +251,8 @@ function AccountListView({
   const localRefreshToken = localToken?.refreshToken
   const { tagMap, groupMap } = useMemo(() => buildAccountListMaps({
     tagDefinitions,
-    groupDefinitions}), [tagDefinitions, groupDefinitions])
+    groupDefinitions
+  }), [tagDefinitions, groupDefinitions])
 
   const rowVirtualizer = useVirtualizer({
     count: accounts.length,
@@ -296,8 +298,8 @@ function AccountListView({
     <div className="flex-1 flex flex-col overflow-hidden p-6">
       <div className="flex items-center justify-between mb-2 px-1 shrink-0">
         <label className="flex items-center gap-2 cursor-pointer">
-          <Checkbox 
-            checked={selectedIds.length === accounts.length && accounts.length > 0} 
+          <Checkbox
+            checked={selectedIds.length === accounts.length && accounts.length > 0}
             onCheckedChange={(checked) => onSelectAll(checked)}
           />
           <span className="text-sm text-muted-foreground font-medium">{selectedIds.length > 0 ? `${t('common.selected')} ${selectedIds.length}` : t('common.selectAll')}</span>
@@ -333,6 +335,7 @@ function AccountListView({
                   isSelected={_selectedIdsSet.has(acc.id)}
                   isCurrent={localRefreshToken && acc.refreshToken === localRefreshToken}
                   isRefreshing={accountRowStateById[acc.id]?.isRefreshing ?? false}
+                  isRefreshingToken={accountRowStateById[acc.id]?.isRefreshingToken ?? false}
                   isSwitching={accountRowStateById[acc.id]?.isSwitching ?? false}
                   tagMap={tagMap}
                   groupMap={groupMap}
@@ -341,6 +344,7 @@ function AccountListView({
                   onSelectOne={onSelectOne}
                   onSwitch={onSwitch}
                   onRefresh={onRefresh}
+                  onRefreshToken={onRefreshToken}
                   onEdit={onEdit}
                   onEditLabel={onEditLabel}
                   onDelete={onDelete}

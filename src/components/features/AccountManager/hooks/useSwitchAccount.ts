@@ -27,30 +27,6 @@ export function useSwitchAccount(onLocalTokenChange) {
   const { settings: appSettings } = useAppSettings()
   const [switchingId, setSwitchingId] = useState(null)
   const [switchDialog, setSwitchDialog] = useState(null)
-  const [switchTarget, setSwitchTarget] = useState('ide') // 'ide' | 'cli'
-  const [cliInstalled, setCliInstalled] = useState(false)
-  const [ideInstalled, setIdeInstalled] = useState(false)
-
-  // 检测 CLI 和 IDE 安装状态
-  useEffect(() => {
-    invoke<InstallationInfo>('check_cli_installation').then(info => {
-      const installed = info?.cli_installed ?? info?.cliInstalled ?? info?.installed
-      setCliInstalled(Boolean(installed))
-    }).catch(() => setCliInstalled(false))
-
-    invoke<InstallationInfo>('check_ide_installation').then(info => {
-      const installed = info?.ide_installed ?? info?.ideInstalled ?? info?.installed
-      setIdeInstalled(Boolean(installed))
-    }).catch(() => setIdeInstalled(false))
-  }, [])
-
-  // 从 localStorage 读取上次选择的切换目标
-  useEffect(() => {
-    const saved = localStorage.getItem('switchTarget')
-    if (saved && (saved === 'ide' || saved === 'cli')) {
-      setSwitchTarget(saved)
-    }
-  }, [])
 
   // 显示切换确认弹窗
   const handleSwitchAccount = useCallback((account) => {
@@ -74,80 +50,54 @@ export function useSwitchAccount(onLocalTokenChange) {
   const confirmSwitch = useCallback(async () => {
     const account = switchDialog?.account
     if (!account) return
-    
-    // 保存用户选择的切换目标
-    localStorage.setItem('switchTarget', switchTarget)
-    
+
     setSwitchDialog(null)
     setSwitchingId(account.id)
-    
-    try {
-      // 如果选择 CLI，先检测 CLI 2.0 安装状态
-      if (switchTarget === 'cli') {
-        const cliInfo = await invoke<InstallationInfo>('check_cli_installation')
-        const installed = cliInfo?.cli_installed ?? cliInfo?.cliInstalled ?? cliInfo?.installed
-        if (!installed) {
-          setSwitchDialog({
-            type: 'error',
-            title: t('switch.cliNotInstalled'),
-            message: t('switch.cliNotInstalledMessage'),
-            account: null})
-          setSwitchingId(null)
-          return
-        }
-      }
 
-      // 如果选择 IDE，先检测 IDE 安装状态
-      if (switchTarget === 'ide') {
-        const ideInfo = await invoke<InstallationInfo>('check_ide_installation')
-        const installed = ideInfo?.ide_installed ?? ideInfo?.ideInstalled ?? ideInfo?.installed
-        if (!installed) {
-          setSwitchDialog({
-            type: 'error',
-            title: t('switch.ideNotInstalled'),
-            message: t('switch.ideNotInstalledMessage'),
-            account: null})
-          setSwitchingId(null)
-          return
-        }
+    try {
+      // 检测 IDE 安装状态
+      const ideInfo = await invoke<InstallationInfo>('check_ide_installation')
+      const installed = ideInfo?.ide_installed ?? ideInfo?.ideInstalled ?? ideInfo?.installed
+      if (!installed) {
+        setSwitchDialog({
+          type: 'error',
+          title: t('switch.ideNotInstalled'),
+          message: t('switch.ideNotInstalledMessage'),
+          account: null})
+        setSwitchingId(null)
+        return
       }
 
       // 先同步账号（刷新 token + 获取最新配额）
       const syncResult = await invoke<SyncResult>('sync_account', { id: account.id })
       let refreshedAccount = syncResult.account
-      
+
       const settings = appSettings || {}
       refreshedAccount = await applyMachineGuid(refreshedAccount, settings)
-      
-      if (switchTarget === 'cli') {
-        // CLI 切号
-        const payload = await invoke('build_cli_switch_payload', { account: refreshedAccount })
-        await invoke('switch_to_cli_account', { payload })
-      } else {
-        // IDE 切号
-        const params = buildSwitchParams(refreshedAccount)
-        await invoke('switch_kiro_account', { params })
-      }
-      
+
+      // IDE 切号
+      const params = buildSwitchParams(refreshedAccount)
+      await invoke('switch_kiro_account', { params })
+
       // 更新当前账号标识
       invoke('get_kiro_local_token').then(onLocalTokenChange).catch(() => onLocalTokenChange(null))
-      
+
       // 从 usageData 获取配额信息（API 原始响应）
       const usageData = refreshedAccount.usageData
       const breakdown = usageData?.usageBreakdownList?.[0]
       const now = Date.now()
-      
+
       // 主配额（永不过期）
       const mainUsed = breakdown?.currentUsage ?? 0
       const mainLimit = breakdown?.usageLimit ?? 0
-      
+
       // 试用配额（检查过期）
       const trialInfo = breakdown?.freeTrialInfo
       const trialExpiry = trialInfo?.freeTrialExpiry ? trialInfo.freeTrialExpiry * 1000 : 0
       const trialValid = trialExpiry > now
       const trialUsed = trialValid ? (trialInfo?.currentUsage ?? 0) : 0
       const trialLimit = trialValid ? (trialInfo?.usageLimit ?? 0) : 0
-      
+
       // 奖励配额（检查每个奖励的过期时间）
       const bonuses = breakdown?.bonuses ?? []
       let bonusUsed = 0, bonusLimit = 0
@@ -158,19 +108,17 @@ export function useSwitchAccount(onLocalTokenChange) {
           bonusLimit += b.usageLimit ?? 0
         }
       })
-      
+
       // 总计
       const totalUsed = mainUsed + trialUsed + bonusUsed
       const totalLimit = mainLimit + trialLimit + bonusLimit
       const remaining = totalLimit - totalUsed
       const provider = refreshedAccount.provider || 'Unknown'
-      
-      const targetLabel = switchTarget === 'cli' ? 'CLI 2.0' : 'IDE'
-      
+
       setSwitchDialog({
         type: 'success',
         title: t('switch.success'),
-        message: `${refreshedAccount.email}\n\n📊 ${t('switch.quota')}: ${totalUsed}/${totalLimit} (${t('switch.remaining')} ${remaining})\n🏷️ ${t('switch.type')}: ${provider}\n🎯 切换目标: ${targetLabel}`,
+        message: `${refreshedAccount.email}\n\n📊 ${t('switch.quota')}: ${totalUsed}/${totalLimit} (${t('switch.remaining')} ${remaining})\n🏷️ ${t('switch.type')}: ${provider}`,
         account: null})
     } catch (e) {
       setSwitchDialog({
@@ -181,7 +129,7 @@ export function useSwitchAccount(onLocalTokenChange) {
     } finally {
       setSwitchingId(null)
     }
-  }, [switchDialog, appSettings, onLocalTokenChange, t, switchTarget])
+  }, [switchDialog, appSettings, onLocalTokenChange, t])
 
   // 关闭弹窗
   const closeSwitchDialog = useCallback(() => setSwitchDialog(null), [])
@@ -192,9 +140,5 @@ export function useSwitchAccount(onLocalTokenChange) {
     switchDialog,
     handleSwitchAccount,
     confirmSwitch,
-    closeSwitchDialog,
-    switchTarget,
-    setSwitchTarget,
-    cliInstalled,
-    ideInstalled}
+    closeSwitchDialog}
 }

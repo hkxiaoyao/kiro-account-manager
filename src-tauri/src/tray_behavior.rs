@@ -18,7 +18,7 @@ pub enum TrayMenuAction {
     ShowMainWindow,
     ExitApp,
 }
-
+//托盘菜单
 pub fn tray_menu_action(id: &str) -> Option<TrayMenuAction> {
     match id {
         TRAY_SHOW_ID => Some(TrayMenuAction::ShowMainWindow),
@@ -72,7 +72,7 @@ fn handle_tray_icon_event<R: Runtime>(tray: &TrayIcon<R>, event: TrayIconEvent) 
 }
 
 pub fn create_tray_icon<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<TrayIcon<R>> {
-    let show_item = MenuItem::with_id(app, TRAY_SHOW_ID, "显示主窗口", true, None::<&str>)?;
+    let show_item = MenuItem::with_id(app, TRAY_SHOW_ID, "显示窗口", true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
     let exit_item = MenuItem::with_id(app, TRAY_EXIT_ID, "退出应用", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&show_item, &separator, &exit_item])?;
@@ -91,21 +91,7 @@ pub fn create_tray_icon<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<TrayIco
 }
 
 pub fn handle_window_event<R: Runtime>(_window: &Window<R>, event: &WindowEvent) {
-    // 开发模式下直接退出，不隐藏到托盘
-    #[cfg(debug_assertions)]
-    {
-        let _ = event;
-        return;
-    }
-
-    // Release 模式下隐藏到托盘
-    #[cfg(not(debug_assertions))]
-    if let WindowEvent::CloseRequested { api, .. } = event {
-        if should_hide_window_on_close(_window.label(), tray_is_ready(_window)) {
-            api.prevent_close();
-            let _ = _window.hide();
-        }
-    }
+    let _ = (_window, event);
 }
 
 #[cfg(test)]
