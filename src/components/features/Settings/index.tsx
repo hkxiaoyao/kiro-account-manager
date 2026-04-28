@@ -39,6 +39,7 @@ function Settings() {
     const [savingBrowser, setSavingBrowser] = useState(false)
     const [detectedBrowsers, setDetectedBrowsers] = useState<any[]>([])
     const [showBrowserList, setShowBrowserList] = useState(false)
+    const [customKiroPath, setCustomKiroPath] = useState<string | null>(null)
     const [detectingProxy, setDetectingProxy] = useState(false)
     const [enableCodebaseIndexing, setEnableCodebaseIndexing] = useState(true)
     const [trustedCommandsMode, setTrustedCommandsMode] = useState('none') // 'none' | 'common' | 'all'
@@ -83,12 +84,14 @@ function Settings() {
         setLoading(true)
         try {
             // 先加载核心设置（快速）
-            const [kiroSettings, appSettings, sysMachine] = await Promise.all([
+            const [kiroSettings, appSettings, sysMachine, kiroPath] = await Promise.all([
                 invoke<any>('get_kiro_settings').catch(() => null),
                 invoke<any>('get_app_settings').catch(() => null),
-                invoke<any>('get_system_machine_guid').catch(() => null)
+                invoke<any>('get_system_machine_guid').catch(() => null),
+                invoke<string | null>('get_custom_kiro_path').catch(() => null)
             ])
             setSystemMachineInfo(sysMachine)
+            setCustomKiroPath(kiroPath)
 
             // 从 Kiro IDE 设置读取
             if (kiroSettings) {
@@ -238,6 +241,38 @@ function Settings() {
         const interval = parseInt(value) || 5
         setAutoSwitchInterval(interval)
         await saveAppSettings({ autoSwitchInterval: interval }, true)
+    }
+
+    const handleBrowseKiroPath = async () => {
+        try {
+            const { open } = await import('@tauri-apps/plugin-dialog')
+            const selected = await open({
+                directory: false,
+                multiple: false,
+                filters: [{
+                    name: 'Kiro',
+                    extensions: window.navigator.platform.toLowerCase().includes('win') ? ['exe'] : []
+                }]
+            })
+
+            if (selected) {
+                await invoke('set_custom_kiro_path', { path: selected })
+                setCustomKiroPath(selected)
+                showSuccess(t('settings.kiroPathSaved'))
+            }
+        } catch (error) {
+            showError(String(error))
+        }
+    }
+
+    const handleClearKiroPath = async () => {
+        try {
+            await invoke('clear_custom_kiro_path')
+            setCustomKiroPath(null)
+            showSuccess(t('settings.kiroPathCleared'))
+        } catch (error) {
+            showError(String(error))
+        }
     }
 
     const handleCodebaseIndexingChange = async (checked: boolean) => {
@@ -452,6 +487,9 @@ function Settings() {
                             detectedBrowsers={detectedBrowsers}
                             showBrowserList={showBrowserList}
                             setShowBrowserList={setShowBrowserList}
+                            customKiroPath={customKiroPath}
+                            handleBrowseKiroPath={handleBrowseKiroPath}
+                            handleClearKiroPath={handleClearKiroPath}
                             systemMachineInfo={systemMachineInfo}
                             machineGuidAction={machineGuidAction}
                             handleResetSystemMachineGuid={handleResetSystemMachineGuid}

@@ -40,6 +40,8 @@ pub struct AppSettings {
     pub telemetry_usage_analytics: Option<bool>,
     pub telemetry_edit_stats: Option<bool>,
     pub telemetry_feedback: Option<bool>,
+    // Kiro IDE 自定义安装路径
+    pub custom_kiro_path: Option<String>,
 }
 
 // 兼容旧配置文件中的 redeem_server 字段（已废弃）
@@ -79,10 +81,10 @@ impl Default for AppSettings {
             telemetry_usage_analytics: Some(false),
             telemetry_edit_stats: Some(false),
             telemetry_feedback: Some(false),
+            custom_kiro_path: None,
         }
     }
 }
-
 impl AppSettings {
     fn apply_updates(&mut self, updates: Self) {
         macro_rules! apply_if_some {
@@ -122,6 +124,7 @@ impl AppSettings {
         apply_if_some!(telemetry_usage_analytics);
         apply_if_some!(telemetry_edit_stats);
         apply_if_some!(telemetry_feedback);
+        apply_if_some!(custom_kiro_path);
     }
 }
 
@@ -304,6 +307,38 @@ pub async fn get_usage_history() -> Result<UsageHistory, String> {
 #[tauri::command]
 pub async fn save_usage_history_entry(entry: UsageHistoryEntry) -> Result<(), String> {
     run_blocking_io(move || save_usage_history_entry_inner(entry)).await
+}
+
+// ============================================================
+// 自定义 Kiro 安装路径
+// ============================================================
+
+#[tauri::command]
+pub async fn get_custom_kiro_path() -> Result<Option<String>, String> {
+    run_blocking_io(|| {
+        get_app_settings_inner()
+            .map(|s| s.custom_kiro_path)
+    }).await
+}
+
+#[tauri::command]
+pub async fn set_custom_kiro_path(path: String) -> Result<(), String> {
+    run_blocking_io(move || {
+        save_app_settings_inner(AppSettings {
+            custom_kiro_path: Some(path),
+            ..Default::default()
+        })
+    }).await
+}
+
+#[tauri::command]
+pub async fn clear_custom_kiro_path() -> Result<(), String> {
+    run_blocking_io(|| {
+        save_app_settings_inner(AppSettings {
+            custom_kiro_path: Some(String::new()),
+            ..Default::default()
+        })
+    }).await
 }
 
 
