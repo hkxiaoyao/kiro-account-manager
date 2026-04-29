@@ -337,7 +337,6 @@ function GatewayAdvanced({
                       {config.strategy === 'round_robin' && '按顺序轮流使用账号'}
                       {config.strategy === 'most_quota' && '优先使用剩余配额最多的账号'}
                       {config.strategy === 'random' && '随机选择账号'}
-                      {config.strategy && ' · 所有策略都会优先考虑账号优先级（数字越小优先级越高）'}
                     </div>
                   </div>
 
