@@ -35,6 +35,8 @@ use crate::{
     },
 };
 
+const MAX_FAILURES_PER_ACCOUNT: u32 = 3;
+
 use super::{
     append_gateway_request_log,
     converter::{
@@ -1522,6 +1524,45 @@ async fn resolve_managed_account_credentials(
 ) -> Result<UpstreamCredentials, String> {
     let mut store = AccountStore::new();
     store.reload();
+
+    // 自愈机制：检查是否所有账号都因 "TooManyFailures" 被禁用
+    let all_disabled_by_failures = match config.account_mode.as_str() {
+        "single" => {
+            store
+                .accounts
+                .iter()
+                .filter(|account| config.account_id.as_deref() == Some(account.id.as_str()))
+                .all(|account| {
+                    account.disabled_reason.as_deref() == Some("TooManyFailures")
+                })
+        }
+        "group" => {
+            let group_accounts: Vec<_> = store
+                .accounts
+                .iter()
+                .filter(|account| config.group_id.as_deref() == account.group_id.as_deref())
+                .collect();
+
+            !group_accounts.is_empty()
+                && group_accounts.iter().all(|account| {
+                    account.disabled_reason.as_deref() == Some("TooManyFailures")
+                })
+        }
+        _ => false,
+    };
+
+    if all_disabled_by_failures {
+        eprintln!("[Gateway] 所有账号均已被自动禁用，执行自愈机制重置失败计数");
+        for account in store.accounts.iter_mut() {
+            if account.disabled_reason.as_deref() == Some("TooManyFailures") {
+                account.failure_count = 0;
+                account.status = "active".to_string();
+                account.disabled_reason = None;
+            }
+        }
+        let _ = store.save_to_file();
+    }
+
     let mut accounts = match config.account_mode.as_str() {
         "single" => store
             .accounts
@@ -1562,12 +1603,16 @@ async fn resolve_managed_account_credentials(
                     is_auth_error = usage.is_auth_error;
                 }
 
+                // 失败追踪：如果账号被封禁或认证失败，累加失败计数
+                let should_increment_failure = is_banned || is_auth_error;
+
                 persist_account_refresh(
                     account,
                     &refresh,
                     usage_data.clone(),
                     is_banned,
                     is_auth_error,
+                    should_increment_failure,
                 );
 
                 if (is_banned || is_auth_error) && index + 1 < accounts.len() {
@@ -1674,6 +1719,7 @@ fn persist_account_refresh(
     usage_data: Option<Value>,
     is_banned: bool,
     is_auth_error: bool,
+    should_increment_failure: bool,
 ) {
     let mut store = AccountStore::new();
     if let Some(target) = store
@@ -1693,6 +1739,36 @@ fn persist_account_refresh(
             target.usage_data = Some(data);
         }
         target.status = calc_status(is_banned, is_auth_error);
+
+        // 失败追踪逻辑
+        if should_increment_failure {
+            target.failure_count += 1;
+            target.last_failure_at = Some(Local::now().to_rfc3339());
+
+            // 如果失败次数达到阈值，自动禁用账号
+            if target.failure_count >= MAX_FAILURES_PER_ACCOUNT {
+                target.status = "disabled".to_string();
+                target.disabled_reason = Some("TooManyFailures".to_string());
+                eprintln!(
+                    "[Gateway] 账号 {} 失败次数达到 {}，自动禁用",
+                    target.label, MAX_FAILURES_PER_ACCOUNT
+                );
+            }
+        } else {
+            // 请求成功，重置失败计数并累加成功计数
+            target.failure_count = 0;
+            target.success_count += 1;
+            target.last_failure_at = None;
+
+            // 如果之前因为失败过多被禁用，现在恢复
+            if target.disabled_reason.as_deref() == Some("TooManyFailures") {
+                target.disabled_reason = None;
+                if target.status == "disabled" {
+                    target.status = "active".to_string();
+                }
+            }
+        }
+
         let _ = store.save_to_file();
     }
 }

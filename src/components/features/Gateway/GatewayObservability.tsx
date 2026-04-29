@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { formatGatewayRequestDuration } from './gatewayPageUtils'
 import { GatewayCodeCard, GatewayPathCard, GatewaySectionHeader, GatewayStatCard, GatewaySubCard, GatewaySurfaceCard } from './GatewayShared'
+import { MetricBar } from './MetricBar'
 import React from 'react'
 
 interface GatewayObservabilityProps {
@@ -31,25 +32,11 @@ interface GatewayObservabilityProps {
   lastRequestLogsSyncAt: string;
   requestLogOutcome: string;
   setRequestLogOutcome: (value: string) => void;
-  selectClassNames: any;
   requestLogQuery: string;
   setRequestLogQuery: (value: string) => void;
-  inputClassNames: any;
   requestLogSummary: any;
   requestMetrics: any;
-  renderMetricList: (items: any[], emptyLabel: string) => React.ReactNode;
   filteredRequestLogs: any[];
-}
-
-function GatewayMetricListCard({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <GatewaySubCard>
-      <div className="text-xs font-semibold">{title}</div>
-      <div className="flex flex-col gap-1.5 mt-3">
-        {children}
-      </div>
-    </GatewaySubCard>
-  )
 }
 
 function GatewayErrorHistoryCard({ errorHistory }: { errorHistory: any[] }) {
@@ -79,66 +66,6 @@ function GatewayErrorHistoryCard({ errorHistory }: { errorHistory: any[] }) {
   )
 }
 
-function GatewayRequestLogEntry({ colors, item, itemKey }: { colors: any; item: any; itemKey: string }) {
-  return (
-    <GatewaySubCard key={itemKey}>
-      <div className="flex flex-col gap-2">
-        <div className="flex justify-between items-start">
-          <div className="flex flex-col gap-0.5">
-            <div className="flex items-center gap-2">
-              <Badge variant={item.outcome === 'success' ? 'default' : 'destructive'}>{item.outcome || 'unknown'}</Badge>
-              <Badge variant="outline">{item.endpoint || '-'}</Badge>
-              <Badge variant="outline" className={item.statusCode >= 400 ? 'border-red-500 text-red-500' : ''}>{item.statusCode || 0}</Badge>
-              <Badge variant="outline" className={item.stream ? 'border-blue-500 text-blue-500' : ''}>{item.stream ? 'stream' : 'non-stream'}</Badge>
-            </div>
-            <div className={`text-sm text-muted-foreground`}>
-              #{item.requestIndex ?? '-'} · {item.occurredAt || '-'} · {item.clientIp || '-'}
-            </div>
-          </div>
-          <div className={`text-sm font-bold text-foreground`}>
-            {formatGatewayRequestDuration(item.durationMs)}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <GatewayStatCard colors={colors} label="模型 / Region" value={`${item.model || '未记录模型'} / ${item.region || '-'}`} valueProps={{ size: 'sm' }} />
-          <GatewayStatCard colors={colors} label="上游来源" value={item.upstreamSource || '未解析上游来源'} valueProps={{ size: 'sm' }} />
-          <GatewayStatCard colors={colors} label="客户端 / 计数" value={`${item.clientIp || '-'} / #${item.requestIndex ?? '-'}`} valueProps={{ size: 'sm' }} />
-          <GatewayStatCard colors={colors} label="请求类型" value={`${item.stream ? '流式返回' : '非流式返回'} / ${item.endpoint || '-'}`} valueProps={{ size: 'sm' }} />
-        </div>
-
-        {item.error ? (
-          <pre className="text-xs bg-muted p-3 rounded-md overflow-x-auto whitespace-pre-wrap break-words">
-            {item.error}
-          </pre>
-        ) : null}
-
-        {item.requestBody || item.responseBody ? (
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-            {item.requestBody ? (
-              <details open={item.outcome === 'error'}>
-                <summary className="cursor-pointer text-sm font-medium">原始请求</summary>
-                <pre className="text-xs bg-muted p-3 rounded-md overflow-x-auto whitespace-pre-wrap break-words mt-2">
-                  {item.requestBody}
-                </pre>
-              </details>
-            ) : null}
-
-            {item.responseBody ? (
-              <details open={item.outcome === 'error'}>
-                <summary className="cursor-pointer text-sm font-medium">原始响应</summary>
-                <pre className="text-xs bg-muted p-3 rounded-md overflow-x-auto whitespace-pre-wrap break-words mt-2">
-                  {item.responseBody}
-                </pre>
-              </details>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-    </GatewaySubCard>
-  )
-}
-
 function GatewayObservability({
   colors,
   observabilityHighlights,
@@ -161,13 +88,10 @@ function GatewayObservability({
   lastRequestLogsSyncAt,
   requestLogOutcome,
   setRequestLogOutcome,
-  selectClassNames,
   requestLogQuery,
   setRequestLogQuery,
-  inputClassNames,
   requestLogSummary,
   requestMetrics,
-  renderMetricList,
   filteredRequestLogs}: GatewayObservabilityProps) {
   return (
     <>
@@ -373,33 +297,94 @@ function GatewayObservability({
               <GatewayStatCard colors={colors} label="统计样本" value={requestMetrics.total} />
             </div>
 
+            {/* 统计可视化 - 紧凑布局 */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-              <GatewayMetricListCard title="热门模型">
-                {renderMetricList(requestMetrics.topModels, '暂无模型统计')}
-              </GatewayMetricListCard>
-              <GatewayMetricListCard title="热门上游来源">
-                {renderMetricList(requestMetrics.topUpstreams, '暂无上游来源统计')}
-              </GatewayMetricListCard>
-              <GatewayMetricListCard title="状态码分布">
-                {renderMetricList(requestMetrics.topStatuses, '暂无状态码统计')}
-              </GatewayMetricListCard>
-              <GatewaySubCard>
-                <div className="text-xs font-semibold">端点 / Region</div>
-                <div className="flex flex-col gap-2 mt-3">
-                  <div>
-                    <div className={`text-xs text-muted-foreground`}>端点</div>
-                    <div className="flex flex-col gap-1.5 mt-1.5">
-                      {renderMetricList(requestMetrics.topEndpoints, '暂无端点统计')}
-                    </div>
+              {/* 热门模型 */}
+              <div className="border rounded-lg p-3">
+                <div className="text-xs font-semibold mb-2 text-muted-foreground">热门模型</div>
+                {requestMetrics.topModels.length === 0 ? (
+                  <div className="text-center py-2 text-muted-foreground text-xs">暂无统计</div>
+                ) : (
+                  <div className="space-y-1.5">
+                    {requestMetrics.topModels.map((item: any, idx: number) => (
+                      <MetricBar key={idx} label={item.label} count={item.count} percent={item.percent} />
+                    ))}
                   </div>
+                )}
+              </div>
+
+              {/* 热门上游来源 */}
+              <div className="border rounded-lg p-3">
+                <div className="text-xs font-semibold mb-2 text-muted-foreground">热门上游来源</div>
+                {requestMetrics.topUpstreams.length === 0 ? (
+                  <div className="text-center py-2 text-muted-foreground text-xs">暂无统计</div>
+                ) : (
+                  <div className="space-y-1.5">
+                    {requestMetrics.topUpstreams.map((item: any, idx: number) => (
+                      <MetricBar key={idx} label={item.label} count={item.count} percent={item.percent} />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 状态码分布 */}
+              <div className="border rounded-lg p-3">
+                <div className="text-xs font-semibold mb-2 text-muted-foreground">状态码分布</div>
+                {requestMetrics.topStatuses.length === 0 ? (
+                  <div className="text-center py-2 text-muted-foreground text-xs">暂无统计</div>
+                ) : (
+                  <div className="space-y-1.5">
+                    {requestMetrics.topStatuses.map((item: any, idx: number) => {
+                      const statusCode = parseInt(item.label)
+                      const isError = statusCode >= 400
+                      return (
+                        <div key={idx} className="flex items-center gap-2">
+                          <Badge
+                            variant="outline"
+                            className={`text-xs h-5 ${isError ? 'border-red-500 text-red-500' : ''}`}
+                          >
+                            {item.label}
+                          </Badge>
+                          <MetricBar label="" count={item.count} percent={item.percent} isError={isError} className="flex-1" />
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* 端点 / Region */}
+              <div className="border rounded-lg p-3">
+                <div className="text-xs font-semibold mb-2 text-muted-foreground">端点 / Region</div>
+                <div className="space-y-3">
+                  {/* 端点 */}
                   <div>
-                    <div className={`text-xs text-muted-foreground`}>Region</div>
-                    <div className="flex flex-col gap-1.5 mt-1.5">
-                      {renderMetricList(requestMetrics.topRegions, '暂无 Region 统计')}
-                    </div>
+                    <div className="text-xs text-muted-foreground mb-1.5">端点</div>
+                    {requestMetrics.topEndpoints.length === 0 ? (
+                      <div className="text-center py-1 text-muted-foreground text-xs">暂无统计</div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {requestMetrics.topEndpoints.map((item: any, idx: number) => (
+                          <MetricBar key={idx} label={item.label} count={item.count} percent={item.percent} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {/* Region */}
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1.5">Region</div>
+                    {requestMetrics.topRegions.length === 0 ? (
+                      <div className="text-center py-1 text-muted-foreground text-xs">暂无统计</div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {requestMetrics.topRegions.map((item: any, idx: number) => (
+                          <MetricBar key={idx} label={item.label} count={item.count} percent={item.percent} />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
-              </GatewaySubCard>
+              </div>
             </div>
           </div>
         </GatewaySurfaceCard>
@@ -423,15 +408,134 @@ function GatewayObservability({
                 </AlertDescription>
               </Alert>
             ) : (
-              <div className="flex flex-col gap-3">
-                {filteredRequestLogs.map((item, idx) => (
-                  <GatewayRequestLogEntry
-                    key={`${item.requestIndex || idx}-${item.occurredAt || idx}`}
-                    colors={colors}
-                    item={item}
-                    itemKey={`${item.requestIndex || idx}-${item.occurredAt || idx}`}
-                  />
-                ))}
+              <div className="border rounded-lg overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50 border-b">
+                      <tr>
+                        <th className="text-left p-3 font-semibold">#</th>
+                        <th className="text-left p-3 font-semibold">状态</th>
+                        <th className="text-left p-3 font-semibold">端点</th>
+                        <th className="text-left p-3 font-semibold">模型</th>
+                        <th className="text-left p-3 font-semibold">上游来源</th>
+                        <th className="text-left p-3 font-semibold">耗时</th>
+                        <th className="text-left p-3 font-semibold">时间</th>
+                        <th className="text-left p-3 font-semibold">客户端</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredRequestLogs.map((item, idx) => (
+                        <tr 
+                          key={`${item.requestIndex || idx}-${item.occurredAt || idx}`}
+                          className={`border-b hover:bg-muted/30 transition-colors ${
+                            item.outcome === 'error' ? 'bg-red-50 dark:bg-red-950/20' : ''
+                          }`}
+                        >
+                          <td className="p-3 font-mono text-xs text-muted-foreground">
+                            #{item.requestIndex ?? '-'}
+                          </td>
+                          <td className="p-3">
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-1.5">
+                                <Badge 
+                                  variant={item.outcome === 'success' ? 'default' : 'destructive'}
+                                  className="text-xs"
+                                >
+                                  {item.outcome || 'unknown'}
+                                </Badge>
+                                <Badge 
+                                  variant="outline" 
+                                  className={`text-xs ${item.statusCode >= 400 ? 'border-red-500 text-red-500' : ''}`}
+                                >
+                                  {item.statusCode || 0}
+                                </Badge>
+                              </div>
+                              {item.stream && (
+                                <Badge variant="outline" className="text-xs border-blue-500 text-blue-500 w-fit">
+                                  stream
+                                </Badge>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <span className="text-xs">{item.endpoint || '-'}</span>
+                          </td>
+                          <td className="p-3">
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-xs font-medium">{item.model || '未记录'}</span>
+                              <span className="text-xs text-muted-foreground">{item.region || '-'}</span>
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <span className="text-xs">{item.upstreamSource || '未解析'}</span>
+                          </td>
+                          <td className="p-3">
+                            <span className="text-xs font-mono font-semibold">
+                              {formatGatewayRequestDuration(item.durationMs)}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <span className="text-xs text-muted-foreground">{item.occurredAt || '-'}</span>
+                          </td>
+                          <td className="p-3">
+                            <span className="text-xs text-muted-foreground">{item.clientIp || '-'}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                
+                {/* 展开详情（可选） */}
+                {filteredRequestLogs.some(item => item.error || item.requestBody || item.responseBody) && (
+                  <div className="border-t bg-muted/20 p-3">
+                    <details>
+                      <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
+                        查看详细日志（错误信息、请求/响应体）
+                      </summary>
+                      <div className="mt-3 space-y-3">
+                        {filteredRequestLogs.map((item, idx) => {
+                          if (!item.error && !item.requestBody && !item.responseBody) return null
+                          return (
+                            <div key={`detail-${idx}`} className="border rounded-lg p-3 bg-background">
+                              <div className="text-xs font-semibold mb-2">
+                                #{item.requestIndex ?? '-'} - {item.occurredAt || '-'}
+                              </div>
+                              {item.error && (
+                                <div className="mb-2">
+                                  <div className="text-xs text-red-600 font-semibold mb-1">错误信息</div>
+                                  <pre className="text-xs bg-muted p-2 rounded overflow-x-auto whitespace-pre-wrap break-words">
+                                    {item.error}
+                                  </pre>
+                                </div>
+                              )}
+                              {(item.requestBody || item.responseBody) && (
+                                <div className="grid grid-cols-1 xl:grid-cols-2 gap-2">
+                                  {item.requestBody && (
+                                    <div>
+                                      <div className="text-xs font-semibold mb-1">请求体</div>
+                                      <pre className="text-xs bg-muted p-2 rounded overflow-x-auto whitespace-pre-wrap break-words max-h-40 overflow-y-auto">
+                                        {item.requestBody}
+                                      </pre>
+                                    </div>
+                                  )}
+                                  {item.responseBody && (
+                                    <div>
+                                      <div className="text-xs font-semibold mb-1">响应体</div>
+                                      <pre className="text-xs bg-muted p-2 rounded overflow-x-auto whitespace-pre-wrap break-words max-h-40 overflow-y-auto">
+                                        {item.responseBody}
+                                      </pre>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </details>
+                  </div>
+                )}
               </div>
             )}
           </div>

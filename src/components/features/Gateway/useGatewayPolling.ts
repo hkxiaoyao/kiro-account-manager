@@ -2,11 +2,23 @@ import { useEffect } from 'react'
 import { fetchGatewayRequestLogs, fetchGatewayStatus } from './gatewayPageState'
 import { formatGatewayTimestamp } from './gatewayPageUtils'
 
+interface UseGatewayPollingOptions {
+  activeTab: string
+  fallbackConfig: any
+  onStatus: (data: { status: any; fallbackConfig: any; syncedAt: string }) => void
+  onRequestLogs: (data: { logs: any[]; syncedAt: string }) => void
+  statusInterval?: number
+  logsInterval?: number
+}
+
 export function useGatewayPolling({
   activeTab,
   fallbackConfig,
   onStatus,
-  onRequestLogs}) {
+  onRequestLogs,
+  statusInterval = 2000,
+  logsInterval = 5000
+}: UseGatewayPollingOptions) {
   useEffect(() => {
     const timer = setInterval(() => {
       fetchGatewayStatus()
@@ -14,13 +26,14 @@ export function useGatewayPolling({
           onStatus({
             status,
             fallbackConfig,
-            syncedAt: formatGatewayTimestamp()})
+            syncedAt: formatGatewayTimestamp()
+          })
         })
         .catch(() => {})
-    }, 2000)
+    }, statusInterval)
 
     return () => clearInterval(timer)
-  }, [fallbackConfig, onStatus])
+  }, [fallbackConfig, onStatus, statusInterval])
 
   useEffect(() => {
     if (activeTab !== 'observability') {
@@ -31,7 +44,8 @@ export function useGatewayPolling({
       .then((logs) => {
         onRequestLogs({
           logs,
-          syncedAt: formatGatewayTimestamp()})
+          syncedAt: formatGatewayTimestamp()
+        })
       })
       .catch(() => {})
 
@@ -40,11 +54,12 @@ export function useGatewayPolling({
         .then((logs) => {
           onRequestLogs({
             logs,
-            syncedAt: formatGatewayTimestamp()})
+            syncedAt: formatGatewayTimestamp()
+          })
         })
         .catch(() => {})
-    }, 5000)
+    }, logsInterval)
 
     return () => clearInterval(timer)
-  }, [activeTab, onRequestLogs])
+  }, [activeTab, onRequestLogs, logsInterval])
 }

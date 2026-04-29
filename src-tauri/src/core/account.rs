@@ -144,6 +144,16 @@ pub struct Account {
     pub machine_id: Option<String>,
     #[serde(default)]
     pub available_models_cache: Option<AvailableModelsCacheEntry>,
+    // 故障追踪（阶段一：失败计数和自动禁用）
+    #[serde(default)]
+    pub failure_count: u32,
+    #[serde(default)]
+    pub last_failure_at: Option<String>,
+    #[serde(default)]
+    pub disabled_reason: Option<String>,
+    // 成功计数（用于 balanced 策略）
+    #[serde(default)]
+    pub success_count: u64,
 }
 
 impl Account {
@@ -176,6 +186,10 @@ impl Account {
             machine_id: None,
             available_models_cache: None,
             password: None,
+            failure_count: 0,
+            last_failure_at: None,
+            disabled_reason: None,
+            success_count: 0,
         }
     }
 
@@ -208,6 +222,10 @@ impl Account {
             machine_id: None,
             available_models_cache: None,
             password: None,
+            failure_count: 0,
+            last_failure_at: None,
+            disabled_reason: None,
+            success_count: 0,
         }
     }
 
@@ -229,7 +247,9 @@ impl Account {
 
     /// 判断账号是否可用（可正常参与切换/同步）
     pub fn is_available(&self) -> bool {
-        !is_unavailable_status(self.status.as_str()) && !is_usage_capped(self.usage_data.as_ref())
+        !is_unavailable_status(self.status.as_str())
+            && !is_usage_capped(self.usage_data.as_ref())
+            && self.disabled_reason.is_none()
     }
 }
 
