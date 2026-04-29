@@ -11,6 +11,12 @@ import GatewayObservability from './GatewayObservability'
 import GatewayOverview from './GatewayOverview'
 import { getThemeAccent } from '../KiroConfig/themeAccent'
 import { GatewayConfig, GatewayStatus } from './gatewayPageState'
+import {
+  GatewayConfigProvider,
+  GatewayStatusProvider,
+  GatewayDataProvider,
+  GatewayObservabilityProvider
+} from './contexts'
 import { 
   applyGatewayLocalOnlyChange, 
   buildClientSamples, 
@@ -562,22 +568,26 @@ function GatewayPage() {
   }
 
   return (
-    <div className={`h-full overflow-y-auto p-4 glass-main`}>
-      <Stack gap="md">
-        <Card className={`glass-card border border-border rounded-xl p-4`}>
-          <Stack gap="sm">
-            <Group justify="space-between" align="flex-start">
-              <Stack gap={6}>
-                <Text fw={700} className={"text-foreground"}>Kiro API 反代</Text>
-                <Text size="sm" className={"text-muted-foreground"}>
-                  把入口状态、客户端接入、安全边界和观测线索压到一屏里，优先处理保存/启动/重启这几类主动作。
-                </Text>
-              </Stack>
-              <Group gap="xs">
-                <Badge color="indigo">Gateway Console</Badge>
-                <Badge color={status.running ? 'green' : 'gray'}>{status.running ? '流量入口已在线' : '等待启动'}</Badge>
-              </Group>
-            </Group>
+    <GatewayConfigProvider>
+      <GatewayStatusProvider>
+        <GatewayDataProvider>
+          <GatewayObservabilityProvider>
+            <div className={`h-full overflow-y-auto p-4 glass-main`}>
+              <Stack gap="md">
+                <Card className={`glass-card border border-border rounded-xl p-4`}>
+                  <Stack gap="sm">
+                    <Group justify="space-between" align="flex-start">
+                      <Stack gap={6}>
+                        <Text fw={700} className={"text-foreground"}>Kiro API 反代</Text>
+                        <Text size="sm" className={"text-muted-foreground"}>
+                          把入口状态、客户端接入、安全边界和观测线索压到一屏里，优先处理保存/启动/重启这几类主动作。
+                        </Text>
+                      </Stack>
+                      <Group gap="xs">
+                        <Badge color="indigo">Gateway Console</Badge>
+                        <Badge color={status.running ? 'green' : 'gray'}>{status.running ? '流量入口已在线' : '等待启动'}</Badge>
+                      </Group>
+                    </Group>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {consoleHighlights.map((item) => (
@@ -803,6 +813,10 @@ function GatewayPage() {
         </Tabs>
       </Stack>
     </div>
+          </GatewayObservabilityProvider>
+        </GatewayDataProvider>
+      </GatewayStatusProvider>
+    </GatewayConfigProvider>
   )
 }
 

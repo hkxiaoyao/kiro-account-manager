@@ -5,7 +5,13 @@ import {
   buildGatewayConfigSnapshot,
   buildGatewayRuntimeSnapshot
 } from '../gatewayPageState'
-import { createGatewayFieldErrors, createGeneratedApiKey } from '../gatewayPageUtils'
+import { createGatewayFieldErrors } from '../gatewayPageUtils'
+
+// 生成 API Key 的辅助函数（与 index.tsx 中的实现保持一致）
+function generateApiKey(): string {
+  const random = crypto?.randomUUID?.().replace(/-/g, '') || `${Date.now()}${Math.random().toString(36).slice(2)}`
+  return `sk-${random}`
+}
 
 interface GatewayConfigContextValue {
   // State
@@ -54,7 +60,7 @@ export function GatewayConfigProvider({ children }: { children: ReactNode }) {
 
   const handleGenerateApiKey = useCallback(() => {
     setConfig(prev => {
-      const generatedKey = createGeneratedApiKey()
+      const generatedKey = generateApiKey()
       const existingKeys = String(prev.clientApiKeysText || prev.apiKey || '').trim()
       const clientApiKeysText = existingKeys ? `${existingKeys}\n${generatedKey}` : generatedKey
       return { ...prev, apiKey: generatedKey, clientApiKeysText }
