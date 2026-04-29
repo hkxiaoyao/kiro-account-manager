@@ -1213,17 +1213,18 @@ pub async fn proxy_handler(
     };
 
     if request.stream {
-        write_request_log(
-            &upstream_payload_log_context,
-            upstream_resp.status(),
-            "stream",
-            None,
-            Some(STREAMING_RESPONSE_PLACEHOLDER),
-            None, // input_tokens - 流式开始时未知
-            None, // output_tokens
-            None, // cache_read_input_tokens
-            None, // cache_creation_input_tokens
-        );
+        // 流式开始时不记录日志，等流式结束后再记录完整的 tokens
+        // 将 log_context 转换为 'static 生命周期
+        let static_log_context = RequestLogContext {
+            request_index: upstream_payload_log_context.request_index,
+            endpoint: Box::leak(upstream_payload_log_context.endpoint.to_string().into_boxed_str()),
+            client_addr: upstream_payload_log_context.client_addr,
+            request: None, // 不持有引用
+            upstream: None, // 不持有引用
+            started_at: upstream_payload_log_context.started_at,
+            request_body: None,
+        };
+
         return stream_proxy_response(
             state.clone(),
             upstream_resp,
@@ -1232,6 +1233,7 @@ pub async fn proxy_handler(
             request.messages.clone(),
             request.previous_response_id.clone(),
             Vec::new(),
+            static_log_context,
         );
     }
 
@@ -2988,6 +2990,7 @@ fn stream_proxy_response(
     request_messages: Vec<NormalizedMessage>,
     previous_response_id: Option<String>,
     server_tool_calls: Vec<ServerToolCall>,
+    log_context: RequestLogContext<'static>,
 ) -> Response {
     let (tx, rx) = mpsc::channel::<Result<Bytes, Infallible>>(2048);
     tokio::spawn(async move {
@@ -3714,6 +3717,19 @@ fn stream_proxy_response(
                 send_data(&tx, "[DONE]").await;
             }
         }
+
+        // 流式结束后记录完整的 tokens
+        write_request_log(
+            &log_context,
+            StatusCode::OK,
+            "stream",
+            None,
+            Some(STREAMING_RESPONSE_PLACEHOLDER),
+            Some(aggregated.input_tokens),
+            Some(aggregated.output_tokens),
+            aggregated.cache_read_input_tokens,
+            aggregated.cache_creation_input_tokens,
+        );
     }); // tokio::spawn 闭合
 
     Response::builder()
