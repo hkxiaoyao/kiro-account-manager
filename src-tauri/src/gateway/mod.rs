@@ -146,6 +146,7 @@ struct RouterState {
     last_error: Arc<AsyncMutex<Option<String>>>,
     http: Client,
     responses_sessions: ResponsesSessionStore,
+    token_cache: Arc<AsyncMutex<HashMap<String, usize>>>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -610,6 +611,7 @@ async fn spawn_runtime(config: GatewayConfig) -> Result<GatewayRuntime, String> 
     let request_count = Arc::new(AtomicU64::new(0));
     let last_error = Arc::new(AsyncMutex::new(None));
     let responses_sessions = Arc::new(AsyncMutex::new(HashMap::new()));
+    let token_cache = Arc::new(AsyncMutex::new(HashMap::new()));
 
     let http = build_streaming_http_client()
         .map_err(|e| format!("初始化 HTTP 客户端失败: {e}"))?;
@@ -620,6 +622,7 @@ async fn spawn_runtime(config: GatewayConfig) -> Result<GatewayRuntime, String> 
         last_error: last_error.clone(),
         http,
         responses_sessions,
+        token_cache,
     };
 
     let app = router(state);

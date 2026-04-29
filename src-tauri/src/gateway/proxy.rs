@@ -36,6 +36,11 @@ use crate::{
 };
 
 const MAX_FAILURES_PER_ACCOUNT: u32 = 3;
+const MAX_KIRO_PAYLOAD_SIZE: usize = 615 * 1024; // 615KB - Kiro API 的 HTTP 请求大小限制
+
+// Token 限制的默认值（当无法从 API 获取时使用）
+const DEFAULT_MAX_INPUT_TOKENS: usize = 200_000; // Claude Sonnet 4.5 的默认限制
+const SUMMARIZATION_THRESHOLD_PERCENT: f64 = 0.8; // 80% 触发总结（Kiro IDE 的阈值）
 
 use super::{
     append_gateway_request_log,
@@ -221,6 +226,281 @@ fn build_count_tokens_response(payload: &Value) -> Value {
 
 fn build_health_response() -> Value {
     json!({ "ok": true })
+}
+
+fn check_payload_size(payload: &Value) -> usize {
+    serde_json::to_string(payload)
+        .map(|s| s.len())
+        .unwrap_or(0)
+}
+
+/// Token 估算器类型（根据模型选择不同的估算方法）
+#[derive(Debug, Clone, Copy)]
+enum TokenizerType {
+    Claude,   // Anthropic Claude 模型
+    OpenAI,   // OpenAI GPT 模型（使用 tiktoken）
+    Llama,    // Meta Llama 模型
+    Generic,  // 通用估算（未知模型）
+}
+
+impl TokenizerType {
+    /// 根据模型 ID 判断使用哪种估算方法
+    fn from_model_id(model_id: &str) -> Self {
+        let model_lower = model_id.to_lowercase();
+        
+        if model_lower.contains("claude") {
+            TokenizerType::Claude
+        } else if model_lower.contains("gpt") || model_lower.contains("o1") || model_lower.contains("o3") {
+            TokenizerType::OpenAI
+        } else if model_lower.contains("llama") {
+            TokenizerType::Llama
+        } else {
+            TokenizerType::Generic
+        }
+    }
+}
+
+/// 估算请求消息的 token 数量（支持多种模型）
+/// 
+/// 参考 Kiro IDE 源码：extension.js 行 310847-310873
+/// - Claude: length / 4 + newlines * 0.5 + code_blocks * 2
+/// - OpenAI: 使用 Generic 方法（tiktoken 需要额外依赖）
+/// - Llama: length / 3.5
+/// - Generic: length / 4 + newlines * 0.5 + code_blocks * 2
+/// 
+/// 注意：这是粗略估算，用于提前拒绝明显超长的请求
+/// - Kiro API 的 max_input_tokens 是 200k
+/// - Kiro IDE 在 80% (160k tokens) 时触发自动总结
+/// - 网关在 160k tokens 时直接拒绝（无法实现 AI 总结）
+fn estimate_request_tokens(messages: &[NormalizedMessage], model_id: &str) -> usize {
+    let tokenizer_type = TokenizerType::from_model_id(model_id);
+    
+    messages
+        .iter()
+        .map(|msg| {
+            let mut tokens = 0;
+
+            // 估算 content 字段的 token 数
+            if let Some(content) = &msg.content {
+                let text = extract_plain_text(Some(content));
+                tokens += estimate_text_tokens(&text, tokenizer_type);
+            }
+
+            // 估算 tool_calls 的 token 数
+            if let Some(tool_calls) = &msg.tool_calls {
+                for tool_call in tool_calls {
+                    tokens += estimate_text_tokens(&tool_call.function.name, tokenizer_type);
+                    tokens += estimate_text_tokens(&tool_call.function.arguments, tokenizer_type);
+                }
+            }
+
+            tokens
+        })
+        .sum()
+}
+
+/// 估算单个文本的 token 数量（支持多种模型）
+///
+/// 参考 Kiro IDE 源码：extension.js 行 310878-310911
+///
+/// **Claude 估算**（行 310894-310895）：
+/// ```javascript
+/// estimateWithClaude(text) {
+///   return Math.ceil(text.length / 4);
+/// }
+/// ```
+///
+/// **Llama 估算**（行 310888-310889）：
+/// ```javascript
+/// estimateWithLlama(text) {
+///   return Math.ceil(text.length / 3.5);
+/// }
+/// ```
+///
+/// **Generic 估算**（行 310906-310911）：
+/// ```javascript
+/// estimateGeneric(text) {
+///   const baseTokens = Math.ceil(text.length / 4);
+///   const newlineTokens = Math.ceil(text.split('\n').length * 0.5);
+///   const codeBlockTokens = (text.match(/```/g) || []).length * 2;
+///   return baseTokens + newlineTokens + codeBlockTokens;
+/// }
+/// ```
+fn estimate_text_tokens(text: &str, tokenizer_type: TokenizerType) -> usize {
+    if text.is_empty() {
+        return 0;
+    }
+
+    match tokenizer_type {
+        TokenizerType::Claude => {
+            // Claude: length / 4
+            (text.len() + 3) / 4
+        }
+        TokenizerType::OpenAI => {
+            // OpenAI: 使用 Generic 方法（tiktoken 需要额外依赖，这里简化处理）
+            estimate_generic_tokens(text)
+        }
+        TokenizerType::Llama => {
+            // Llama: length / 3.5 (向上取整)
+            ((text.len() as f64 / 3.5).ceil() as usize).max(1)
+        }
+        TokenizerType::Generic => {
+            estimate_generic_tokens(text)
+        }
+    }
+}
+
+/// 通用 token 估算方法（Kiro IDE 的 estimateGeneric）
+///
+/// 公式：
+/// - base_tokens = ceil(length / 4)
+/// - newline_tokens = ceil(lines * 0.5)
+/// - code_block_tokens = code_blocks * 2
+/// - total = base_tokens + newline_tokens + code_block_tokens
+fn estimate_generic_tokens(text: &str) -> usize {
+    // 基础估算：4 字符 = 1 token（向上取整）
+    let base_tokens = (text.len() + 3) / 4;
+
+    // 换行符：每行 +0.5 token（向上取整）
+    let lines = text.lines().count();
+    let newline_tokens = (lines + 1) / 2;
+
+    // 代码块：每个 ``` +2 tokens
+    let code_blocks = text.matches("```").count();
+    let code_block_tokens = code_blocks * 2;
+
+    base_tokens + newline_tokens + code_block_tokens
+}
+
+/// 获取模型的最大输入 token 数
+///
+/// 根据模型 ID 返回对应的 maxInputTokens
+/// 参考 ListAvailableModels API 返回的 tokenLimits.maxInputTokens
+async fn get_model_max_input_tokens(model_id: &str) -> usize {
+    let model_lower = model_id.to_lowercase();
+    
+    // 根据模型 ID 返回对应的 token 限制
+    // 数据来源：ListAvailableModels API 响应
+    if model_lower == "auto" {
+        1_000_000 // auto 模型支持 1M tokens
+    } else if model_lower.contains("claude") {
+        200_000 // Claude 系列默认 200k tokens
+    } else if model_lower.contains("gpt") || model_lower.contains("o1") || model_lower.contains("o3") {
+        200_000 // OpenAI 系列默认 200k tokens
+    } else if model_lower.contains("deepseek") {
+        200_000 // DeepSeek 默认 200k tokens
+    } else if model_lower.contains("llama") {
+        128_000 // Llama 系列默认 128k tokens
+    } else {
+        DEFAULT_MAX_INPUT_TOKENS // 未知模型使用默认值
+    }
+}
+
+/// 智能裁剪 Kiro payload 历史记录
+///
+/// 策略：
+/// 1. 识别 tool call/result 配对（Assistant with tool_uses + User with tool_results）
+/// 2. 从最旧的完整对话单元开始删除
+/// 3. 保留最近的对话（至少保留最后 2 条消息）
+/// 4. 避免破坏 tool_calls 和 tool_results 的配对关系
+fn trim_kiro_payload_history(payload: &mut Value, max_bytes: usize) -> bool {
+    let original_size = check_payload_size(payload);
+    if original_size <= max_bytes {
+        return false;
+    }
+
+    let original_len = payload
+        .pointer("/conversationState/history")
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.len())
+        .unwrap_or(0);
+
+    if original_len == 0 {
+        return false;
+    }
+
+    // 循环删除最旧的消息单元，直到满足大小要求
+    let mut removed_count = 0;
+    loop {
+        // 检查当前大小
+        let current_size = check_payload_size(payload);
+        if current_size <= max_bytes {
+            break;
+        }
+
+        // 获取当前历史记录
+        let Some(history) = payload
+            .pointer_mut("/conversationState/history")
+            .and_then(|v| v.as_array_mut())
+        else {
+            break;
+        };
+
+        // 至少保留 2 条消息
+        if history.len() <= 2 {
+            break;
+        }
+
+        // 检查第一条消息是否是 Assistant 消息且包含 tool_uses
+        let first_is_assistant_with_tools = history
+            .get(0)
+            .and_then(|msg| msg.get("assistant_response_message"))
+            .and_then(|msg| msg.get("tool_uses"))
+            .and_then(|tools| tools.as_array())
+            .map(|arr| !arr.is_empty())
+            .unwrap_or(false);
+
+        if first_is_assistant_with_tools && history.len() > 1 {
+            // 检查第二条消息是否是 User 消息且包含 tool_results
+            let second_has_tool_results = history
+                .get(1)
+                .and_then(|msg| msg.get("user_input_message"))
+                .and_then(|msg| msg.get("user_input_message_context"))
+                .and_then(|ctx| ctx.get("tool_results"))
+                .and_then(|results| results.as_array())
+                .map(|arr| !arr.is_empty())
+                .unwrap_or(false);
+
+            if second_has_tool_results {
+                // 这是一个 tool call/result 配对，必须一起删除
+                if history.len() > 3 {
+                    // 确保删除后还剩至少 2 条消息
+                    history.remove(0);
+                    history.remove(0); // 删除第二条（现在变成第一条了）
+                    removed_count += 2;
+                    log::debug!("[Gateway] Removed tool call/result pair. Remaining: {}", history.len());
+                    continue;
+                } else {
+                    // 删除后会少于 2 条消息，停止裁剪
+                    break;
+                }
+            }
+        }
+
+        // 单个消息可以安全删除
+        history.remove(0);
+        removed_count += 1;
+        log::debug!("[Gateway] Removed single message. Remaining: {}", history.len());
+    }
+
+    let final_len = payload
+        .pointer("/conversationState/history")
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.len())
+        .unwrap_or(0);
+
+    let trimmed = final_len < original_len;
+
+    if trimmed {
+        log::info!(
+            "[Gateway] Trimmed history from {} to {} messages (removed {} messages)",
+            original_len,
+            final_len,
+            removed_count
+        );
+    }
+
+    trimmed
 }
 
 async fn guarded_local_response(
@@ -679,6 +959,57 @@ pub async fn proxy_handler(
         return Json(response).into_response();
     }
 
+    // 【第一层防护】Token 预估（硬限制，带缓存）
+    // 基于 Kiro IDE 的 80% 总结阈值
+    // Kiro IDE 在 80% 时触发 Truncation Summarization，网关无法实现，所以直接拒绝
+
+    // 生成缓存 key：messages 的 JSON 序列化 + model_id
+    let cache_key = format!("{}:{}",
+        serde_json::to_string(&request.messages).unwrap_or_default(),
+        request.model
+    );
+
+    // 尝试从缓存获取
+    let estimated_tokens = {
+        let cache = state.token_cache.lock().await;
+        cache.get(&cache_key).copied()
+    };
+
+    // 如果缓存未命中，计算并存入缓存
+    let estimated_tokens = if let Some(tokens) = estimated_tokens {
+        tokens
+    } else {
+        let tokens = estimate_request_tokens(&request.messages, &request.model);
+        let mut cache = state.token_cache.lock().await;
+        cache.insert(cache_key, tokens);
+        tokens
+    };
+    
+    // 从可用模型列表中获取该模型的 maxInputTokens
+    let max_input_tokens = get_model_max_input_tokens(&request.model).await;
+    let threshold_tokens = (max_input_tokens as f64 * SUMMARIZATION_THRESHOLD_PERCENT) as usize;
+    
+    if estimated_tokens > threshold_tokens {
+        let error_message = format!(
+            "Input is too long. Estimated {} tokens exceeds the summarization threshold of {} tokens (80% of {}). Please reduce the size of your messages or start a new conversation.",
+            estimated_tokens,
+            threshold_tokens,
+            max_input_tokens
+        );
+        return gateway_error_with_log(
+            &state,
+            format,
+            &upstream_log_context,
+            GatewayErrorDetails {
+                status: StatusCode::BAD_REQUEST,
+                error_type: "invalid_request_error",
+                message: &error_message,
+                response_body: None,
+            },
+        )
+        .await;
+    }
+
     let upstream_payload =
         match build_kiro_payload(&state.http, &request, upstream.profile_arn.clone()).await {
             Ok(payload) => payload,
@@ -698,14 +1029,38 @@ pub async fn proxy_handler(
                 .await;
             }
         };
-    let upstream_request_body = serde_json::to_string_pretty(&upstream_payload)
+    
+    // 【第二层防护】Payload 大小裁剪（硬限制 - 615KB）
+    // 如果 payload 超过 Kiro API 的 HTTP 请求大小限制，自动裁剪历史记录
+    let mut payload_value = serde_json::to_value(&upstream_payload)
+        .unwrap_or_else(|_| json!({}));
+
+    let original_size = check_payload_size(&payload_value);
+    if original_size > MAX_KIRO_PAYLOAD_SIZE {
+        log::info!(
+            "[Gateway] Payload size {} bytes exceeds limit {} bytes. Trimming history...",
+            original_size,
+            MAX_KIRO_PAYLOAD_SIZE
+        );
+        let trimmed = trim_kiro_payload_history(&mut payload_value, MAX_KIRO_PAYLOAD_SIZE);
+        if trimmed {
+            let final_size = check_payload_size(&payload_value);
+            log::info!(
+                "[Gateway] Payload trimmed from {} bytes to {} bytes",
+                original_size,
+                final_size
+            );
+        }
+    }
+    
+    let upstream_request_body = serde_json::to_string_pretty(&payload_value)
         .unwrap_or_else(|_| "[failed to serialize upstream payload]".to_string());
     let upstream_payload_log_context = RequestLogContext {
         request_body: Some(upstream_request_body.as_str()),
         ..upstream_log_context.clone()
     };
 
-    let upstream_resp = match send_generate_request(&state.http, &upstream, &upstream_payload).await
+    let upstream_resp = match send_generate_request(&state.http, &upstream, &payload_value).await
     {
         Ok(resp) => resp,
         Err((status, error_type, message, upstream_response_body)) => {
@@ -3446,6 +3801,7 @@ mod tests {
             last_error: Arc::new(AsyncMutex::new(None)),
             http: Client::new(),
             responses_sessions: Arc::new(AsyncMutex::new(HashMap::new())),
+            token_cache: Arc::new(AsyncMutex::new(HashMap::new())),
         }
     }
 

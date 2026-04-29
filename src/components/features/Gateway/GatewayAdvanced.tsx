@@ -60,7 +60,7 @@ function GatewayAdvanced({
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
               <Server size={16} />
-              <div className={`font-semibold text-foreground`}>高级配置</div>
+              <div className={`font-semibold text-foreground`}>配置</div>
             </div>
             <div className="flex items-center gap-2">
               {hasFieldErrors ? <Badge variant="destructive">配置待修正</Badge> : null}
