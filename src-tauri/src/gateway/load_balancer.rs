@@ -45,6 +45,7 @@ impl LoadBalancerStrategy {
 #[derive(Debug, Clone)]
 pub struct AccountHealth {
     /// 账号 ID
+    #[allow(dead_code)]
     pub account_id: String,
     /// 活跃连接数
     pub active_connections: usize,
@@ -153,6 +154,7 @@ pub struct LoadBalancer {
     /// 账号健康状态
     health_map: Arc<RwLock<HashMap<String, AccountHealth>>>,
     /// 健康检查间隔
+    #[allow(dead_code)]
     health_check_interval: Duration,
     /// 速率限制的账号（临时屏蔽）
     rate_limited_accounts: Arc<RwLock<HashMap<String, Instant>>>,
@@ -374,6 +376,7 @@ impl LoadBalancer {
     }
 
     /// 检查账号是否被速率限制
+    #[allow(dead_code)]
     pub async fn is_rate_limited(&self, account_id: &str) -> bool {
         let mut rate_limited = self.rate_limited_accounts.write().await;
         
@@ -391,6 +394,7 @@ impl LoadBalancer {
     }
 
     /// 清除账号的速率限制标记
+    #[allow(dead_code)]
     pub async fn clear_rate_limit(&self, account_id: &str) {
         let mut rate_limited = self.rate_limited_accounts.write().await;
         if rate_limited.remove(account_id).is_some() {
@@ -399,6 +403,7 @@ impl LoadBalancer {
     }
 
     /// 获取所有被速率限制的账号
+    #[allow(dead_code)]
     pub async fn get_rate_limited_accounts(&self) -> Vec<String> {
         let mut rate_limited = self.rate_limited_accounts.write().await;
         
@@ -416,18 +421,21 @@ impl LoadBalancer {
     }
 
     /// 获取账号健康状态
+    #[allow(dead_code)]
     pub async fn get_health(&self, account_id: &str) -> Option<AccountHealth> {
         let health_map = self.health_map.read().await;
         health_map.get(account_id).cloned()
     }
 
     /// 获取所有账号的健康状态
+    #[allow(dead_code)]
     pub async fn get_all_health(&self) -> HashMap<String, AccountHealth> {
         let health_map = self.health_map.read().await;
         health_map.clone()
     }
 
     /// 重置账号健康状态
+    #[allow(dead_code)]
     pub async fn reset_health(&self, account_id: &str) {
         let mut health_map = self.health_map.write().await;
         if let Some(health) = health_map.get_mut(account_id) {
@@ -438,6 +446,7 @@ impl LoadBalancer {
     }
 
     /// 清理过期的健康状态（超过 1 小时未使用）
+    #[allow(dead_code)]
     pub async fn cleanup_stale_health(&self) {
         let mut health_map = self.health_map.write().await;
         let now = Instant::now();

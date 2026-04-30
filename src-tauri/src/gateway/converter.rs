@@ -55,7 +55,7 @@ pub fn normalize_anthropic_request(request: &AnthropicMessagesRequest) -> Normal
         .as_ref()
         .map(|tools| tools.iter().map(convert_anthropic_tool).collect());
 
-    NormalizedRequest {
+    let mut normalized = NormalizedRequest {
         model: request.model.clone(),
         messages,
         stream: request.stream,
@@ -66,7 +66,13 @@ pub fn normalize_anthropic_request(request: &AnthropicMessagesRequest) -> Normal
         tools,
         tool_choice: request.tool_choice.clone(),
         previous_response_id: None,
-    }
+        thinking: request.thinking.clone(),
+    };
+
+    // 检测模型名是否包含 "thinking" 后缀，若包含则自动启用 thinking
+    override_thinking_from_model_name(&mut normalized);
+
+    normalized
 }
 
 pub fn normalize_responses_request(payload: &Value) -> Result<NormalizedRequest, String> {
@@ -215,6 +221,7 @@ pub fn normalize_openai_chat_request(request: &OpenAIChatRequest) -> NormalizedR
         tools,
         tool_choice: request.tool_choice.clone(),
         previous_response_id: None,
+        thinking: None,
     }
 }
 
@@ -282,6 +289,7 @@ fn build_normalized_request_from_payload(
             .map(str::trim)
             .filter(|value| !value.is_empty())
             .map(str::to_string),
+        thinking: None,
     }
 }
 
@@ -460,25 +468,27 @@ pub fn get_internal_model_id(external_model: &str) -> Result<String, String> {
         "gpt-3.5-turbo" | "gpt-3.5-turbo-16k" | "gpt-3.5-turbo-0125" => "claude-haiku-4.7",
         // Claude 4.7 系列
         "claude-opus-4-7" | "claude-opus-4.7" | "opus-4-7" | "opus" => "claude-opus-4.7",
+        "claude-opus-4-7-thinking" | "claude-opus-4.7-thinking" => "claude-opus-4.7",
         "claude-sonnet-4-7" | "claude-sonnet-4.7" | "sonnet-4-7" | "sonnet" => "claude-sonnet-4.7",
+        "claude-sonnet-4-7-thinking" | "claude-sonnet-4.7-thinking" => "claude-sonnet-4.7",
         "claude-haiku-4-7" | "claude-haiku-4.7" | "haiku-4-7" | "haiku" => "claude-haiku-4.7",
+        "claude-haiku-4-7-thinking" | "claude-haiku-4.7-thinking" => "claude-haiku-4.7",
         // Claude 4.6 系列
         "claude-opus-4-6-20260205" => "claude-opus-4.6",
         "claude-opus-4-6" | "claude-opus-4.6" | "opus-4-6" => "claude-opus-4.6",
+        "claude-opus-4-6-thinking" | "claude-opus-4.6-thinking" => "claude-opus-4.6",
         "claude-sonnet-4-6-20260217" => "claude-sonnet-4.6",
         "claude-sonnet-4-6" | "claude-sonnet-4.6" | "sonnet-4-6" => "claude-sonnet-4.6",
+        "claude-sonnet-4-6-thinking" | "claude-sonnet-4.6-thinking" => "claude-sonnet-4.6",
         "claude-haiku-4-6" | "claude-haiku-4.6" | "haiku-4-6" => "claude-haiku-4.6",
-        // Claude 4.5 系列
-        "claude-opus-4-5" | "claude-opus-4-5-20251101" | "claude-opus-4.5" => {
-            "claude-opus-4.5"
-        }
-        "claude-sonnet-4-5"
-        | "claude-sonnet-4-5-20250929"
-        | "claude-sonnet-4.5"
-        | "claude-sonnet-latest" => "claude-sonnet-4.5",
-        "claude-haiku-4-5" | "claude-haiku-4-5-20251001" | "claude-haiku-4.5" => {
-            "claude-haiku-4.5"
-        }
+        "claude-haiku-4-6-thinking" | "claude-haiku-4.6-thinking" => "claude-haiku-4.6",
+        // Claude 4.5 系列（带日期）
+        "claude-opus-4-5" | "claude-opus-4.5" => "claude-opus-4-5-20251101",
+        "claude-opus-4-5-20251101" | "claude-opus-4-5-20251101-thinking" => "claude-opus-4-5-20251101",
+        "claude-sonnet-4-5" | "claude-sonnet-4.5" | "claude-sonnet-latest" => "claude-sonnet-4-5-20250929",
+        "claude-sonnet-4-5-20250929" | "claude-sonnet-4-5-20250929-thinking" => "claude-sonnet-4-5-20250929",
+        "claude-haiku-4-5" | "claude-haiku-4.5" => "claude-haiku-4-5-20251001",
+        "claude-haiku-4-5-20251001" | "claude-haiku-4-5-20251001-thinking" => "claude-haiku-4-5-20251001",
         // Claude 4 系列
         "claude-sonnet-4" | "claude-sonnet-4-20250514" => "claude-sonnet-4",
         // Claude 3.x 系列
@@ -539,6 +549,54 @@ pub fn get_internal_model_id_with_fallback(
 
 fn normalize_external_model_alias(external_model: &str) -> String {
     external_model.trim().to_ascii_lowercase()
+}
+
+/// 检测模型名是否包含 "thinking" 后缀，若包含则覆写 thinking 配置
+///
+/// 根据 Anthropic 官方文档 (https://platform.claude.com/docs/en/docs/about-claude/models):
+///
+/// **Adaptive Thinking** (type: "adaptive"):
+/// - Claude Opus 4.7
+/// - Claude Sonnet 4.6
+///
+/// **Extended Thinking** (type: "enabled"):
+/// - Claude Sonnet 4.7
+/// - Claude Haiku 4.5
+/// - Claude Sonnet 4.5
+/// - Claude Opus 4.5
+///
+/// budget_tokens 固定为 20000
+fn override_thinking_from_model_name(request: &mut NormalizedRequest) {
+    let model_lower = request.model.to_lowercase();
+    if !model_lower.contains("thinking") {
+        return;
+    }
+
+    // 判断是否支持 Adaptive Thinking
+    let supports_adaptive =
+        // Claude Opus 4.7
+        (model_lower.contains("opus") && (model_lower.contains("4-7") || model_lower.contains("4.7")))
+        ||
+        // Claude Sonnet 4.6
+        (model_lower.contains("sonnet") && (model_lower.contains("4-6") || model_lower.contains("4.6")));
+
+    let thinking_type = if supports_adaptive {
+        "adaptive"
+    } else {
+        "enabled"
+    };
+
+    log::info!(
+        "[Gateway] 模型名 {} 包含 thinking 后缀，覆写 thinking 配置为 {}",
+        request.model,
+        thinking_type
+    );
+
+    use crate::gateway::models::Thinking;
+    request.thinking = Some(Thinking {
+        thinking_type: thinking_type.to_string(),
+        budget_tokens: 20000,
+    });
 }
 
 pub async fn build_kiro_payload(
@@ -744,23 +802,27 @@ pub async fn build_kiro_payload(
 
 pub fn get_available_models() -> Vec<ModelInfo> {
     [
-        // Claude 4.7 系列
+        // Claude 4.7 系列（不带日期）
         "claude-opus-4-7",
+        "claude-opus-4-7-thinking",
         "claude-sonnet-4-7",
+        "claude-sonnet-4-7-thinking",
         "claude-haiku-4-7",
-        // Claude 4.6 系列
+        "claude-haiku-4-7-thinking",
+        // Claude 4.6 系列（不带日期）
         "claude-opus-4-6",
-        "claude-opus-4-6-20260205",
+        "claude-opus-4-6-thinking",
         "claude-sonnet-4-6",
-        "claude-sonnet-4-6-20260217",
+        "claude-sonnet-4-6-thinking",
         "claude-haiku-4-6",
-        // Claude 4.5 系列
-        "claude-opus-4-5",
+        "claude-haiku-4-6-thinking",
+        // Claude 4.5 系列（带日期）
         "claude-opus-4-5-20251101",
-        "claude-sonnet-4-5",
+        "claude-opus-4-5-20251101-thinking",
         "claude-sonnet-4-5-20250929",
-        "claude-haiku-4-5",
+        "claude-sonnet-4-5-20250929-thinking",
         "claude-haiku-4-5-20251001",
+        "claude-haiku-4-5-20251001-thinking",
         // Claude 4 系列
         "claude-sonnet-4",
         "claude-sonnet-4-20250514",
