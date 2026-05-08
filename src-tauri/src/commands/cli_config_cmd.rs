@@ -2,8 +2,39 @@
 
 use serde_json::Value;
 use std::fs;
+use std::process::Command;
 use tauri::command;
 use toml_edit::{value, DocumentMut};
+
+#[command]
+pub async fn check_claude_code_installed() -> Result<bool, String> {
+    // 检查 claude 命令是否存在
+    let output = if cfg!(target_os = "windows") {
+        Command::new("where").arg("claude").output()
+    } else {
+        Command::new("which").arg("claude").output()
+    };
+
+    match output {
+        Ok(result) => Ok(result.status.success()),
+        Err(_) => Ok(false),
+    }
+}
+
+#[command]
+pub async fn check_codex_cli_installed() -> Result<bool, String> {
+    // 检查 codex 命令是否存在
+    let output = if cfg!(target_os = "windows") {
+        Command::new("where").arg("codex").output()
+    } else {
+        Command::new("which").arg("codex").output()
+    };
+
+    match output {
+        Ok(result) => Ok(result.status.success()),
+        Err(_) => Ok(false),
+    }
+}
 
 #[command]
 pub async fn write_claude_code_config(base_url: String, api_key: String) -> Result<String, String> {

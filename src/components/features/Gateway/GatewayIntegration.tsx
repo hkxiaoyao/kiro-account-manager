@@ -195,6 +195,13 @@ function GatewayIntegration({
                   size="sm"
                   onClick={async () => {
                     try {
+                      // 检测是否安装
+                      const installed = await invoke('check_claude_code_installed')
+                      if (!installed) {
+                        await copyText('未检测到 Claude Code CLI，请先安装：https://docs.anthropic.com/en/docs/claude-code', '未安装 Claude Code')
+                        return
+                      }
+                      
                       const result = await invoke('write_claude_code_config', {
                         baseUrl: fullBaseUrl,
                         apiKey: clientSamples.claudeCode.apiKey
@@ -235,6 +242,13 @@ function GatewayIntegration({
                   size="sm"
                   onClick={async () => {
                     try {
+                      // 检测是否安装
+                      const installed = await invoke('check_codex_cli_installed')
+                      if (!installed) {
+                        await copyText('未检测到 Codex CLI，请先安装：https://openai.com/index/introducing-codex-cli/', '未安装 Codex CLI')
+                        return
+                      }
+                      
                       const result = await invoke('write_codex_cli_config', {
                         baseUrl: fullBaseUrl,
                         apiKey: clientSamples.codex.apiKey,
