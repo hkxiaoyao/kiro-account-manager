@@ -37,6 +37,7 @@ use commands::app_settings_cmd::{
     get_usage_history, save_app_settings, save_usage_history_entry, unbind_machine_id_from_account,
     get_custom_kiro_path, set_custom_kiro_path, clear_custom_kiro_path,
 };
+use commands::app_data_cmd::{get_app_data_dir, open_app_data_dir};
 //授权相关
 use commands::auth_cmd::{
     cancel_kiro_login, get_current_user, get_supported_providers, handle_kiro_social_callback,
@@ -420,7 +421,10 @@ fn main() {
             check_claude_code_installed,
             check_codex_cli_installed,
             write_claude_code_config,
-            write_codex_cli_config
+            write_codex_cli_config,
+            // 应用数据目录命令
+            get_app_data_dir,
+            open_app_data_dir
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

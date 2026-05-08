@@ -79,21 +79,26 @@ function Settings() {
     const [systemMachineInfo, setSystemMachineInfo] = useState<any>(null)
     const [machineGuidAction, setMachineGuidAction] = useState<string | null>(null) // 'reset'
 
+    // 应用数据目录
+    const [appDataDir, setAppDataDir] = useState<string>('')
+
     // 加载设置（指纹延迟加载，不阻塞页面）
     const loadSettings = useCallback(async () => {
         setLoading(true)
         try {
             // 先加载核心设置（快速）
-            const [kiroSettings, appSettings, sysMachine, kiroPath, ideInfo] = await Promise.all([
+            const [kiroSettings, appSettings, sysMachine, kiroPath, ideInfo, dataDir] = await Promise.all([
                 invoke<any>('get_kiro_settings').catch(() => null),
                 invoke<any>('get_app_settings').catch(() => null),
                 invoke<any>('get_system_machine_guid').catch(() => null),
                 invoke<string | null>('get_custom_kiro_path').catch(() => null),
-                invoke<any>('check_ide_installation').catch(() => null)
+                invoke<any>('check_ide_installation').catch(() => null),
+                invoke<string>('get_app_data_dir').catch(() => '')
             ])
             setSystemMachineInfo(sysMachine)
             // 优先显示自定义路径，否则显示检测到的默认路径
             setCustomKiroPath(kiroPath || (ideInfo?.ide_path || null))
+            setAppDataDir(dataDir)
 
             // 从 Kiro IDE 设置读取
             if (kiroSettings) {
@@ -427,6 +432,14 @@ function Settings() {
         }
     }
 
+    const handleOpenAppDataDir = async () => {
+        try {
+            await invoke('open_app_data_dir')
+        } catch (err: any) {
+            await showError(t('settings.openFailed'), err.toString())
+        }
+    }
+
     return (
         <div className="h-full glass-main p-8 overflow-auto flex justify-center">
             {/* 背景装饰 */}
@@ -504,6 +517,8 @@ function Settings() {
                             handleAutoSwitchEnabledChange={handleAutoSwitchEnabledChange}
                             handleAutoSwitchThresholdChange={handleAutoSwitchThresholdChange}
                             handleAutoSwitchIntervalChange={handleAutoSwitchIntervalChange}
+                            appDataDir={appDataDir}
+                            handleOpenAppDataDir={handleOpenAppDataDir}
                             t={t}
                         />
                     </TabsContent>
