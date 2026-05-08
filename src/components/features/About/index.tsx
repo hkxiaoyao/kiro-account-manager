@@ -297,6 +297,12 @@ function About() {
                   colors={colors}
                 />
 
+                <div className={`bg-blue-500/10 rounded-lg p-3 border border-blue-500/20`}>
+                  <p className={`text-xs text-foreground`}>
+                    💡 {t('about.sponsorNote')}
+                  </p>
+                </div>
+
                 <div className="flex items-center justify-center gap-8 mt-2">
                   <QRCodeImage
                     src={alipayQR}
