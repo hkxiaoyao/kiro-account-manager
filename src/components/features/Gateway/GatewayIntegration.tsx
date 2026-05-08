@@ -212,7 +212,7 @@ function GatewayIntegration({
             )}
           >
             <p className={`text-xs mt-2 text-muted-foreground`}>
-              Anthropic 官方 CLI 工具，点击"直接配置"自动写入 <code className="bg-muted px-1 py-0.5 rounded text-xs">~/.claude/settings.json</code>
+              Claude Code CLI 工具，点击"直接配置"自动写入 <code className="bg-muted px-1 py-0.5 rounded text-xs">~/.claude/settings.json</code>
             </p>
           </GatewayCodeCard>
 
