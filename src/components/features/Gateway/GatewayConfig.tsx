@@ -11,7 +11,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { GatewayStatCard, GatewaySurfaceCard } from './GatewayShared'
 import React from 'react'
 
-interface GatewayAdvancedProps {
+interface GatewayConfigProps {
   colors: any;
   config: any;
   hasFieldErrors: boolean;
@@ -30,7 +30,7 @@ interface GatewayAdvancedProps {
   createGeneratedApiKey: () => string;
 }
 
-function GatewayAdvanced({
+function GatewayConfig({
   colors,
   config,
   hasFieldErrors,
@@ -46,7 +46,7 @@ function GatewayAdvanced({
   ThemedAlert,
   setConfig,
   applyGatewayLocalOnlyChange,
-  createGeneratedApiKey}: GatewayAdvancedProps) {
+  createGeneratedApiKey}: GatewayConfigProps) {
   return (
     <div className="grid grid-cols-1 gap-4">
       <GatewaySurfaceCard colors={colors}>
@@ -66,15 +66,15 @@ function GatewayAdvanced({
             监听地址、安全暴露、账号来源和池调度都收口到这里，属于低频但决定反代行为边界的配置。
           </div>
 
-          <Accordion type="multiple" defaultValue={['common', 'routing']} className="w-full">
+          <Accordion type="multiple" defaultValue={['common']} className="w-full">
             <AccordionItem value="common">
               <AccordionTrigger>
                 <div className="flex justify-between items-center w-full pr-4">
                   <div className="flex flex-col gap-0.5 items-start">
-                    <div className="font-semibold">常用配置</div>
-                    <div className={`text-sm text-muted-foreground`}>先处理监听地址、客户端 Key 和最常改的接入项。</div>
+                    <div className="font-semibold">基础配置</div>
+                    <div className={`text-sm text-muted-foreground`}>监听地址、客户端 Key、账号来源和路由策略</div>
                   </div>
-                  <Badge variant="secondary">高频</Badge>
+                  <Badge variant="secondary">必填</Badge>
                 </div>
               </AccordionTrigger>
               <AccordionContent>
@@ -106,7 +106,7 @@ function GatewayAdvanced({
 
                   <div className="flex flex-col gap-1.5">
                     <Label>客户端 API Keys</Label>
-                    <div className="text-xs text-muted-foreground">每行一个客户端 Key。客户端连接本地反代时可使用其中任意一个；Kiro API 的 access token 仍由反代从本地账号自动读取。</div>
+                    <div className="text-xs text-muted-foreground">每行一个客户端 Key，客户端连接时可使用其中任意一个</div>
                     <Textarea
                       placeholder={'sk-primary\nsk-secondary'}
                       rows={3}
@@ -156,15 +156,15 @@ function GatewayAdvanced({
                   <div className="flex flex-col gap-1.5">
                     <Label>账号来源</Label>
                     <div className="text-xs text-muted-foreground">
-                      推荐使用"按分组账号池"模式，自动轮询多个账号，配额用完自动切换，无需手动操作。
+                      推荐使用"按分组账号池"模式，自动轮询多个账号，配额用完自动切换
                     </div>
                     <Select value={config.accountMode} onValueChange={(v) => setField('accountMode', v || 'single')}>
                       <SelectTrigger className={fieldErrors.accountMode ? 'border-red-500' : ''}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="single">指定单账号（需手动切换）</SelectItem>
-                        <SelectItem value="group">按分组账号池（自动轮询）</SelectItem>
+                        <SelectItem value="single">指定单账号</SelectItem>
+                        <SelectItem value="group">按分组账号池（推荐）</SelectItem>
                       </SelectContent>
                     </Select>
                     {fieldErrors.accountMode && <div className="text-xs text-red-500">{fieldErrors.accountMode}</div>}
@@ -191,7 +191,7 @@ function GatewayAdvanced({
                     <div className="flex flex-col gap-1.5">
                       <Label>账号分组</Label>
                       <div className="text-xs text-muted-foreground">
-                        选择一个分组，反代会自动从该分组的所有可用账号中轮询，配额用完自动切换到下一个账号。
+                        反代会自动从该分组的所有可用账号中轮询，配额用完自动切换到下一个账号
                       </div>
                       <Select value={config.groupId} onValueChange={(v) => setField('groupId', v)}>
                         <SelectTrigger className={fieldErrors.groupId ? 'border-red-500' : ''}>
@@ -206,6 +206,79 @@ function GatewayAdvanced({
                       {fieldErrors.groupId && <div className="text-xs text-red-500">{fieldErrors.groupId}</div>}
                     </div>
                   ) : null}
+
+                  <div className="flex flex-col gap-1.5">
+                    <Label>Region</Label>
+                    <Select value={config.region} onValueChange={(v) => setField('region', v || 'us-east-1')}>
+                      <SelectTrigger className={fieldErrors.region ? 'border-red-500' : ''}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="us-east-1">us-east-1</SelectItem>
+                        <SelectItem value="eu-central-1">eu-central-1</SelectItem>
+                        <SelectItem value="us-west-2">us-west-2</SelectItem>
+                        <SelectItem value="ap-northeast-1">ap-northeast-1</SelectItem>
+                        <SelectItem value="ap-southeast-1">ap-southeast-1</SelectItem>
+                        <SelectItem value="us-gov-west-1">us-gov-west-1</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {fieldErrors.region && <div className="text-xs text-red-500">{fieldErrors.region}</div>}
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <Label>路由策略</Label>
+                    <Select value={config.strategy} onValueChange={(v) => setField('strategy', v || 'round_robin')}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="round_robin">
+                          <div className="flex items-center gap-2">
+                            <RotateCw size={14} />
+                            <span>轮询 round_robin</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="balanced">
+                          <div className="flex items-center gap-2">
+                            <Scale size={14} />
+                            <span>均衡使用 balanced</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="most_quota">
+                          <div className="flex items-center gap-2">
+                            <TrendingUp size={14} />
+                            <span>优先剩余额度 most_quota</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="random">
+                          <div className="flex items-center gap-2">
+                            <Shuffle size={14} />
+                            <span>随机 random</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="weighted_random">
+                          <div className="flex items-center gap-2">
+                            <Zap size={14} />
+                            <span>加权随机 weighted_random</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="least_connections">
+                          <div className="flex items-center gap-2">
+                            <Activity size={14} />
+                            <span>最少连接 least_connections</span>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <div className="text-xs text-muted-foreground">
+                      {config.strategy === 'balanced' && '优先使用成功次数最少的账号，实现负载均衡'}
+                      {config.strategy === 'round_robin' && '按顺序轮流使用账号'}
+                      {config.strategy === 'most_quota' && '优先使用剩余配额最多的账号'}
+                      {config.strategy === 'random' && '随机选择账号'}
+                      {config.strategy === 'weighted_random' && '根据健康分数和剩余配额加权随机选择'}
+                      {config.strategy === 'least_connections' && '优先使用当前活跃连接数最少的账号'}
+                    </div>
+                  </div>
                 </div>
               </AccordionContent>
             </AccordionItem>
@@ -266,104 +339,9 @@ function GatewayAdvanced({
                     />
                     {fieldErrors.allowedIpsText && <div className="text-xs text-red-500">{fieldErrors.allowedIpsText}</div>}
                   </div>
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-
-            <AccordionItem value="routing">
-              <AccordionTrigger>
-                <div className="flex justify-between items-center w-full pr-4">
-                  <div className="flex flex-col gap-0.5 items-start">
-                    <div className="font-semibold">账号来源与路由</div>
-                    <div className={`text-sm text-muted-foreground`}>{routingSummary.modeDescription}</div>
-                  </div>
-                  <Badge variant="secondary">{routingSummary.modeLabel}</Badge>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="flex flex-col gap-3 pt-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <GatewayStatCard colors={colors} label={routingSummary.selectionLabel} value={routingSummary.selectionValue} />
-                    <GatewayStatCard colors={colors} label="候选范围" value={routingSummary.inventorySummary} />
-                    <GatewayStatCard colors={colors} label="路由策略" value={routingSummary.strategySummary} className="sm:col-span-2" />
-                  </div>
-
-                  <div className="flex flex-col gap-1.5">
-                    <Label>Region</Label>
-                    <Select value={config.region} onValueChange={(v) => setField('region', v || 'us-east-1')}>
-                      <SelectTrigger className={fieldErrors.region ? 'border-red-500' : ''}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="us-east-1">us-east-1</SelectItem>
-                        <SelectItem value="eu-central-1">eu-central-1</SelectItem>
-                        <SelectItem value="us-west-2">us-west-2</SelectItem>
-                        <SelectItem value="ap-northeast-1">ap-northeast-1</SelectItem>
-                        <SelectItem value="ap-southeast-1">ap-southeast-1</SelectItem>
-                        <SelectItem value="us-gov-west-1">us-gov-west-1</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {fieldErrors.region && <div className="text-xs text-red-500">{fieldErrors.region}</div>}
-                  </div>
-
-                  <div className="flex flex-col gap-1.5">
-                    <Label>账号策略</Label>
-                    <Select value={config.strategy} onValueChange={(v) => setField('strategy', v || 'round_robin')}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="round_robin">
-                          <div className="flex items-center gap-2">
-                            <RotateCw size={14} />
-                            <span>轮询 round_robin</span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="balanced">
-                          <div className="flex items-center gap-2">
-                            <Scale size={14} />
-                            <span>均衡使用 balanced (Least-Used)</span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="most_quota">
-                          <div className="flex items-center gap-2">
-                            <TrendingUp size={14} />
-                            <span>优先剩余额度 most_quota</span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="random">
-                          <div className="flex items-center gap-2">
-                            <Shuffle size={14} />
-                            <span>随机 random</span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="weighted_random">
-                          <div className="flex items-center gap-2">
-                            <Zap size={14} />
-                            <span>加权随机 weighted_random</span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="least_connections">
-                          <div className="flex items-center gap-2">
-                            <Activity size={14} />
-                            <span>最少连接 least_connections</span>
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <div className="text-xs text-muted-foreground">
-                      {config.strategy === 'balanced' && '优先使用成功次数最少的账号，实现负载均衡'}
-                      {config.strategy === 'round_robin' && '按顺序轮流使用账号'}
-                      {config.strategy === 'most_quota' && '优先使用剩余配额最多的账号'}
-                      {config.strategy === 'random' && '随机选择账号'}
-                      {config.strategy === 'weighted_random' && '根据健康分数和剩余配额加权随机选择，配额多且健康的账号被选中概率更高'}
-                      {config.strategy === 'least_connections' && '优先使用当前活跃连接数最少的账号，适合高并发场景'}
-                    </div>
-                  </div>
-
                   <div className="flex flex-col gap-1.5">
                     <Label>切换阈值</Label>
-                    <div className="text-xs text-muted-foreground">当账号使用率达到该阈值且仍有其他候选账号时，反代会优先尝试下一个账号。</div>
+                    <div className="text-xs text-muted-foreground">当账号使用率达到该阈值且仍有其他候选账号时，反代会优先尝试下一个账号</div>
                     <Input
                       type="number"
                       value={config.threshold}
@@ -375,7 +353,7 @@ function GatewayAdvanced({
 
                   <div className="flex flex-col gap-1.5">
                     <Label>日志级别</Label>
-                    <div className="text-xs text-muted-foreground">控制应用日志插件级别；保存后需重启应用才能完全生效。</div>
+                    <div className="text-xs text-muted-foreground">控制应用日志级别，保存后需重启应用才能完全生效</div>
                     <Select value={config.logLevel} onValueChange={(v) => setField('logLevel', v || 'debug')}>
                       <SelectTrigger>
                         <SelectValue />
@@ -388,6 +366,22 @@ function GatewayAdvanced({
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="advanced">
+              <AccordionTrigger>
+                <div className="flex justify-between items-center w-full pr-4">
+                  <div className="flex flex-col gap-0.5 items-start">
+                    <div className="font-semibold">高级选项</div>
+                    <div className={`text-sm text-muted-foreground`}>切换阈值和日志级别等高级配置</div>
+                  </div>
+                  <Badge variant="outline">可选</Badge>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="flex flex-col gap-3 pt-4">
                 </div>
               </AccordionContent>
             </AccordionItem>
@@ -417,4 +411,4 @@ function GatewayAdvanced({
   )
 }
 
-export default GatewayAdvanced
+export default GatewayConfig

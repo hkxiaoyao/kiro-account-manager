@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useApp } from '../../../hooks/useApp'
 import { Stack, Group, Badge, Card, Text } from '@/components/shared/layout'
-import GatewayAdvanced from './GatewayAdvanced'
+import GatewayConfigComponent from './GatewayConfig'
 import GatewayIntegration from './GatewayIntegration'
 import GatewayObservability from './GatewayObservability'
 import { getThemeAccent } from '../KiroConfig/themeAccent'
@@ -763,7 +763,7 @@ function GatewayPage() {
           </TabsContent>
 
           <TabsContent value="config">
-            <GatewayAdvanced
+            <GatewayConfigComponent
               colors={colors}
               config={config}
               hasFieldErrors={hasFieldErrors}
