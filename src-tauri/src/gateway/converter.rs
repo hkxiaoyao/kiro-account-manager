@@ -778,18 +778,22 @@ pub async fn build_kiro_payload(
             chat_trigger_type: "MANUAL".to_string(),
             conversation_id: conversation_id.clone(),
             agent_continuation_id: Some(agent_continuation_id),
-            agent_task_type: Some("vibe".to_string()),
+            agent_task_type: Some("VIBE".to_string()),
             current_message: CurrentMessage {
                 user_input_message: UserInputMessage {
                     content: current_content,
                     model_id,
                     origin: "AI_EDITOR".to_string(),
+                    cache_point: None,
+                    client_cache_config: None,
+                    documents: None,
                     images: images_option(current_images),
                     user_input_message_context: build_user_context(
                         convert_tools(&processed_tools),
                         normalize_tool_choice(&request.tool_choice, &processed_tools)?,
                         current_tool_results,
                     ),
+                    user_intent: None,
                 },
             },
             history,
@@ -1225,6 +1229,14 @@ fn build_user_context(
     }
 
     Some(UserInputMessageContext {
+        additional_context: None,
+        app_studio_context: None,
+        console_state: None,
+        diagnostic: None,
+        editor_state: None,
+        env_state: None,
+        git_state: None,
+        shell_state: None,
         tools,
         tool_choice,
         tool_results: if tool_results.is_empty() {
@@ -1232,6 +1244,7 @@ fn build_user_context(
         } else {
             Some(tool_results)
         },
+        user_settings: None,
     })
 }
 

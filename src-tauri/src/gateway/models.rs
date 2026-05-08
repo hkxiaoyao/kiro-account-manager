@@ -155,9 +155,17 @@ pub struct UserInputMessage {
     pub model_id: String,
     pub origin: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_point: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_cache_config: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub documents: Option<Vec<serde_json::Value>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub images: Option<Vec<ImageBlock>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_input_message_context: Option<UserInputMessageContext>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_intent: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -177,11 +185,29 @@ pub struct ImageSource {
 #[serde(rename_all = "camelCase")]
 pub struct UserInputMessageContext {
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub additional_context: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub app_studio_context: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub console_state: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub diagnostic: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub editor_state: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub env_state: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub git_state: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub shell_state: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_results: Option<Vec<KiroToolResult>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub tools: Option<Vec<KiroTool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_choice: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tool_results: Option<Vec<KiroToolResult>>,
+    pub user_settings: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize)]
