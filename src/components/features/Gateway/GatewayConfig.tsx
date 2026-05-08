@@ -27,6 +27,8 @@ interface GatewayConfigProps {
   setConfig: React.Dispatch<React.SetStateAction<any>>;
   applyGatewayLocalOnlyChange: (config: any, checked: boolean, generator: () => string) => any;
   createGeneratedApiKey: () => string;
+  handleSaveConfig: () => Promise<void>;
+  handleAutoStartToggle: (checked: boolean) => Promise<void>;
 }
 
 function GatewayConfig({
@@ -43,7 +45,9 @@ function GatewayConfig({
   ThemedAlert,
   setConfig,
   applyGatewayLocalOnlyChange,
-  createGeneratedApiKey}: GatewayConfigProps) {
+  createGeneratedApiKey,
+  handleSaveConfig,
+  handleAutoStartToggle}: GatewayConfigProps) {
   return (
     <div className="grid grid-cols-1 gap-4">
       <GatewaySurfaceCard colors={colors}>
@@ -120,52 +124,129 @@ function GatewayConfig({
                 <div className="w-1 h-4 bg-primary rounded-full"></div>
                 客户端认证
               </div>
-              <div className="flex flex-col gap-1.5">
-                <Label>客户端 API Keys</Label>
-                <div className="text-xs text-muted-foreground">每行一个 Key，客户端可使用任意一个</div>
-                <Textarea
-                  placeholder={'sk-primary\nsk-secondary'}
-                  rows={3}
-                  value={config.clientApiKeysText}
-                  onChange={(e) => {
-                    const clientApiKeysText = e.target.value
-                    const primaryApiKey = clientApiKeysText
-                      .split(/[\n,]+/)
-                      .map(item => item.trim())
-                      .find(Boolean) || ''
-                    setConfig((prev: any) => ({ ...prev, clientApiKeysText, apiKey: primaryApiKey }))
-                  }}
-                  className={fieldErrors.clientApiKeysText ? 'border-red-500' : ''}
-                  autoComplete="off"
-                />
-                {fieldErrors.clientApiKeysText && <div className="text-xs text-red-500">{fieldErrors.clientApiKeysText}</div>}
-                <div className="flex justify-end gap-2">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button size="icon" variant="outline" onClick={handleGenerateApiKey} className="h-8 w-8">
-                        <Dice6 className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>随机生成并追加</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        size="icon" 
-                        variant="outline" 
-                        onClick={() => {
-                          setConfig((prev: any) => ({
-                            ...prev,
-                            clientApiKeysText: prev.clientApiKeysText ? `${prev.clientApiKeysText}\n` : ''
-                          }))
-                        }}
-                        className="h-8 w-8"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>追加空行</TooltipContent>
-                  </Tooltip>
+              
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <Label>客户端 API Keys</Label>
+                  <div className="flex gap-2">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={handleGenerateApiKey}
+                          className="h-8 gap-1"
+                        >
+                          <Dice6 className="h-3.5 w-3.5" />
+                          生成
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>随机生成并添加</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => {
+                            const newKey = `sk-${Date.now()}`
+                            setConfig((prev: any) => ({
+                              ...prev,
+                              clientApiKeysText: prev.clientApiKeysText ? `${prev.clientApiKeysText}\n${newKey}` : newKey
+                            }))
+                          }}
+                          className="h-8 gap-1"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          添加
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>添加新 Key</TooltipContent>
+                    </Tooltip>
+                  </div>
+                </div>
+
+                {/* API Keys 表格 */}
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="bg-muted/50 border-b">
+                    <div className="flex text-sm">
+                      <div className="flex-shrink-0 w-[60px] p-3 font-semibold">#</div>
+                      <div className="flex-1 p-3 font-semibold">API Key</div>
+                      <div className="flex-shrink-0 w-[100px] p-3 font-semibold">状态</div>
+                      <div className="flex-shrink-0 w-[80px] p-3 font-semibold">操作</div>
+                    </div>
+                  </div>
+                  
+                  <div className="max-h-[240px] overflow-y-auto">
+                    {(() => {
+                      const keys = (config.clientApiKeysText || '')
+                        .split(/[\n,]+/)
+                        .map((k: string) => k.trim())
+                        .filter(Boolean)
+                      
+                      if (keys.length === 0) {
+                        return (
+                          <div className="p-6 text-center text-sm text-muted-foreground">
+                            暂无 API Key，点击"生成"或"添加"按钮创建
+                          </div>
+                        )
+                      }
+
+                      return keys.map((key: string, idx: number) => (
+                        <div key={idx} className="flex text-sm border-b last:border-b-0 hover:bg-muted/30 transition-colors">
+                          <div className="flex-shrink-0 w-[60px] p-3 font-mono text-xs text-muted-foreground">
+                            {idx + 1}
+                          </div>
+                          <div className="flex-1 p-3">
+                            <Input
+                              value={key}
+                              onChange={(e) => {
+                                const newKeys = [...keys]
+                                newKeys[idx] = e.target.value
+                                setConfig((prev: any) => ({
+                                  ...prev,
+                                  clientApiKeysText: newKeys.join('\n'),
+                                  apiKey: newKeys[0] || ''
+                                }))
+                              }}
+                              className="h-8 font-mono text-xs"
+                              placeholder="sk-..."
+                            />
+                          </div>
+                          <div className="flex-shrink-0 w-[100px] p-3">
+                            <Badge variant={idx === 0 ? 'default' : 'secondary'} className="text-xs">
+                              {idx === 0 ? '主 Key' : '备用'}
+                            </Badge>
+                          </div>
+                          <div className="flex-shrink-0 w-[80px] p-3">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                const newKeys = keys.filter((_: string, i: number) => i !== idx)
+                                setConfig((prev: any) => ({
+                                  ...prev,
+                                  clientApiKeysText: newKeys.join('\n'),
+                                  apiKey: newKeys[0] || ''
+                                }))
+                              }}
+                              className="h-7 text-xs text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+                            >
+                              删除
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    })()}
+                  </div>
+                </div>
+                
+                {fieldErrors.clientApiKeysText && (
+                  <div className="text-xs text-red-500">{fieldErrors.clientApiKeysText}</div>
+                )}
+                
+                <div className="text-xs text-muted-foreground">
+                  客户端可使用任意一个 Key 进行认证，第一个 Key 为主 Key
                 </div>
               </div>
             </div>
@@ -362,11 +443,11 @@ function GatewayConfig({
                 <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
                   <div className="flex flex-col gap-1">
                     <Label>自动启动</Label>
-                    <div className="text-xs text-muted-foreground">随应用启动</div>
+                    <div className="text-xs text-muted-foreground">勾选后立即启动反代，并在应用启动时自动启动</div>
                   </div>
                   <Switch
                     checked={!!config.enabled}
-                    onCheckedChange={(checked) => setField('enabled', checked)}
+                    onCheckedChange={handleAutoStartToggle}
                   />
                 </div>
               </div>

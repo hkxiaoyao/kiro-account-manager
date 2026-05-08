@@ -284,38 +284,15 @@ function GatewayPage() {
     return checks
   }, [hasFieldErrors, status.running, statusSummary.listen, statusSummary.requests, hasUnsavedChanges, hasRuntimeChanges, latestErrorEntry])
 
-  const observabilityHighlights = useMemo(() => ([
-    {
-      label: '流式请求',
-      value: String(requestLogSummary.streaming),
-      detail: '最近请求日志中被识别为 stream 的记录数。'},
-    {
-      label: '成功率',
-      value: requestMetrics.successRateLabel,
-      detail: `统计样本 ${requestMetrics.total} 条，平均耗时 ${requestMetrics.avgDurationLabel}。`},
-    {
-      label: '错误率',
-      value: requestMetrics.errorRateLabel,
-      detail: '结合错误聚合与请求日志，可快速定位上游错误、鉴权失败和流式异常。'},
-    {
-      label: '模型覆盖',
-      value: `${requestMetrics.uniqueModels} / ${requestMetrics.uniqueUpstreams}`,
-      detail: '分别表示模型数 / 上游来源数，用于判断路由与账号池是否均衡。'},
-  ]), [requestLogSummary.streaming, requestMetrics.successRateLabel, requestMetrics.total, requestMetrics.avgDurationLabel, requestMetrics.errorRateLabel, requestMetrics.uniqueModels, requestMetrics.uniqueUpstreams])
-
   const integrationGuidance = useMemo(() => ([
     {
-      label: 'Anthropic / Claude',
-      value: 'Messages API',
-      detail: '使用 ANTHROPIC_BASE_URL + ANTHROPIC_API_KEY 直连本地反代，适合 Claude Code / Claude Desktop 兼容链路。'},
+      label: 'Anthropic Messages API',
+      value: '/v1/messages',
+      detail: '使用 ANTHROPIC_BASE_URL + ANTHROPIC_API_KEY 直连本地反代，支持原生 Messages API 格式。'},
     {
-      label: 'OpenAI Chat Completions',
-      value: '/v1/chat/completions',
-      detail: '使用 OPENAI_BASE_URL + OPENAI_API_KEY，支持传统 OpenAI Chat Completions 格式，兼容标准 OpenAI 客户端库。'},
-    {
-      label: 'OpenAI Responses',
-      value: '/v1/responses',
-      detail: '使用 OPENAI_BASE_URL + OPENAI_API_KEY，反代会把 /v1/responses 请求映射到 Kiro 上游并保留流式事件序列。'},
+      label: 'OpenAI API',
+      value: '/v1/chat/completions, /v1/responses',
+      detail: '使用 OPENAI_BASE_URL + OPENAI_API_KEY，支持 Chat Completions 和 Responses 两种格式，兼容标准 OpenAI 客户端库。'},
     {
       label: '排障入口',
       value: '观测页',
@@ -556,6 +533,41 @@ function GatewayPage() {
     }
   }
 
+  const handleAutoStartToggle = async (checked: boolean) => {
+    setField('enabled', checked)
+    
+    // 延迟执行，确保 setField 先更新状态
+    setTimeout(async () => {
+      try {
+        // 先保存配置
+        await saveGatewayConfig({ ...config, enabled: checked })
+        setSavedConfigSnapshot(buildGatewayConfigSnapshot({ ...config, enabled: checked }))
+        
+        // 如果勾选自动启动且配置有效，立即启动反代
+        if (checked && !hasFieldErrors) {
+          setSaving(true)
+          const st = await startGateway({ ...config, enabled: checked })
+          const nextStatus = buildGatewayStatusState(st, st, { ...config, enabled: checked })
+          setStatus(nextStatus)
+          setAppliedRuntimeSnapshot(nextStatus.runtimeConfig ? buildGatewayRuntimeSnapshot(nextStatus.runtimeConfig) : buildGatewayRuntimeSnapshot({ ...config, enabled: checked }))
+          setLastStatusSyncAt(formatGatewayTimestamp())
+          setSaving(false)
+        } else if (!checked && status.running) {
+          // 如果取消自动启动且反代正在运行，停止反代
+          setSaving(true)
+          await stopGateway()
+          setStatus(prev => ({ ...prev, running: false }))
+          setAppliedRuntimeSnapshot(null)
+          setLastStatusSyncAt(formatGatewayTimestamp())
+          setSaving(false)
+        }
+      } catch (e) {
+        pushError(e)
+        setSaving(false)
+      }
+    }, 100)
+  }
+
   const copyText = async (text: string, successMessage: string) => {
     try {
       await navigator.clipboard.writeText(text)
@@ -728,13 +740,14 @@ function GatewayPage() {
               clientSamples={clientSamples}
               copyText={copyText}
               copySuccess={copySuccess}
+              effectiveConfig={effectiveConfig}
+              status={status}
             />
           </TabsContent>
 
           <TabsContent value="observability">
             <GatewayObservability
               colors={colors}
-              observabilityHighlights={observabilityHighlights}
               effectiveConfig={effectiveConfig}
               status={status}
               loading={loading}
@@ -780,6 +793,8 @@ function GatewayPage() {
               setConfig={setConfig}
               applyGatewayLocalOnlyChange={applyGatewayLocalOnlyChange}
               createGeneratedApiKey={createGeneratedApiKey}
+              handleSaveConfig={handleSave}
+              handleAutoStartToggle={handleAutoStartToggle}
             />
           </TabsContent>
         </Tabs>

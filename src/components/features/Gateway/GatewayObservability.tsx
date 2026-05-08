@@ -1,4 +1,4 @@
-import { Activity, AlertTriangle, FolderOpen, Radio, RefreshCw, Search, Shield } from 'lucide-react'
+import { Activity, AlertTriangle, ChevronDown, ChevronUp, FolderOpen, Radio, RefreshCw, Search, Shield } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,7 +24,6 @@ import type {
 
 interface GatewayObservabilityProps {
   colors: any;
-  observabilityHighlights: any[];
   effectiveConfig: GatewayConfig;
   status: GatewayStatus;
   loading: boolean;
@@ -80,7 +79,6 @@ function GatewayErrorHistoryCard({ errorHistory }: { errorHistory: ErrorHistoryI
 
 function GatewayObservability({
   colors,
-  observabilityHighlights,
   effectiveConfig,
   status,
   loading,
@@ -108,6 +106,8 @@ function GatewayObservability({
   // Local state for immediate input feedback
   const [searchInput, setSearchInput] = useState(requestLogQuery)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  // 最近请求明细展开/收起状态
+  const [isRequestDetailExpanded, setIsRequestDetailExpanded] = useState(true)
 
   // Debounced search handler - 修复内存泄漏问题
   const debouncedSetQuery = useCallback((value: string) => {
@@ -140,18 +140,6 @@ function GatewayObservability({
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
-        {observabilityHighlights.map((item) => (
-          <GatewayStatCard
-            key={item.label}
-            colors={colors}
-            label={item.label}
-            value={item.value}
-            detail={item.detail}
-            className={`glass-card border-border`}
-          />
-        ))}
-      </div>
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)] gap-4">
         <GatewaySurfaceCard colors={colors}>
           <div className="flex flex-col gap-3">
@@ -349,96 +337,176 @@ function GatewayObservability({
             </div>
 
             <GatewayPathCard value={logDir || '尚未获取'} />
+
+            {/* 请求明细表格 */}
+            <div className="flex flex-col gap-3 pt-2">
+              <div className="flex justify-between items-center">
+                <div className="text-sm font-semibold">请求明细</div>
+                <div className="flex items-center gap-2">
+                  <Badge variant={filteredRequestLogSummary.errors ? 'destructive' : 'default'}>
+                    {filteredRequestLogSummary.errors ? `${filteredRequestLogSummary.errors} 条错误` : '无错误记录'}
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsRequestDetailExpanded(!isRequestDetailExpanded)}
+                    className="h-6 w-6 p-0"
+                  >
+                    {isRequestDetailExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  </Button>
+                </div>
+              </div>
+
+              {isRequestDetailExpanded && (
+                <>
+                  {!filteredRequestLogs.length ? (
+                    <Alert>
+                      <AlertTitle>暂无请求日志</AlertTitle>
+                      <AlertDescription>
+                        {requestLogs.length
+                          ? '当前筛选条件下没有匹配结果，请调整结果过滤或搜索关键词。'
+                          : '当前还没有反代请求写入本地日志文件。启动反代并发起请求后,这里会显示最新记录。'}
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <VirtualizedRequestLogTable filteredRequestLogs={filteredRequestLogs} />
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </GatewaySurfaceCard>
 
         <GatewaySurfaceCard colors={colors}>
-          <div className="flex flex-col gap-3">
-            <GatewaySectionHeader
-              colors={colors}
-              icon={Radio}
-              title="统计视图"
-              badge={(
-                <Badge variant={requestMetrics.errorRateLabel === '0%' ? 'default' : 'secondary'}>
-                  成功率 {requestMetrics.successRateLabel} / 错误率 {requestMetrics.errorRateLabel}
-                </Badge>
-              )}
-            />
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-              <GatewayStatCard colors={colors} label="平均耗时" value={requestMetrics.avgDurationLabel} />
-              <GatewayStatCard colors={colors} label="模型数" value={requestMetrics.uniqueModels} />
-              <GatewayStatCard colors={colors} label="上游来源数" value={requestMetrics.uniqueUpstreams} />
-              <GatewayStatCard colors={colors} label="统计样本" value={requestMetrics.total} />
+          <div className="flex flex-col gap-5">
+            {/* 标题区域 */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-1 h-5 bg-primary rounded-full"></div>
+                <Radio size={18} className="text-primary" />
+                <div className="text-base font-semibold text-foreground">统计视图</div>
+              </div>
+              <Badge variant={requestMetrics.errorRateLabel === '0%' ? 'default' : 'secondary'} className="text-xs">
+                成功率 {requestMetrics.successRateLabel} / 错误率 {requestMetrics.errorRateLabel}
+              </Badge>
             </div>
 
-            {/* 统计可视化 - 紧凑布局 */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+            {/* 关键指标 */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="border rounded-lg p-4 bg-gradient-to-br from-muted/30 to-muted/10 hover:shadow-sm transition-shadow">
+                <div className="text-xs text-muted-foreground mb-1.5">平均耗时</div>
+                <div className="text-xl font-bold text-foreground">{requestMetrics.avgDurationLabel}</div>
+              </div>
+              <div className="border rounded-lg p-4 bg-gradient-to-br from-muted/30 to-muted/10 hover:shadow-sm transition-shadow">
+                <div className="text-xs text-muted-foreground mb-1.5">模型数</div>
+                <div className="text-xl font-bold text-foreground">{requestMetrics.uniqueModels}</div>
+              </div>
+              <div className="border rounded-lg p-4 bg-gradient-to-br from-muted/30 to-muted/10 hover:shadow-sm transition-shadow">
+                <div className="text-xs text-muted-foreground mb-1.5">上游来源数</div>
+                <div className="text-xl font-bold text-foreground">{requestMetrics.uniqueUpstreams}</div>
+              </div>
+              <div className="border rounded-lg p-4 bg-gradient-to-br from-muted/30 to-muted/10 hover:shadow-sm transition-shadow">
+                <div className="text-xs text-muted-foreground mb-1.5">统计样本</div>
+                <div className="text-xl font-bold text-foreground">{requestMetrics.total}</div>
+              </div>
+            </div>
+
+            {/* 统计可视化 */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               {/* 热门模型 */}
-              <div className="border rounded-lg p-3">
-                <div className="text-xs font-semibold mb-2 text-muted-foreground">热门模型</div>
-                {requestMetrics.topModels.length === 0 ? (
-                  <div className="text-center py-2 text-muted-foreground text-xs">暂无统计</div>
-                ) : (
-                  <div className="space-y-1.5">
-                    {requestMetrics.topModels.map((item: any, idx: number) => (
-                      <MetricBar key={idx} label={item.label} count={item.count} percent={item.percent} />
-                    ))}
+              <div className="border rounded-lg overflow-hidden bg-card hover:shadow-sm transition-shadow">
+                <div className="bg-muted/50 px-4 py-3 border-b">
+                  <div className="text-sm font-semibold flex items-center gap-2">
+                    <div className="w-1 h-4 bg-primary rounded-full"></div>
+                    热门模型
                   </div>
-                )}
+                </div>
+                <div className="p-5">
+                  {requestMetrics.topModels.length === 0 ? (
+                    <div className="text-center py-6 text-muted-foreground text-sm">暂无统计</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {requestMetrics.topModels.map((item: any, idx: number) => (
+                        <MetricBar key={idx} label={item.label} count={item.count} percent={item.percent} />
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* 热门上游来源 */}
-              <div className="border rounded-lg p-3">
-                <div className="text-xs font-semibold mb-2 text-muted-foreground">热门上游来源</div>
-                {requestMetrics.topUpstreams.length === 0 ? (
-                  <div className="text-center py-2 text-muted-foreground text-xs">暂无统计</div>
-                ) : (
-                  <div className="space-y-1.5">
-                    {requestMetrics.topUpstreams.map((item: any, idx: number) => (
-                      <MetricBar key={idx} label={item.label} count={item.count} percent={item.percent} />
-                    ))}
+              <div className="border rounded-lg overflow-hidden bg-card hover:shadow-sm transition-shadow">
+                <div className="bg-muted/50 px-4 py-3 border-b">
+                  <div className="text-sm font-semibold flex items-center gap-2">
+                    <div className="w-1 h-4 bg-primary rounded-full"></div>
+                    热门上游来源
                   </div>
-                )}
+                </div>
+                <div className="p-5">
+                  {requestMetrics.topUpstreams.length === 0 ? (
+                    <div className="text-center py-6 text-muted-foreground text-sm">暂无统计</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {requestMetrics.topUpstreams.map((item: any, idx: number) => (
+                        <MetricBar key={idx} label={item.label} count={item.count} percent={item.percent} />
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* 状态码分布 */}
-              <div className="border rounded-lg p-3">
-                <div className="text-xs font-semibold mb-2 text-muted-foreground">状态码分布</div>
-                {requestMetrics.topStatuses.length === 0 ? (
-                  <div className="text-center py-2 text-muted-foreground text-xs">暂无统计</div>
-                ) : (
-                  <div className="space-y-1.5">
-                    {requestMetrics.topStatuses.map((item: any, idx: number) => {
-                      const statusCode = parseInt(item.label)
-                      const isError = statusCode >= 400
-                      return (
-                        <div key={idx} className="flex items-center gap-2">
-                          <Badge
-                            variant="outline"
-                            className={`text-xs h-5 ${isError ? 'border-red-500 text-red-500' : ''}`}
-                          >
-                            {item.label}
-                          </Badge>
-                          <MetricBar label="" count={item.count} percent={item.percent} isError={isError} className="flex-1" />
-                        </div>
-                      )
-                    })}
+              <div className="border rounded-lg overflow-hidden bg-card hover:shadow-sm transition-shadow">
+                <div className="bg-muted/50 px-4 py-3 border-b">
+                  <div className="text-sm font-semibold flex items-center gap-2">
+                    <div className="w-1 h-4 bg-primary rounded-full"></div>
+                    状态码分布
                   </div>
-                )}
+                </div>
+                <div className="p-5">
+                  {requestMetrics.topStatuses.length === 0 ? (
+                    <div className="text-center py-6 text-muted-foreground text-sm">暂无统计</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {requestMetrics.topStatuses.map((item: any, idx: number) => {
+                        const statusCode = parseInt(item.label)
+                        const isError = statusCode >= 400
+                        return (
+                          <div key={idx} className="flex items-center gap-3">
+                            <Badge
+                              variant="outline"
+                              className={`text-xs h-6 min-w-[56px] justify-center font-mono ${isError ? 'border-red-500 text-red-500 bg-red-50 dark:bg-red-950/20' : 'bg-green-50 dark:bg-green-950/20'}`}
+                            >
+                              {item.label}
+                            </Badge>
+                            <MetricBar label="" count={item.count} percent={item.percent} isError={isError} className="flex-1" />
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* 端点 / Region */}
-              <div className="border rounded-lg p-3">
-                <div className="text-xs font-semibold mb-2 text-muted-foreground">端点 / Region</div>
-                <div className="space-y-3">
+              {/* 端点 & Region */}
+              <div className="border rounded-lg overflow-hidden bg-card hover:shadow-sm transition-shadow">
+                <div className="bg-muted/50 px-4 py-3 border-b">
+                  <div className="text-sm font-semibold flex items-center gap-2">
+                    <div className="w-1 h-4 bg-primary rounded-full"></div>
+                    端点 & Region
+                  </div>
+                </div>
+                <div className="p-5 space-y-5">
                   {/* 端点 */}
                   <div>
-                    <div className="text-xs text-muted-foreground mb-1.5">端点</div>
+                    <div className="text-xs font-semibold text-muted-foreground mb-3 flex items-center gap-1.5">
+                      <div className="w-0.5 h-3 bg-muted-foreground/50 rounded-full"></div>
+                      端点
+                    </div>
                     {requestMetrics.topEndpoints.length === 0 ? (
-                      <div className="text-center py-1 text-muted-foreground text-xs">暂无统计</div>
+                      <div className="text-center py-4 text-muted-foreground text-xs">暂无统计</div>
                     ) : (
-                      <div className="space-y-1.5">
+                      <div className="space-y-3">
                         {requestMetrics.topEndpoints.map((item: any, idx: number) => (
                           <MetricBar key={idx} label={item.label} count={item.count} percent={item.percent} />
                         ))}
@@ -447,11 +515,14 @@ function GatewayObservability({
                   </div>
                   {/* Region */}
                   <div>
-                    <div className="text-xs text-muted-foreground mb-1.5">Region</div>
+                    <div className="text-xs font-semibold text-muted-foreground mb-3 flex items-center gap-1.5">
+                      <div className="w-0.5 h-3 bg-muted-foreground/50 rounded-full"></div>
+                      Region
+                    </div>
                     {requestMetrics.topRegions.length === 0 ? (
-                      <div className="text-center py-1 text-muted-foreground text-xs">暂无统计</div>
+                      <div className="text-center py-4 text-muted-foreground text-xs">暂无统计</div>
                     ) : (
-                      <div className="space-y-1.5">
+                      <div className="space-y-3">
                         {requestMetrics.topRegions.map((item: any, idx: number) => (
                           <MetricBar key={idx} label={item.label} count={item.count} percent={item.percent} />
                         ))}
@@ -461,30 +532,6 @@ function GatewayObservability({
                 </div>
               </div>
             </div>
-          </div>
-        </GatewaySurfaceCard>
-
-        <GatewaySurfaceCard colors={colors}>
-          <div className="flex flex-col gap-3">
-            <div className="flex justify-between items-center">
-              <div className={`font-semibold text-foreground`}>最近请求明细</div>
-              <Badge variant={filteredRequestLogSummary.errors ? 'destructive' : 'default'}>
-                {filteredRequestLogSummary.errors ? `${filteredRequestLogSummary.errors} 条错误` : '无错误记录'}
-              </Badge>
-            </div>
-
-            {!filteredRequestLogs.length ? (
-              <Alert>
-                <AlertTitle>暂无请求日志</AlertTitle>
-                <AlertDescription>
-                  {requestLogs.length
-                    ? '当前筛选条件下没有匹配结果，请调整结果过滤或搜索关键词。'
-                    : '当前还没有反代请求写入本地日志文件。启动反代并发起请求后，这里会显示最新记录。'}
-                </AlertDescription>
-              </Alert>
-            ) : (
-              <VirtualizedRequestLogTable filteredRequestLogs={filteredRequestLogs} />
-            )}
           </div>
         </GatewaySurfaceCard>
       </div>

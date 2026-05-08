@@ -42,6 +42,7 @@ use commands::auth_cmd::{
     cancel_kiro_login, get_current_user, get_supported_providers, handle_kiro_social_callback,
     kiro_login, logout,
 };
+use commands::cli_config_cmd::{write_claude_code_config, write_codex_cli_config};
 
 //网关反代
 use commands::gateway_cmd::{
@@ -411,7 +412,10 @@ fn main() {
             delete_session,
             delete_workspace,
             export_session,
-            search_sessions
+            search_sessions,
+            // CLI 配置命令
+            write_claude_code_config,
+            write_codex_cli_config
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

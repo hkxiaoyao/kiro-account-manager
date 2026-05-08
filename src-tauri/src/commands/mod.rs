@@ -6,6 +6,7 @@ pub mod account_cmd;
 pub(crate) mod account_models;
 pub mod app_settings_cmd;
 pub mod auth_cmd;
+pub mod cli_config_cmd;
 pub mod custom_agents_cmd;
 pub mod gateway_cmd;
 pub mod group_tag_cmd;
