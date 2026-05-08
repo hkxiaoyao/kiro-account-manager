@@ -92,30 +92,30 @@ function WelcomeModal() {
               <div className="flex items-center gap-2 mb-3">
                 <Coffee size={18} className="text-amber-500" />
                 <p className={`text-base font-semibold text-foreground`}>
-                  💖 支持开源项目持续维护
+                  💖 支持开发 · 获取专属福利
                 </p>
               </div>
               
               <div className={`bg-muted/30 rounded-xl p-4 space-y-3`}>
                 <p className={`text-sm text-muted-foreground`}>
-                  如果这个工具帮到了你，可以请我喝杯咖啡 ☕
+                  感谢你使用 Kiro 账号管理器！你的支持将帮助项目持续改进和维护 ❤️
                 </p>
                 
                 {/* 赞助福利 */}
                 <div className={`bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-lg p-3 space-y-2`}>
-                  <p className={`text-xs font-medium text-foreground`}>赞助用户将获得：</p>
+                  <p className={`text-xs font-medium text-foreground`}>赞助用户专属福利：</p>
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2">
                       <span className="text-base">⚡</span>
-                      <p className={`text-sm text-foreground`}>Issues 优先响应</p>
+                      <p className={`text-sm text-foreground`}>问题反馈优先响应（24小时内）</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-base">🎯</span>
-                      <p className={`text-sm text-foreground`}>功能建议优先考虑</p>
+                      <p className={`text-sm text-foreground`}>功能需求优先开发</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-base">🔧</span>
-                      <p className={`text-sm text-foreground`}>Bug 优先处理</p>
+                      <p className={`text-sm text-foreground`}>专属技术支持与使用指导</p>
                     </div>
                   </div>
                 </div>
