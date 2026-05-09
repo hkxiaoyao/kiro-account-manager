@@ -191,7 +191,7 @@ fn default_region() -> String {
 }
 
 fn default_account_mode() -> String {
-    "single".to_string()
+    "pool".to_string()
 }
 
 fn default_strategy() -> String {
