@@ -92,32 +92,35 @@ function WelcomeModal() {
               <div className="flex items-center gap-2 mb-3">
                 <Coffee size={18} className="text-amber-500" />
                 <p className={`text-base font-semibold text-foreground`}>
-                  💖 支持开源项目持续维护
+                  💖 请作者喝杯咖啡
                 </p>
               </div>
               
               <div className={`bg-muted/30 rounded-xl p-4 space-y-3`}>
                 <p className={`text-sm text-muted-foreground`}>
-                  如果这个工具帮到了你，可以请我喝杯咖啡 ☕
+                  如果这个工具帮到了你，欢迎请我喝杯咖啡，你的支持是我持续更新的动力 ❤️
                 </p>
                 
                 {/* 赞助福利 */}
                 <div className={`bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-lg p-3 space-y-2`}>
-                  <p className={`text-xs font-medium text-foreground`}>赞助用户将获得：</p>
+                  <p className={`text-xs font-medium text-foreground`}>赞助用户福利：</p>
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2">
                       <span className="text-base">⚡</span>
-                      <p className={`text-sm text-foreground`}>Issues 优先响应</p>
+                      <p className={`text-sm text-foreground`}>问题反馈优先处理</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-base">🎯</span>
-                      <p className={`text-sm text-foreground`}>功能建议优先考虑</p>
+                      <p className={`text-sm text-foreground`}>功能建议优先实现</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-base">🔧</span>
-                      <p className={`text-sm text-foreground`}>Bug 优先处理</p>
+                      <p className={`text-sm text-foreground`}>一对一技术支持</p>
                     </div>
                   </div>
+                  <p className={`text-xs text-muted-foreground pt-1 border-t border-border/50`}>
+                    💡 提示：赞助时请备注你的 GitHub 用户名或邮箱，方便联系
+                  </p>
                 </div>
                 
                 {/* 二维码 - 简化 */}

@@ -200,15 +200,39 @@ const AccountCard = memo(function AccountCard({
           </div>
           <div className="flex items-center justify-between text-[10px] font-medium">
             <span className="text-foreground">{formatUsage(used)} / {formatUsage(quota)}</span>
-            <span className="text-muted-foreground">{t('common.remaining')} {formatUsage(quota - used)}</span>
+            <span className="text-muted-foreground">剩余 {formatUsage(quota - used)}</span>
           </div>
+          {(account.expiresAt || nextDateReset) && (
+            <div className="flex items-center justify-between text-[10px] pt-2 mt-2 border-t border-border/30 gap-2">
+              {account.expiresAt && (
+                <span className={`flex items-center gap-1 ${cardData.isExpired ? 'text-red-500 font-bold bg-red-500/10 px-1.5 py-0.5 rounded' : 'text-muted-foreground'}`}>
+                  {cardData.isExpired && '⚠️ '}Token: {new Date(account.expiresAt.replace(/\//g, '-')).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+              {nextDateReset && (
+                <span className="text-muted-foreground whitespace-nowrap">
+                  {new Date(nextDateReset * 1000).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })}重置
+                </span>
+              )}
+            </div>
+          )}
+          {account.lastError && (
+            <div className="text-[10px] pt-1.5 border-t border-border/30 mt-1.5">
+              <span className="text-red-500 font-medium">❌ {account.lastError}</span>
+            </div>
+          )}
         </div>
 
         <div className="mt-auto pt-3 border-t border-border/50 flex items-center justify-between">
           <div className="flex items-center gap-1">
             {account.machineId && (
               <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted/50 border border-border/30 text-[10px] text-muted-foreground">
-                <span className="font-mono truncate max-w-[80px]">{account.machineId}</span>
+                <span className="font-mono">
+                  {account.machineId.length > 12 
+                    ? `${account.machineId.slice(0, 8)}...${account.machineId.slice(-4)}`
+                    : account.machineId
+                  }
+                </span>
                 <button onClick={() => onCopy(account.machineId!)} className="hover:text-primary transition-colors">
                   <Copy size={10} />
                 </button>
@@ -218,15 +242,13 @@ const AccountCard = memo(function AccountCard({
               <button onClick={(e) => { e.stopPropagation(); onEdit(account) }} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title={t('accountCard.viewDetails')}>
                 <Eye size={16} />
               </button>
-              <button onClick={(e) => { e.stopPropagation(); onEdit(account) }} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title={t('accountCard.editRemark')}>
-                <Edit2 size={16} />
-              </button>
               <button onClick={(e) => { e.stopPropagation(); onRefreshToken?.(account.id) }} disabled={isRefreshingToken} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors disabled:opacity-50" title={t('accountCard.refreshToken')}>
                 <Key size={16} className={isRefreshingToken ? 'animate-spin' : ''} />
               </button>
               <button onClick={(e) => { e.stopPropagation(); onRefresh(account.id) }} disabled={isRefreshing} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors disabled:opacity-50" title={t('accountCard.refreshQuota')}>
                 <RefreshCcw size={16} className={isRefreshing ? 'animate-spin' : ''} />
               </button>
+              <div className="w-px h-4 bg-border/50 mx-0.5" />
               {isCurrentAccount ? (
                 <button onClick={(e) => { e.stopPropagation(); onSwitch(account) }} disabled={isSwitching} className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors disabled:opacity-50" title={t('accountCard.LogOut')}>
                   <LogOut size={16} className={isSwitching ? 'animate-spin' : ''} />
@@ -236,6 +258,9 @@ const AccountCard = memo(function AccountCard({
                   <LogIn size={16} className={isSwitching ? 'animate-spin' : ''} />
                 </button>
               )}
+              <button onClick={(e) => { e.stopPropagation(); onEdit(account) }} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title={t('accountCard.editRemark')}>
+                <Edit2 size={16} />
+              </button>
               <button onClick={(e) => { e.stopPropagation(); onDelete(account.id) }} className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title={t('accountCard.delete')}>
                 <Trash2 size={16} />
               </button>

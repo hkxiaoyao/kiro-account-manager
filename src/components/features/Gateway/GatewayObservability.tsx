@@ -1,4 +1,4 @@
-import { Activity, AlertTriangle, FolderOpen, Radio, RefreshCw, Search, Shield } from 'lucide-react'
+import { Activity, AlertTriangle, ChevronDown, ChevronUp, FolderOpen, Radio, RefreshCw, Search, Shield } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -7,52 +7,50 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { formatGatewayRequestDuration } from './gatewayPageUtils'
 import { GatewayCodeCard, GatewayPathCard, GatewaySectionHeader, GatewayStatCard, GatewaySubCard, GatewaySurfaceCard } from './GatewayShared'
-import React from 'react'
+import { MetricBar } from './MetricBar'
+import React, { useMemo, useCallback, useState, useRef, useEffect } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
+import type {
+  RequestLog,
+  ProcessedRequestLog,
+  RequestLogSummary,
+  RequestMetrics,
+  ErrorHistoryItem,
+  StatusSummary,
+  IntegrationSummary,
+  GatewayStatus,
+  GatewayConfig
+} from './types'
 
 interface GatewayObservabilityProps {
   colors: any;
-  observabilityHighlights: any[];
-  effectiveConfig: any;
-  status: any;
+  effectiveConfig: GatewayConfig;
+  status: GatewayStatus;
   loading: boolean;
   handleRefresh: () => Promise<void>;
   handleClearErrors: () => void;
-  errorHistory: any[];
-  statusSummary: any;
+  errorHistory: ErrorHistoryItem[];
+  statusSummary: StatusSummary;
   hasUnsavedChanges: boolean;
-  filteredRequestLogSummary: any;
-  integrationSummary: any;
+  filteredRequestLogSummary: RequestLogSummary;
+  integrationSummary: IntegrationSummary;
   logDir: string;
   handleOpenLogDir: () => Promise<void>;
   loadRequestLogs: (limit?: number) => Promise<void>;
   requestLogsLoading: boolean;
   handleClearRequestLogs: () => Promise<void>;
-  requestLogs: any[];
+  requestLogs: RequestLog[];
   lastRequestLogsSyncAt: string;
   requestLogOutcome: string;
   setRequestLogOutcome: (value: string) => void;
-  selectClassNames: any;
   requestLogQuery: string;
   setRequestLogQuery: (value: string) => void;
-  inputClassNames: any;
-  requestLogSummary: any;
-  requestMetrics: any;
-  renderMetricList: (items: any[], emptyLabel: string) => React.ReactNode;
-  filteredRequestLogs: any[];
+  requestLogSummary: RequestLogSummary;
+  requestMetrics: RequestMetrics;
+  filteredRequestLogs: RequestLog[];
 }
 
-function GatewayMetricListCard({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <GatewaySubCard>
-      <div className="text-xs font-semibold">{title}</div>
-      <div className="flex flex-col gap-1.5 mt-3">
-        {children}
-      </div>
-    </GatewaySubCard>
-  )
-}
-
-function GatewayErrorHistoryCard({ errorHistory }: { errorHistory: any[] }) {
+function GatewayErrorHistoryCard({ errorHistory }: { errorHistory: ErrorHistoryItem[] }) {
   const entries = errorHistory.length
     ? errorHistory
     : [{ message: '暂无流式错误', firstSeenAt: '-', lastSeenAt: '-', count: 1 }]
@@ -79,69 +77,8 @@ function GatewayErrorHistoryCard({ errorHistory }: { errorHistory: any[] }) {
   )
 }
 
-function GatewayRequestLogEntry({ colors, item, itemKey }: { colors: any; item: any; itemKey: string }) {
-  return (
-    <GatewaySubCard key={itemKey}>
-      <div className="flex flex-col gap-2">
-        <div className="flex justify-between items-start">
-          <div className="flex flex-col gap-0.5">
-            <div className="flex items-center gap-2">
-              <Badge variant={item.outcome === 'success' ? 'default' : 'destructive'}>{item.outcome || 'unknown'}</Badge>
-              <Badge variant="outline">{item.endpoint || '-'}</Badge>
-              <Badge variant="outline" className={item.statusCode >= 400 ? 'border-red-500 text-red-500' : ''}>{item.statusCode || 0}</Badge>
-              <Badge variant="outline" className={item.stream ? 'border-blue-500 text-blue-500' : ''}>{item.stream ? 'stream' : 'non-stream'}</Badge>
-            </div>
-            <div className={`text-sm text-muted-foreground`}>
-              #{item.requestIndex ?? '-'} · {item.occurredAt || '-'} · {item.clientIp || '-'}
-            </div>
-          </div>
-          <div className={`text-sm font-bold text-foreground`}>
-            {formatGatewayRequestDuration(item.durationMs)}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <GatewayStatCard colors={colors} label="模型 / Region" value={`${item.model || '未记录模型'} / ${item.region || '-'}`} valueProps={{ size: 'sm' }} />
-          <GatewayStatCard colors={colors} label="上游来源" value={item.upstreamSource || '未解析上游来源'} valueProps={{ size: 'sm' }} />
-          <GatewayStatCard colors={colors} label="客户端 / 计数" value={`${item.clientIp || '-'} / #${item.requestIndex ?? '-'}`} valueProps={{ size: 'sm' }} />
-          <GatewayStatCard colors={colors} label="请求类型" value={`${item.stream ? '流式返回' : '非流式返回'} / ${item.endpoint || '-'}`} valueProps={{ size: 'sm' }} />
-        </div>
-
-        {item.error ? (
-          <pre className="text-xs bg-muted p-3 rounded-md overflow-x-auto whitespace-pre-wrap break-words">
-            {item.error}
-          </pre>
-        ) : null}
-
-        {item.requestBody || item.responseBody ? (
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-            {item.requestBody ? (
-              <details open={item.outcome === 'error'}>
-                <summary className="cursor-pointer text-sm font-medium">原始请求</summary>
-                <pre className="text-xs bg-muted p-3 rounded-md overflow-x-auto whitespace-pre-wrap break-words mt-2">
-                  {item.requestBody}
-                </pre>
-              </details>
-            ) : null}
-
-            {item.responseBody ? (
-              <details open={item.outcome === 'error'}>
-                <summary className="cursor-pointer text-sm font-medium">原始响应</summary>
-                <pre className="text-xs bg-muted p-3 rounded-md overflow-x-auto whitespace-pre-wrap break-words mt-2">
-                  {item.responseBody}
-                </pre>
-              </details>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-    </GatewaySubCard>
-  )
-}
-
 function GatewayObservability({
   colors,
-  observabilityHighlights,
   effectiveConfig,
   status,
   loading,
@@ -161,28 +98,48 @@ function GatewayObservability({
   lastRequestLogsSyncAt,
   requestLogOutcome,
   setRequestLogOutcome,
-  selectClassNames,
   requestLogQuery,
   setRequestLogQuery,
-  inputClassNames,
   requestLogSummary,
   requestMetrics,
-  renderMetricList,
   filteredRequestLogs}: GatewayObservabilityProps) {
+  // Local state for immediate input feedback
+  const [searchInput, setSearchInput] = useState(requestLogQuery)
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  // 最近请求明细展开/收起状态
+  const [isRequestDetailExpanded, setIsRequestDetailExpanded] = useState(true)
+
+  // Debounced search handler - 修复内存泄漏问题
+  const debouncedSetQuery = useCallback((value: string) => {
+    // 清除之前的 timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+    }
+    // 设置新的 timeout
+    timeoutRef.current = setTimeout(() => {
+      setRequestLogQuery(value)
+      timeoutRef.current = null
+    }, 300)
+  }, [setRequestLogQuery])
+
+  // Handle search input change
+  const handleSearchChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value
+    setSearchInput(value)
+    debouncedSetQuery(value)
+  }, [debouncedSetQuery])
+
+  // 组件卸载时清理 timeout
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+    }
+  }, [])
+
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
-        {observabilityHighlights.map((item) => (
-          <GatewayStatCard
-            key={item.label}
-            colors={colors}
-            label={item.label}
-            value={item.value}
-            detail={item.detail}
-            className={`glass-card border-border`}
-          />
-        ))}
-      </div>
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)] gap-4">
         <GatewaySurfaceCard colors={colors}>
           <div className="flex flex-col gap-3">
@@ -224,6 +181,36 @@ function GatewayObservability({
                 {`错误历史 ${statusSummary.errorCount}，当前${status.running ? '已启动' : '未启动'}，${hasUnsavedChanges ? '页面存在未保存变更。' : '页面配置已与已保存状态同步。'}`}
               </AlertDescription>
             </Alert>
+
+            {/* Prompt Caching 统计 */}
+            {requestLogSummary.requestsWithCache > 0 && (
+              <GatewaySubCard>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="text-sm font-semibold">Prompt Caching</div>
+                    <Badge variant="default" className="text-xs">节省 {requestLogSummary.costSavings}%</Badge>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs">
+                    <div className="flex items-center gap-1">
+                      <span className="text-muted-foreground">命中率</span>
+                      <span className="font-semibold">{requestLogSummary.cacheHitRate}%</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-muted-foreground">读</span>
+                      <span className="font-semibold text-green-600">{requestLogSummary.totalCacheReadTokens.toLocaleString()}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-muted-foreground">写</span>
+                      <span className="font-semibold">{requestLogSummary.totalCacheCreationTokens.toLocaleString()}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-muted-foreground">I/O</span>
+                      <span className="font-semibold">{requestLogSummary.totalInputTokens.toLocaleString()}/{requestLogSummary.totalOutputTokens.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+              </GatewaySubCard>
+            )}
 
             <GatewaySubCard>
               <div className="flex flex-col gap-2">
@@ -334,8 +321,8 @@ function GatewayObservability({
                   <Input
                     id="query-search"
                     placeholder="搜索模型、端点、IP、错误、上游来源或 Region"
-                    value={requestLogQuery}
-                    onChange={(event) => setRequestLogQuery(event.target.value)}
+                    value={searchInput}
+                    onChange={handleSearchChange}
                     className="pl-9"
                   />
                 </div>
@@ -350,94 +337,583 @@ function GatewayObservability({
             </div>
 
             <GatewayPathCard value={logDir || '尚未获取'} />
-          </div>
-        </GatewaySurfaceCard>
 
-        <GatewaySurfaceCard colors={colors}>
-          <div className="flex flex-col gap-3">
-            <GatewaySectionHeader
-              colors={colors}
-              icon={Radio}
-              title="统计视图"
-              badge={(
-                <Badge variant={requestMetrics.errorRateLabel === '0%' ? 'default' : 'secondary'}>
-                  成功率 {requestMetrics.successRateLabel} / 错误率 {requestMetrics.errorRateLabel}
-                </Badge>
-              )}
-            />
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-              <GatewayStatCard colors={colors} label="平均耗时" value={requestMetrics.avgDurationLabel} />
-              <GatewayStatCard colors={colors} label="模型数" value={requestMetrics.uniqueModels} />
-              <GatewayStatCard colors={colors} label="上游来源数" value={requestMetrics.uniqueUpstreams} />
-              <GatewayStatCard colors={colors} label="统计样本" value={requestMetrics.total} />
-            </div>
-
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-              <GatewayMetricListCard title="热门模型">
-                {renderMetricList(requestMetrics.topModels, '暂无模型统计')}
-              </GatewayMetricListCard>
-              <GatewayMetricListCard title="热门上游来源">
-                {renderMetricList(requestMetrics.topUpstreams, '暂无上游来源统计')}
-              </GatewayMetricListCard>
-              <GatewayMetricListCard title="状态码分布">
-                {renderMetricList(requestMetrics.topStatuses, '暂无状态码统计')}
-              </GatewayMetricListCard>
-              <GatewaySubCard>
-                <div className="text-xs font-semibold">端点 / Region</div>
-                <div className="flex flex-col gap-2 mt-3">
-                  <div>
-                    <div className={`text-xs text-muted-foreground`}>端点</div>
-                    <div className="flex flex-col gap-1.5 mt-1.5">
-                      {renderMetricList(requestMetrics.topEndpoints, '暂无端点统计')}
-                    </div>
-                  </div>
-                  <div>
-                    <div className={`text-xs text-muted-foreground`}>Region</div>
-                    <div className="flex flex-col gap-1.5 mt-1.5">
-                      {renderMetricList(requestMetrics.topRegions, '暂无 Region 统计')}
-                    </div>
-                  </div>
+            {/* 请求明细表格 */}
+            <div className="flex flex-col gap-3 pt-2">
+              <div className="flex justify-between items-center">
+                <div className="text-sm font-semibold">请求明细</div>
+                <div className="flex items-center gap-2">
+                  <Badge variant={filteredRequestLogSummary.errors ? 'destructive' : 'default'}>
+                    {filteredRequestLogSummary.errors ? `${filteredRequestLogSummary.errors} 条错误` : '无错误记录'}
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsRequestDetailExpanded(!isRequestDetailExpanded)}
+                    className="h-6 w-6 p-0"
+                  >
+                    {isRequestDetailExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  </Button>
                 </div>
-              </GatewaySubCard>
+              </div>
+
+              {isRequestDetailExpanded && (
+                <>
+                  {!filteredRequestLogs.length ? (
+                    <Alert>
+                      <AlertTitle>暂无请求日志</AlertTitle>
+                      <AlertDescription>
+                        {requestLogs.length
+                          ? '当前筛选条件下没有匹配结果，请调整结果过滤或搜索关键词。'
+                          : '当前还没有反代请求写入本地日志文件。启动反代并发起请求后,这里会显示最新记录。'}
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <VirtualizedRequestLogTable filteredRequestLogs={filteredRequestLogs} />
+                  )}
+                </>
+              )}
             </div>
           </div>
         </GatewaySurfaceCard>
 
         <GatewaySurfaceCard colors={colors}>
-          <div className="flex flex-col gap-3">
-            <div className="flex justify-between items-center">
-              <div className={`font-semibold text-foreground`}>最近请求明细</div>
-              <Badge variant={filteredRequestLogSummary.errors ? 'destructive' : 'default'}>
-                {filteredRequestLogSummary.errors ? `${filteredRequestLogSummary.errors} 条错误` : '无错误记录'}
+          <div className="flex flex-col gap-5">
+            {/* 标题区域 */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-1 h-5 bg-primary rounded-full"></div>
+                <Radio size={18} className="text-primary" />
+                <div className="text-base font-semibold text-foreground">统计视图</div>
+              </div>
+              <Badge variant={requestMetrics.errorRateLabel === '0%' ? 'default' : 'secondary'} className="text-xs">
+                成功率 {requestMetrics.successRateLabel} / 错误率 {requestMetrics.errorRateLabel}
               </Badge>
             </div>
 
-            {!filteredRequestLogs.length ? (
-              <Alert>
-                <AlertTitle>暂无请求日志</AlertTitle>
-                <AlertDescription>
-                  {requestLogs.length
-                    ? '当前筛选条件下没有匹配结果，请调整结果过滤或搜索关键词。'
-                    : '当前还没有反代请求写入本地日志文件。启动反代并发起请求后，这里会显示最新记录。'}
-                </AlertDescription>
-              </Alert>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {filteredRequestLogs.map((item, idx) => (
-                  <GatewayRequestLogEntry
-                    key={`${item.requestIndex || idx}-${item.occurredAt || idx}`}
-                    colors={colors}
-                    item={item}
-                    itemKey={`${item.requestIndex || idx}-${item.occurredAt || idx}`}
-                  />
-                ))}
+            {/* 关键指标 */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="border rounded-lg p-4 bg-gradient-to-br from-muted/30 to-muted/10 hover:shadow-sm transition-shadow">
+                <div className="text-xs text-muted-foreground mb-1.5">平均耗时</div>
+                <div className="text-xl font-bold text-foreground">{requestMetrics.avgDurationLabel}</div>
               </div>
-            )}
+              <div className="border rounded-lg p-4 bg-gradient-to-br from-muted/30 to-muted/10 hover:shadow-sm transition-shadow">
+                <div className="text-xs text-muted-foreground mb-1.5">模型数</div>
+                <div className="text-xl font-bold text-foreground">{requestMetrics.uniqueModels}</div>
+              </div>
+              <div className="border rounded-lg p-4 bg-gradient-to-br from-muted/30 to-muted/10 hover:shadow-sm transition-shadow">
+                <div className="text-xs text-muted-foreground mb-1.5">上游来源数</div>
+                <div className="text-xl font-bold text-foreground">{requestMetrics.uniqueUpstreams}</div>
+              </div>
+              <div className="border rounded-lg p-4 bg-gradient-to-br from-muted/30 to-muted/10 hover:shadow-sm transition-shadow">
+                <div className="text-xs text-muted-foreground mb-1.5">统计样本</div>
+                <div className="text-xl font-bold text-foreground">{requestMetrics.total}</div>
+              </div>
+            </div>
+
+            {/* 统计可视化 */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              {/* 热门模型 */}
+              <div className="border rounded-lg overflow-hidden bg-card hover:shadow-sm transition-shadow">
+                <div className="bg-muted/50 px-4 py-3 border-b">
+                  <div className="text-sm font-semibold flex items-center gap-2">
+                    <div className="w-1 h-4 bg-primary rounded-full"></div>
+                    热门模型
+                  </div>
+                </div>
+                <div className="p-5">
+                  {requestMetrics.topModels.length === 0 ? (
+                    <div className="text-center py-6 text-muted-foreground text-sm">暂无统计</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {requestMetrics.topModels.map((item: any, idx: number) => (
+                        <MetricBar key={idx} label={item.label} count={item.count} percent={item.percent} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 热门上游来源 */}
+              <div className="border rounded-lg overflow-hidden bg-card hover:shadow-sm transition-shadow">
+                <div className="bg-muted/50 px-4 py-3 border-b">
+                  <div className="text-sm font-semibold flex items-center gap-2">
+                    <div className="w-1 h-4 bg-primary rounded-full"></div>
+                    热门上游来源
+                  </div>
+                </div>
+                <div className="p-5">
+                  {requestMetrics.topUpstreams.length === 0 ? (
+                    <div className="text-center py-6 text-muted-foreground text-sm">暂无统计</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {requestMetrics.topUpstreams.map((item: any, idx: number) => (
+                        <MetricBar key={idx} label={item.label} count={item.count} percent={item.percent} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 状态码分布 */}
+              <div className="border rounded-lg overflow-hidden bg-card hover:shadow-sm transition-shadow">
+                <div className="bg-muted/50 px-4 py-3 border-b">
+                  <div className="text-sm font-semibold flex items-center gap-2">
+                    <div className="w-1 h-4 bg-primary rounded-full"></div>
+                    状态码分布
+                  </div>
+                </div>
+                <div className="p-5">
+                  {requestMetrics.topStatuses.length === 0 ? (
+                    <div className="text-center py-6 text-muted-foreground text-sm">暂无统计</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {requestMetrics.topStatuses.map((item: any, idx: number) => {
+                        const statusCode = parseInt(item.label)
+                        const isError = statusCode >= 400
+                        return (
+                          <div key={idx} className="flex items-center gap-3">
+                            <Badge
+                              variant="outline"
+                              className={`text-xs h-6 min-w-[56px] justify-center font-mono ${isError ? 'border-red-500 text-red-500 bg-red-50 dark:bg-red-950/20' : 'bg-green-50 dark:bg-green-950/20'}`}
+                            >
+                              {item.label}
+                            </Badge>
+                            <MetricBar label="" count={item.count} percent={item.percent} isError={isError} className="flex-1" />
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 端点 & Region */}
+              <div className="border rounded-lg overflow-hidden bg-card hover:shadow-sm transition-shadow">
+                <div className="bg-muted/50 px-4 py-3 border-b">
+                  <div className="text-sm font-semibold flex items-center gap-2">
+                    <div className="w-1 h-4 bg-primary rounded-full"></div>
+                    端点 & Region
+                  </div>
+                </div>
+                <div className="p-5 space-y-5">
+                  {/* 端点 */}
+                  <div>
+                    <div className="text-xs font-semibold text-muted-foreground mb-3 flex items-center gap-1.5">
+                      <div className="w-0.5 h-3 bg-muted-foreground/50 rounded-full"></div>
+                      端点
+                    </div>
+                    {requestMetrics.topEndpoints.length === 0 ? (
+                      <div className="text-center py-4 text-muted-foreground text-xs">暂无统计</div>
+                    ) : (
+                      <div className="space-y-3">
+                        {requestMetrics.topEndpoints.map((item: any, idx: number) => (
+                          <MetricBar key={idx} label={item.label} count={item.count} percent={item.percent} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {/* Region */}
+                  <div>
+                    <div className="text-xs font-semibold text-muted-foreground mb-3 flex items-center gap-1.5">
+                      <div className="w-0.5 h-3 bg-muted-foreground/50 rounded-full"></div>
+                      Region
+                    </div>
+                    {requestMetrics.topRegions.length === 0 ? (
+                      <div className="text-center py-4 text-muted-foreground text-xs">暂无统计</div>
+                    ) : (
+                      <div className="space-y-3">
+                        {requestMetrics.topRegions.map((item: any, idx: number) => (
+                          <MetricBar key={idx} label={item.label} count={item.count} percent={item.percent} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </GatewaySurfaceCard>
       </div>
     </>
+  )
+}
+
+// 提取行渲染组件，使用 React.memo 优化
+const RequestLogTableRow = React.memo(({
+  item,
+  virtualRow,
+  isExpanded,
+  onToggle
+}: {
+  item: ProcessedRequestLog
+  virtualRow: any
+  isExpanded: boolean
+  onToggle: () => void
+}) => {
+  const hasDetails = !!(item.error || item.requestBody || item.responseBody)
+
+  return (
+    <div
+      className={`flex flex-col text-sm border-b absolute top-0 left-0 w-full ${
+        item.outcome === 'error' ? 'bg-red-50 dark:bg-red-950/20' : ''
+      }`}
+      style={{
+        height: `${virtualRow.size}px`,
+        transform: `translateY(${virtualRow.start}px)`,
+      }}
+    >
+      <div
+        className={`flex hover:bg-muted/30 transition-colors ${hasDetails ? 'cursor-pointer' : ''}`}
+        onClick={hasDetails ? onToggle : undefined}
+      >
+      <div className="flex-shrink-0 w-[80px] p-3 font-mono text-xs text-muted-foreground">
+        #{item.requestIndex ?? '-'}
+      </div>
+      <div className="flex-shrink-0 w-[140px] p-3">
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-1.5">
+            <Badge
+              variant={item.outcome === 'success' ? 'default' : 'destructive'}
+              className="text-xs"
+            >
+              {item.outcome || 'unknown'}
+            </Badge>
+            <Badge
+              variant="outline"
+              className={`text-xs ${item.statusCode >= 400 ? 'border-red-500 text-red-500' : ''}`}
+            >
+              {item.statusCode || 0}
+            </Badge>
+          </div>
+          {item.stream && (
+            <Badge variant="outline" className="text-xs border-blue-500 text-blue-500 w-fit">
+              stream
+            </Badge>
+          )}
+        </div>
+      </div>
+      <div className="flex-shrink-0 w-[120px] p-3">
+        <span className="text-xs">{item.endpoint || '-'}</span>
+      </div>
+      <div className="flex-shrink-0 w-[160px] p-3">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-xs font-medium">{item.model || '未记录'}</span>
+          <span className="text-xs text-muted-foreground">{item.region || '-'}</span>
+        </div>
+      </div>
+      <div className="flex-shrink-0 w-[160px] p-3">
+        {item.totalTokens > 0 ? (
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs font-mono">{item.inputTokens.toLocaleString()} → {item.outputTokens.toLocaleString()}</span>
+            {item.hasCache && (
+              <span className="text-xs text-green-600">
+                ⚡ {item.cacheReadTokens > 0 ? `读${item.cacheReadTokens.toLocaleString()}` : ''}{item.cacheReadTokens > 0 && item.cacheCreationTokens > 0 ? ' ' : ''}{item.cacheCreationTokens > 0 ? `写${item.cacheCreationTokens.toLocaleString()}` : ''}
+              </span>
+            )}
+          </div>
+        ) : (
+          <span className="text-xs text-muted-foreground">-</span>
+        )}
+      </div>
+      <div className="flex-shrink-0 w-[180px] p-3">
+        <span className="text-xs">
+          {(() => {
+            const source = item.upstreamSource || '未解析'
+            const parts = source.split(':')
+            return parts.length > 1 ? parts[parts.length - 1] : source
+          })()}
+        </span>
+      </div>
+      <div className="flex-shrink-0 w-[100px] p-3">
+        <span className="text-xs font-mono font-semibold">
+          {formatGatewayRequestDuration(item.durationMs)}
+        </span>
+      </div>
+      <div className="flex-shrink-0 w-[140px] p-3">
+        <span className="text-xs text-muted-foreground">{item.occurredAt || '-'}</span>
+      </div>
+      <div className="flex-1 min-w-[120px] p-3">
+        <span className="text-xs text-muted-foreground">{item.clientIp || '-'}</span>
+      </div>
+      </div>
+
+      {/* 展开的详情区域 */}
+      {isExpanded && hasDetails && (
+        <div className="px-3 pb-3 border-t bg-muted/10">
+          {item.error && (
+            <div className="mt-2">
+              <div className="text-xs text-red-600 font-semibold mb-1">错误信息</div>
+              <pre className="text-xs bg-muted p-2 rounded overflow-x-auto whitespace-pre-wrap break-words">
+                {item.error}
+              </pre>
+            </div>
+          )}
+          {(item.requestBody || item.responseBody) && (
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-2 mt-2">
+              {item.requestBody && (
+                <div>
+                  <div className="text-xs font-semibold mb-1">请求体</div>
+                  <pre className="text-xs bg-muted p-2 rounded overflow-x-auto whitespace-pre-wrap break-words max-h-40 overflow-y-auto">
+                    {item.requestBody}
+                  </pre>
+                </div>
+              )}
+              {item.responseBody && (
+                <div>
+                  <div className="text-xs font-semibold mb-1">响应体</div>
+                  <pre className="text-xs bg-muted p-2 rounded overflow-x-auto whitespace-pre-wrap break-words max-h-40 overflow-y-auto">
+                    {item.responseBody}
+                  </pre>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+})
+
+RequestLogTableRow.displayName = 'RequestLogTableRow'
+
+function VirtualizedRequestLogTable({ filteredRequestLogs }: { filteredRequestLogs: RequestLog[] }) {
+  const parentRef = useRef<HTMLDivElement>(null)
+  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
+  const [sortConfig, setSortConfig] = useState<{ key: keyof RequestLog | null; direction: 'asc' | 'desc' }>({
+    key: null,
+    direction: 'desc'
+  })
+  const [containerHeight, setContainerHeight] = useState(600)
+
+  // 响应式高度调整
+  useEffect(() => {
+    const handleResize = () => {
+      const availableHeight = window.innerHeight - 500
+      setContainerHeight(Math.max(400, Math.min(800, availableHeight)))
+    }
+
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // 预计算行数据，避免在渲染时重复计算
+  const processedLogs = useMemo<ProcessedRequestLog[]>(() => {
+    let logs = filteredRequestLogs.map(item => {
+      const inputTokens = item.inputTokens || 0
+      const outputTokens = item.outputTokens || 0
+      const cacheReadTokens = item.cacheReadInputTokens || 0
+      const cacheCreationTokens = item.cacheCreationInputTokens || 0
+
+      return {
+        ...item,
+        hasCache: cacheReadTokens > 0 || cacheCreationTokens > 0,
+        totalTokens: inputTokens + outputTokens + cacheReadTokens + cacheCreationTokens,
+        inputTokens,
+        outputTokens,
+        cacheReadTokens,
+        cacheCreationTokens,
+      }
+    })
+
+    // 应用排序
+    if (sortConfig.key) {
+      logs.sort((a, b) => {
+        const aVal = a[sortConfig.key!]
+        const bVal = b[sortConfig.key!]
+
+        if (aVal === bVal) return 0
+
+        const comparison = aVal > bVal ? 1 : -1
+        return sortConfig.direction === 'asc' ? comparison : -comparison
+      })
+    }
+
+    return logs
+  }, [filteredRequestLogs, sortConfig])
+
+  // 切换排序
+  const handleSort = useCallback((key: keyof RequestLog) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }))
+  }, [])
+
+  // 切换行展开状态
+  const toggleRow = useCallback((index: number) => {
+    setExpandedRows(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(index)) {
+        newSet.delete(index)
+      } else {
+        newSet.add(index)
+      }
+      return newSet
+    })
+  }, [])
+
+  // 动态行高估算（考虑展开状态）
+  const estimateSize = useCallback((index: number) => {
+    const item = processedLogs[index]
+    if (!item) return 80
+
+    const isExpanded = expandedRows.has(index)
+    const hasDetails = !!(item.error || item.requestBody || item.responseBody)
+
+    // 基础高度
+    let baseHeight = 80
+    if (item.error) baseHeight = 100
+    else if (item.stream) baseHeight = 90
+
+    // 展开状态额外高度
+    if (isExpanded && hasDetails) {
+      let expandedHeight = 100
+      if (item.error) expandedHeight += 80
+      if (item.requestBody || item.responseBody) expandedHeight += 120
+      return baseHeight + expandedHeight
+    }
+
+    return baseHeight
+  }, [processedLogs, expandedRows])
+
+  const rowVirtualizer = useVirtualizer({
+    count: processedLogs.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize,
+    overscan: 5,
+  })
+
+  // 筛选后自动滚动到顶部
+  useEffect(() => {
+    if (rowVirtualizer && processedLogs.length > 0) {
+      rowVirtualizer.scrollToIndex(0, { align: 'start' })
+    }
+  }, [filteredRequestLogs.length, rowVirtualizer])
+
+  const hasDetailedLogs = useMemo(
+    () => filteredRequestLogs.some(item => item.error || item.requestBody || item.responseBody),
+    [filteredRequestLogs]
+  )
+
+  return (
+    <div className="border rounded-lg overflow-hidden">
+      <div className="overflow-x-auto">
+        <div className="min-w-[1200px]">
+          {/* 表头 */}
+          <div className="bg-muted/50 border-b">
+            <div className="flex text-sm">
+              <div className="flex-shrink-0 w-[80px] p-3 font-semibold">#</div>
+              <div
+                className="flex-shrink-0 w-[140px] p-3 font-semibold cursor-pointer hover:bg-muted/30 transition-colors"
+                onClick={() => handleSort('statusCode')}
+              >
+                状态 {sortConfig.key === 'statusCode' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+              </div>
+              <div className="flex-shrink-0 w-[120px] p-3 font-semibold">端点</div>
+              <div
+                className="flex-shrink-0 w-[160px] p-3 font-semibold cursor-pointer hover:bg-muted/30 transition-colors"
+                onClick={() => handleSort('model')}
+              >
+                模型 {sortConfig.key === 'model' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+              </div>
+              <div className="flex-shrink-0 w-[160px] p-3 font-semibold">Tokens</div>
+              <div className="flex-shrink-0 w-[180px] p-3 font-semibold">账号</div>
+              <div
+                className="flex-shrink-0 w-[100px] p-3 font-semibold cursor-pointer hover:bg-muted/30 transition-colors"
+                onClick={() => handleSort('durationMs')}
+              >
+                耗时 {sortConfig.key === 'durationMs' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+              </div>
+              <div
+                className="flex-shrink-0 w-[140px] p-3 font-semibold cursor-pointer hover:bg-muted/30 transition-colors"
+                onClick={() => handleSort('occurredAt')}
+              >
+                时间 {sortConfig.key === 'occurredAt' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+              </div>
+              <div className="flex-1 min-w-[120px] p-3 font-semibold">客户端</div>
+            </div>
+          </div>
+
+          {/* 虚拟化表体 */}
+          <div
+            ref={parentRef}
+            className="overflow-auto"
+            style={{ height: `${containerHeight}px` }}
+          >
+            <div
+              style={{
+                height: `${rowVirtualizer.getTotalSize()}px`,
+                width: '100%',
+                position: 'relative',
+              }}
+            >
+              {rowVirtualizer.getVirtualItems().map((virtualRow) => (
+                <RequestLogTableRow
+                  key={virtualRow.key}
+                  item={processedLogs[virtualRow.index]}
+                  virtualRow={virtualRow}
+                  isExpanded={expandedRows.has(virtualRow.index)}
+                  onToggle={() => toggleRow(virtualRow.index)}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 展开详情（可选） */}
+      {hasDetailedLogs && (
+        <div className="border-t bg-muted/20 p-3">
+          <details>
+            <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
+              查看详细日志（错误信息、请求/响应体）
+            </summary>
+            <div className="mt-3 space-y-3">
+              {filteredRequestLogs.map((item, idx) => {
+                if (!item.error && !item.requestBody && !item.responseBody) return null
+                return (
+                  <div key={`detail-${idx}`} className="border rounded-lg p-3 bg-background">
+                    <div className="text-xs font-semibold mb-2">
+                      #{item.requestIndex ?? '-'} - {item.occurredAt || '-'}
+                    </div>
+                    {item.error && (
+                      <div className="mb-2">
+                        <div className="text-xs text-red-600 font-semibold mb-1">错误信息</div>
+                        <pre className="text-xs bg-muted p-2 rounded overflow-x-auto whitespace-pre-wrap break-words">
+                          {item.error}
+                        </pre>
+                      </div>
+                    )}
+                    {(item.requestBody || item.responseBody) && (
+                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-2">
+                        {item.requestBody && (
+                          <div>
+                            <div className="text-xs font-semibold mb-1">请求体</div>
+                            <pre className="text-xs bg-muted p-2 rounded overflow-x-auto whitespace-pre-wrap break-words max-h-40 overflow-y-auto">
+                              {item.requestBody}
+                            </pre>
+                          </div>
+                        )}
+                        {item.responseBody && (
+                          <div>
+                            <div className="text-xs font-semibold mb-1">响应体</div>
+                            <pre className="text-xs bg-muted p-2 rounded overflow-x-auto whitespace-pre-wrap break-words max-h-40 overflow-y-auto">
+                              {item.responseBody}
+                            </pre>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </details>
+        </div>
+      )}
+    </div>
   )
 }
 

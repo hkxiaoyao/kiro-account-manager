@@ -1,8 +1,8 @@
 import { Check, Copy } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { invoke } from '@tauri-apps/api/core'
 import { GatewayCodeCard, GatewaySectionHeader, GatewayStatCard, GatewaySubCard, GatewaySurfaceCard } from './GatewayShared'
-import React from 'react'
 
 interface GatewayIntegrationProps {
   colors: any;
@@ -12,6 +12,8 @@ interface GatewayIntegrationProps {
   clientSamples: any;
   copyText: (text: string, msg: string) => Promise<void>;
   copySuccess: string;
+  effectiveConfig: any;
+  status: any;
 }
 
 function GatewayIntegration({
@@ -21,7 +23,15 @@ function GatewayIntegration({
   effectiveConnectHost,
   clientSamples,
   copyText,
-  copySuccess}: GatewayIntegrationProps) {
+  copySuccess,
+  effectiveConfig,
+  status}: GatewayIntegrationProps) {
+  
+  // 构建完整的 baseUrl
+  const port = (status?.running ? status?.port : null) || effectiveConfig?.port || status?.port || 8765
+  const needsBrackets = effectiveConnectHost.includes(':') && !effectiveConnectHost.startsWith('[')
+  const normalizedHost = needsBrackets ? `[${effectiveConnectHost}]` : effectiveConnectHost
+  const fullBaseUrl = `http://${normalizedHost}:${port}`
   return (
     <div className="grid grid-cols-1 gap-4">
       <GatewaySurfaceCard colors={colors}>
@@ -38,9 +48,8 @@ function GatewayIntegration({
                 key={item.label}
                 colors={colors}
                 label={item.label}
-                value={item.label}
+                value={item.value}
                 detail={item.detail}
-                valueProps={{ size: 'sm' }}
               />
             ))}
           </div>
@@ -165,6 +174,101 @@ function GatewayIntegration({
             <pre className="bg-muted rounded-md p-3 overflow-x-auto text-xs font-mono mt-2">
               <code>{clientSamples.openaiChat.curl}</code>
             </pre>
+          </GatewayCodeCard>
+
+          <GatewayCodeCard
+            title="Claude Code CLI"
+            code={clientSamples.claudeCode.config}
+            actions={(
+              <>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => copyText(clientSamples.claudeCode.config, 'Claude Code 配置已复制')}
+                  className="gap-1"
+                >
+                  <Copy size={14} />
+                  复制配置
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      // 检测是否安装
+                      const installed = await invoke('check_claude_code_installed')
+                      if (!installed) {
+                        await copyText('未检测到 Claude Code CLI，请先安装：https://docs.anthropic.com/en/docs/claude-code', '未安装 Claude Code')
+                        return
+                      }
+                      
+                      const result = await invoke('write_claude_code_config', {
+                        baseUrl: fullBaseUrl,
+                        apiKey: clientSamples.claudeCode.apiKey
+                      })
+                      await copyText(result as string, '配置成功')
+                    } catch (e) {
+                      await copyText(String(e), '配置失败')
+                    }
+                  }}
+                  className="gap-1"
+                >
+                  直接配置
+                </Button>
+              </>
+            )}
+          >
+            <p className={`text-xs mt-2 text-muted-foreground`}>
+              Claude Code CLI 工具，点击"直接配置"自动写入 <code className="bg-muted px-1 py-0.5 rounded text-xs">~/.claude/settings.json</code>
+            </p>
+          </GatewayCodeCard>
+
+          <GatewayCodeCard
+            title="Codex CLI"
+            code={clientSamples.codex.config}
+            actions={(
+              <>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => copyText(clientSamples.codex.config, 'Codex CLI 配置已复制')}
+                  className="gap-1"
+                >
+                  <Copy size={14} />
+                  复制配置
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      // 检测是否安装
+                      const installed = await invoke('check_codex_cli_installed')
+                      if (!installed) {
+                        await copyText('未检测到 Codex CLI，请先安装：https://openai.com/index/introducing-codex-cli/', '未安装 Codex CLI')
+                        return
+                      }
+                      
+                      const result = await invoke('write_codex_cli_config', {
+                        baseUrl: fullBaseUrl,
+                        apiKey: clientSamples.codex.apiKey,
+                        model: 'claude-sonnet-4-5-20250929'
+                      })
+                      await copyText(result as string, '配置成功')
+                    } catch (e) {
+                      await copyText(String(e), '配置失败')
+                    }
+                  }}
+                  className="gap-1"
+                >
+                  直接配置
+                </Button>
+              </>
+            )}
+          >
+            <p className={`text-xs mt-2 text-muted-foreground`}>
+              OpenAI 官方 CLI 工具，点击"直接配置"自动写入 <code className="bg-muted px-1 py-0.5 rounded text-xs">~/.codex/config.toml</code> 和 <code className="bg-muted px-1 py-0.5 rounded text-xs">~/.codex/auth.json</code>
+            </p>
           </GatewayCodeCard>
 
           <GatewayCodeCard title="凭证口径">

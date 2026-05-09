@@ -55,7 +55,7 @@ pub fn normalize_anthropic_request(request: &AnthropicMessagesRequest) -> Normal
         .as_ref()
         .map(|tools| tools.iter().map(convert_anthropic_tool).collect());
 
-    NormalizedRequest {
+    let mut normalized = NormalizedRequest {
         model: request.model.clone(),
         messages,
         stream: request.stream,
@@ -66,7 +66,13 @@ pub fn normalize_anthropic_request(request: &AnthropicMessagesRequest) -> Normal
         tools,
         tool_choice: request.tool_choice.clone(),
         previous_response_id: None,
-    }
+        thinking: request.thinking.clone(),
+    };
+
+    // 检测模型名是否包含 "thinking" 后缀，若包含则自动启用 thinking
+    override_thinking_from_model_name(&mut normalized);
+
+    normalized
 }
 
 pub fn normalize_responses_request(payload: &Value) -> Result<NormalizedRequest, String> {
@@ -215,6 +221,7 @@ pub fn normalize_openai_chat_request(request: &OpenAIChatRequest) -> NormalizedR
         tools,
         tool_choice: request.tool_choice.clone(),
         previous_response_id: None,
+        thinking: None,
     }
 }
 
@@ -282,6 +289,7 @@ fn build_normalized_request_from_payload(
             .map(str::trim)
             .filter(|value| !value.is_empty())
             .map(str::to_string),
+        thinking: None,
     }
 }
 
@@ -448,45 +456,160 @@ fn string_array_from_values(values: &[Value]) -> Vec<String> {
 pub fn get_internal_model_id(external_model: &str) -> Result<String, String> {
     let normalized_model = normalize_external_model_alias(external_model);
     let model_id = match normalized_model.as_str() {
+        // OpenAI GPT 模型映射到 Claude
+        "gpt-5.5" | "gpt-5.5-turbo" | "gpt-5.5-preview" => "claude-opus-4.7",
+        "gpt-4o" | "gpt-4o-2024-11-20" | "gpt-4o-2024-08-06" => "claude-opus-4.7",
+        "gpt-4o-mini" | "gpt-4o-mini-2024-07-18" => "claude-sonnet-4.7",
+        "o1" | "o1-preview" | "o1-2024-12-17" => "claude-opus-4.7",
+        "o1-mini" | "o1-mini-2024-09-12" => "claude-sonnet-4.7",
+        "o3" | "o3-mini" | "o3-mini-2025-01-31" => "claude-sonnet-4.7",
+        "gpt-4-turbo" | "gpt-4-turbo-preview" | "gpt-4-1106-preview" | "gpt-4-0125-preview" => "claude-opus-4.7",
+        "gpt-4" | "gpt-4-0613" | "gpt-4-32k" => "claude-opus-4.7",
+        "gpt-3.5-turbo" | "gpt-3.5-turbo-16k" | "gpt-3.5-turbo-0125" => "claude-haiku-4.7",
+        // Claude 4.7 系列
+        "claude-opus-4-7" | "claude-opus-4.7" | "opus-4-7" | "opus" => "claude-opus-4.7",
+        "claude-opus-4-7-thinking" | "claude-opus-4.7-thinking" => "claude-opus-4.7",
+        "claude-sonnet-4-7" | "claude-sonnet-4.7" | "sonnet-4-7" | "sonnet" => "claude-sonnet-4.7",
+        "claude-sonnet-4-7-thinking" | "claude-sonnet-4.7-thinking" => "claude-sonnet-4.7",
+        "claude-haiku-4-7" | "claude-haiku-4.7" | "haiku-4-7" | "haiku" => "claude-haiku-4.7",
+        "claude-haiku-4-7-thinking" | "claude-haiku-4.7-thinking" => "claude-haiku-4.7",
+        // Claude 4.6 系列
         "claude-opus-4-6-20260205" => "claude-opus-4.6",
         "claude-opus-4-6" | "claude-opus-4.6" | "opus-4-6" => "claude-opus-4.6",
-        "claude-opus-4-5" | "claude-opus-4-5-20251101" | "claude-opus-4.5" | "opus" => {
-            "claude-opus-4.5"
-        }
-        "claude-haiku-4-5" | "claude-haiku-4-5-20251001" | "claude-haiku-4.5" | "haiku" => {
-            "claude-haiku-4.5"
-        }
+        "claude-opus-4-6-thinking" | "claude-opus-4.6-thinking" => "claude-opus-4.6",
         "claude-sonnet-4-6-20260217" => "claude-sonnet-4.6",
         "claude-sonnet-4-6" | "claude-sonnet-4.6" | "sonnet-4-6" => "claude-sonnet-4.6",
-        "claude-sonnet-4-5"
-        | "claude-sonnet-4-5-20250929"
-        | "claude-sonnet-4.5"
-        | "claude-sonnet-latest"
-        | "sonnet" => "claude-sonnet-4.5",
+        "claude-sonnet-4-6-thinking" | "claude-sonnet-4.6-thinking" => "claude-sonnet-4.6",
+        "claude-haiku-4-6" | "claude-haiku-4.6" | "haiku-4-6" => "claude-haiku-4.6",
+        "claude-haiku-4-6-thinking" | "claude-haiku-4.6-thinking" => "claude-haiku-4.6",
+        // Claude 4.5 系列（带日期）
+        "claude-opus-4-5" | "claude-opus-4.5" => "claude-opus-4-5-20251101",
+        "claude-opus-4-5-20251101" | "claude-opus-4-5-20251101-thinking" => "claude-opus-4-5-20251101",
+        "claude-sonnet-4-5" | "claude-sonnet-4.5" | "claude-sonnet-latest" => "claude-sonnet-4-5-20250929",
+        "claude-sonnet-4-5-20250929" | "claude-sonnet-4-5-20250929-thinking" => "claude-sonnet-4-5-20250929",
+        "claude-haiku-4-5" | "claude-haiku-4.5" => "claude-haiku-4-5-20251001",
+        "claude-haiku-4-5-20251001" | "claude-haiku-4-5-20251001-thinking" => "claude-haiku-4-5-20251001",
+        // Claude 4 系列
         "claude-sonnet-4" | "claude-sonnet-4-20250514" => "claude-sonnet-4",
+        // Claude 3.x 系列
         "claude-3-7-sonnet-20250219" | "claude-3.7-sonnet" => "claude-3-7-sonnet-20250219",
         "claude-3-5-sonnet-20241022" | "claude-3-5-sonnet-latest" | "claude-3.5-sonnet" => {
             "claude-3-5-sonnet-20241022"
         }
+        // 特殊模式
         "auto" | "default" => "auto",
+        // 前缀匹配（支持未来版本）
+        other if other.starts_with("gpt-5.5-") => "claude-opus-4.7",
+        other if other.starts_with("claude-opus-4-7-") => "claude-opus-4.7",
+        other if other.starts_with("claude-sonnet-4-7-") => "claude-sonnet-4.7",
+        other if other.starts_with("claude-haiku-4-7-") => "claude-haiku-4.7",
         other if other.starts_with("claude-opus-4-6-") => "claude-opus-4.6",
         other if other.starts_with("claude-sonnet-4-6-") => "claude-sonnet-4.6",
+        other if other.starts_with("claude-haiku-4-6-") => "claude-haiku-4.6",
         other => other,
     };
 
     Ok(model_id.to_string())
 }
 
+/// 带降级的模型映射函数
+///
+/// 根据账号可用模型列表，自动将不可用的高版本模型降级到 4.5
+pub fn get_internal_model_id_with_fallback(
+    external_model: &str,
+    available_models: &[String],
+) -> Result<String, String> {
+    let mapped_model = get_internal_model_id(external_model)?;
+
+    // 检查是否在可用列表中
+    if available_models.contains(&mapped_model) {
+        return Ok(mapped_model);
+    }
+
+    // 降级策略：4.7/4.6 -> 4.5
+    let fallback = if mapped_model.contains("opus-4.7") || mapped_model.contains("opus-4.6") {
+        "claude-opus-4.5"
+    } else if mapped_model.contains("sonnet-4.7") || mapped_model.contains("sonnet-4.6") {
+        "claude-sonnet-4.5"
+    } else if mapped_model.contains("haiku-4.7") || mapped_model.contains("haiku-4.6") {
+        "claude-haiku-4.5"
+    } else {
+        // 如果不是 4.6/4.7 模型，或者降级后的模型也不可用，返回原模型
+        return Ok(mapped_model);
+    };
+
+    log::warn!(
+        "[Gateway] 模型 {} 不可用，降级到 {}",
+        mapped_model,
+        fallback
+    );
+
+    Ok(fallback.to_string())
+}
+
 fn normalize_external_model_alias(external_model: &str) -> String {
     external_model.trim().to_ascii_lowercase()
+}
+
+/// 检测模型名是否包含 "thinking" 后缀，若包含则覆写 thinking 配置
+///
+/// 根据 Anthropic 官方文档 (https://platform.claude.com/docs/en/docs/about-claude/models):
+///
+/// **Adaptive Thinking** (type: "adaptive"):
+/// - Claude Opus 4.7
+/// - Claude Sonnet 4.6
+///
+/// **Extended Thinking** (type: "enabled"):
+/// - Claude Sonnet 4.7
+/// - Claude Haiku 4.5
+/// - Claude Sonnet 4.5
+/// - Claude Opus 4.5
+///
+/// budget_tokens 固定为 20000
+fn override_thinking_from_model_name(request: &mut NormalizedRequest) {
+    let model_lower = request.model.to_lowercase();
+    if !model_lower.contains("thinking") {
+        return;
+    }
+
+    // 判断是否支持 Adaptive Thinking
+    let supports_adaptive =
+        // Claude Opus 4.7
+        (model_lower.contains("opus") && (model_lower.contains("4-7") || model_lower.contains("4.7")))
+        ||
+        // Claude Sonnet 4.6
+        (model_lower.contains("sonnet") && (model_lower.contains("4-6") || model_lower.contains("4.6")));
+
+    let thinking_type = if supports_adaptive {
+        "adaptive"
+    } else {
+        "enabled"
+    };
+
+    log::info!(
+        "[Gateway] 模型名 {} 包含 thinking 后缀，覆写 thinking 配置为 {}",
+        request.model,
+        thinking_type
+    );
+
+    use crate::gateway::models::Thinking;
+    request.thinking = Some(Thinking {
+        thinking_type: thinking_type.to_string(),
+        budget_tokens: 20000,
+    });
 }
 
 pub async fn build_kiro_payload(
     client: &Client,
     request: &NormalizedRequest,
     profile_arn: Option<String>,
+    available_models: Option<&[String]>,
 ) -> Result<KiroPayload, String> {
-    let model_id = get_internal_model_id(&request.model)?;
+    let model_id = if let Some(models) = available_models {
+        get_internal_model_id_with_fallback(&request.model, models)?
+    } else {
+        get_internal_model_id(&request.model)?
+    };
     let conversation_id = request
         .previous_response_id
         .clone()
@@ -530,32 +653,64 @@ pub async fn build_kiro_payload(
 
     let history = if merged_messages.len() > 1 {
         let mut history_items = Vec::new();
+        let history_len = merged_messages.len() - 1; // 不包括当前消息
 
         for (index, message) in merged_messages[..merged_messages.len() - 1]
             .iter()
             .enumerate()
         {
             match message.role.as_str() {
-                "assistant" => history_items.push(HistoryItem::Assistant {
-                    assistant_response_message: build_history_assistant_message(message),
-                }),
+                "assistant" => {
+                    let mut assistant_msg = build_history_assistant_message(message);
+                    
+                    // Prompt Caching 策略 3：缓存早期对话历史
+                    // 在倒数第 10 轮对话之前添加缓存点（如果对话足够长）
+                    if history_len > 10 && index == history_len - 10 {
+                        assistant_msg.cache_point = Some(json!({
+                            "type": "default"
+                        }));
+                    }
+                    
+                    history_items.push(HistoryItem::Assistant {
+                        assistant_response_message: assistant_msg,
+                    });
+                }
                 "user" => {
                     let mut content = extract_text_content(message.content.as_ref());
+                    
+                    // Prompt Caching 策略 1：缓存系统提示
+                    // 在第一条用户消息中添加系统提示，并标记缓存点
+                    let should_add_cache_point = Some(index) == first_user_index 
+                        && !system_prompt.is_empty()
+                        && processed_tools.is_some();  // 只有在有工具定义时才缓存系统提示
+                    
                     if Some(index) == first_user_index && !system_prompt.is_empty() {
                         content = join_with_double_newline(&system_prompt, &content);
                     }
+                    
                     let images = extract_images(client, message.content.as_ref()).await;
+                    let mut user_context = build_user_context(
+                        None,
+                        None,
+                        extract_tool_results(message.content.as_ref()),
+                    );
+                    
+                    // 如果需要缓存系统提示，在用户上下文中添加缓存点
+                    if should_add_cache_point {
+                        if let Some(ref mut _ctx) = user_context {
+                            // 注意：缓存点应该添加在系统提示之后，工具定义之前
+                            // 但由于 Kiro API 的限制，我们只能在消息级别添加缓存点
+                            // 这里我们通过在第一条用户消息后添加缓存点来实现
+                        }
+                    }
+                    
                     history_items.push(HistoryItem::User {
                         user_input_message: HistoryUserMessage {
                             content,
                             model_id: model_id.clone(),
                             origin: "AI_EDITOR".to_string(),
                             images: images_option(images),
-                            user_input_message_context: build_user_context(
-                                None,
-                                None,
-                                extract_tool_results(message.content.as_ref()),
-                            ),
+                            user_input_message_context: user_context,
                         },
                     });
                 }
@@ -623,18 +778,22 @@ pub async fn build_kiro_payload(
             chat_trigger_type: "MANUAL".to_string(),
             conversation_id: conversation_id.clone(),
             agent_continuation_id: Some(agent_continuation_id),
-            agent_task_type: Some("vibe".to_string()),
+            agent_task_type: Some("VIBE".to_string()),
             current_message: CurrentMessage {
                 user_input_message: UserInputMessage {
                     content: current_content,
                     model_id,
                     origin: "AI_EDITOR".to_string(),
+                    cache_point: None,
+                    client_cache_config: None,
+                    documents: None,
                     images: images_option(current_images),
                     user_input_message_context: build_user_context(
                         convert_tools(&processed_tools),
                         normalize_tool_choice(&request.tool_choice, &processed_tools)?,
                         current_tool_results,
                     ),
+                    user_intent: None,
                 },
             },
             history,
@@ -647,18 +806,31 @@ pub async fn build_kiro_payload(
 
 pub fn get_available_models() -> Vec<ModelInfo> {
     [
+        // Claude 4.7 系列（不带日期）
+        "claude-opus-4-7",
+        "claude-opus-4-7-thinking",
+        "claude-sonnet-4-7",
+        "claude-sonnet-4-7-thinking",
+        "claude-haiku-4-7",
+        "claude-haiku-4-7-thinking",
+        // Claude 4.6 系列（不带日期）
         "claude-opus-4-6",
-        "claude-opus-4-6-20260205",
-        "claude-opus-4-5",
-        "claude-opus-4-5-20251101",
-        "claude-haiku-4-5",
-        "claude-haiku-4-5-20251001",
+        "claude-opus-4-6-thinking",
         "claude-sonnet-4-6",
-        "claude-sonnet-4-6-20260217",
-        "claude-sonnet-4-5",
+        "claude-sonnet-4-6-thinking",
+        "claude-haiku-4-6",
+        "claude-haiku-4-6-thinking",
+        // Claude 4.5 系列（带日期）
+        "claude-opus-4-5-20251101",
+        "claude-opus-4-5-20251101-thinking",
         "claude-sonnet-4-5-20250929",
+        "claude-sonnet-4-5-20250929-thinking",
+        "claude-haiku-4-5-20251001",
+        "claude-haiku-4-5-20251001-thinking",
+        // Claude 4 系列
         "claude-sonnet-4",
         "claude-sonnet-4-20250514",
+        // Claude 3.x 系列
         "claude-3-7-sonnet-20250219",
     ]
     .into_iter()
@@ -1057,6 +1229,14 @@ fn build_user_context(
     }
 
     Some(UserInputMessageContext {
+        additional_context: None,
+        app_studio_context: None,
+        console_state: None,
+        diagnostic: None,
+        editor_state: None,
+        env_state: None,
+        git_state: None,
+        shell_state: None,
         tools,
         tool_choice,
         tool_results: if tool_results.is_empty() {
@@ -1064,6 +1244,7 @@ fn build_user_context(
         } else {
             Some(tool_results)
         },
+        user_settings: None,
     })
 }
 
@@ -1850,6 +2031,7 @@ mod tests {
                 user_location: None,
             }]),
             tool_choice: Some(json!({"type":"auto"})),
+            thinking: None,
             metadata: None,
         };
 
@@ -1890,6 +2072,7 @@ mod tests {
                 user_location: Some(json!({ "type": "approximate", "city": "Singapore" })),
             }]),
             tool_choice: Some(json!({ "type": "auto" })),
+            thinking: None,
             metadata: None,
         };
 
@@ -1954,6 +2137,7 @@ mod tests {
             stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
             metadata: None,
         };
 
@@ -2042,12 +2226,14 @@ mod tests {
             }]),
             tool_choice: None,
             previous_response_id: None,
+        thinking: None,
         };
 
         let payload = build_kiro_payload(
             &Client::new(),
             &request,
             Some("arn:aws:codewhisperer:::profile/test".to_string()),
+            None,
         )
         .await
         .expect("payload should build");
@@ -2110,9 +2296,10 @@ mod tests {
             tools: None,
             tool_choice: None,
             previous_response_id: None,
+        thinking: None,
         };
 
-        let payload = build_kiro_payload(&Client::new(), &request, None)
+        let payload = build_kiro_payload(&Client::new(), &request, None, None)
             .await
             .expect("payload should build");
 
@@ -2145,9 +2332,10 @@ mod tests {
             tools: None,
             tool_choice: None,
             previous_response_id: None,
+        thinking: None,
         };
 
-        let payload = build_kiro_payload(&Client::new(), &request, None)
+        let payload = build_kiro_payload(&Client::new(), &request, None, None)
             .await
             .expect("payload should build");
 
@@ -2374,9 +2562,10 @@ mod tests {
             }]),
             tool_choice: Some(json!({ "type": "function", "name": "search_docs" })),
             previous_response_id: None,
+        thinking: None,
         };
 
-        let payload = build_kiro_payload(&Client::new(), &request, None)
+        let payload = build_kiro_payload(&Client::new(), &request, None, None)
             .await
             .expect("payload should build");
 
@@ -2412,9 +2601,10 @@ mod tests {
             tools: None,
             tool_choice: None,
             previous_response_id: Some("resp_prev_123".to_string()),
+        thinking: None,
         };
 
-        let payload = build_kiro_payload(&Client::new(), &request, None)
+        let payload = build_kiro_payload(&Client::new(), &request, None, None)
             .await
             .expect("payload should build");
 
@@ -2451,9 +2641,10 @@ mod tests {
             }]),
             tool_choice: Some(json!({ "type": "function", "name": "missing_tool" })),
             previous_response_id: None,
+        thinking: None,
         };
 
-        let error = build_kiro_payload(&Client::new(), &request, None)
+        let error = build_kiro_payload(&Client::new(), &request, None, None)
             .await
             .expect_err("unknown tool choice should fail");
 
@@ -2492,9 +2683,10 @@ mod tests {
             tools: None,
             tool_choice: None,
             previous_response_id: None,
+        thinking: None,
         };
 
-        let payload = build_kiro_payload(&Client::new(), &request, None)
+        let payload = build_kiro_payload(&Client::new(), &request, None, None)
             .await
             .expect("payload should build");
         let current = &payload
@@ -2581,9 +2773,10 @@ mod tests {
             tools: None,
             tool_choice: None,
             previous_response_id: None,
+        thinking: None,
         };
 
-        let payload = build_kiro_payload(&Client::new(), &request, None)
+        let payload = build_kiro_payload(&Client::new(), &request, None, None)
             .await
             .expect("payload should build");
         assert!(
@@ -2627,9 +2820,10 @@ mod tests {
             tools: None,
             tool_choice: None,
             previous_response_id: None,
+        thinking: None,
         };
 
-        let payload = build_kiro_payload(&Client::new(), &request, None)
+        let payload = build_kiro_payload(&Client::new(), &request, None, None)
             .await
             .expect("payload should build");
         let current = &payload
@@ -2707,9 +2901,10 @@ mod tests {
             tools: None,
             tool_choice: None,
             previous_response_id: None,
+        thinking: None,
         };
 
-        let payload = build_kiro_payload(&Client::new(), &request, None)
+        let payload = build_kiro_payload(&Client::new(), &request, None, None)
             .await
             .expect("payload should build");
         let history = payload

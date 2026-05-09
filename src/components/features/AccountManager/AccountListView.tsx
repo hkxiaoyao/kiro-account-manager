@@ -124,9 +124,12 @@ const ListRow = memo(function ListRow({
         }`}>{account.usageData?.subscriptionInfo?.subscriptionTitle || 'Free'}</span>
 
       <div className="w-24 shrink-0">
-        <div className={`text-[11px] font-bold ${remaining > 0 ? 'text-green-500' : 'text-red-500'}`}>{formatUsage(used)}/{formatUsage(limit)}</div>
+        <div className="flex items-center justify-between">
+          <span className={`text-[11px] font-bold ${remaining > 0 ? 'text-green-500' : 'text-red-500'}`}>{formatUsage(used)}</span>
+          <span className="text-[10px] text-muted-foreground">/{formatUsage(limit)}</span>
+        </div>
         <div className="h-1 rounded-full bg-muted mt-1 overflow-hidden">
-          <div className={`h-full rounded-full ${remaining > 0 ? 'bg-green-500' : 'bg-red-500'}`} style={{ width: `${usagePercent}%` }} />
+          <div className={`h-full rounded-full ${usagePercent > 80 ? 'bg-red-500' : usagePercent > 50 ? 'bg-orange-500' : 'bg-green-500'}`} style={{ width: `${usagePercent}%` }} />
         </div>
       </div>
 
@@ -136,14 +139,23 @@ const ListRow = memo(function ListRow({
       </span>
 
       <span className="text-[10px] font-mono w-14 text-center shrink-0 text-muted-foreground bg-muted/50 py-0.5 rounded">
-        {account.machineId?.slice(0, 6) || '-'}
+        {account.machineId 
+          ? (account.machineId.length > 8 
+              ? `${account.machineId.slice(0, 4)}..${account.machineId.slice(-2)}`
+              : account.machineId.slice(0, 6))
+          : '-'
+        }
       </span>
 
       <div className="w-28 shrink-0 text-[10px] text-muted-foreground font-medium">
-        <span title="Token 过期">{account.expiresAt?.slice(11, 16) || '-'}</span>
+        {account.expiresAt ? (
+          <span className={new Date(account.expiresAt.replace(/\//g, '-')) < new Date() ? 'text-red-500 font-bold' : ''}>
+            {account.expiresAt.slice(5, 16).replace('/', '-')}
+          </span>
+        ) : '-'}
         {account.usageData?.usageBreakdownList?.[0]?.freeTrialInfo?.freeTrialExpiry && (
           <span className="text-orange-500 ml-1" title="试用到期">
-            · {new Date(account.usageData.usageBreakdownList[0].freeTrialInfo.freeTrialExpiry * 1000).toLocaleDateString().slice(5)}
+            · {new Date(account.usageData.usageBreakdownList[0].freeTrialInfo.freeTrialExpiry * 1000).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })}
           </span>
         )}
       </div>

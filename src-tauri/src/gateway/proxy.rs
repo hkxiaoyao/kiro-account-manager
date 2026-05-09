@@ -7,7 +7,6 @@ use axum::{
 };
 use chrono::Local;
 use futures_util::StreamExt;
-use rand::{seq::SliceRandom, thread_rng};
 use regex::Regex;
 use reqwest::Client;
 use serde_json::{json, Value};
@@ -28,18 +27,27 @@ use crate::{
         RefreshResult,
     },
     commands::machine_guid::get_machine_id,
-    clients::http_client::{
-        build_kiro_custom_user_agent,
-        resolve_kiro_upstream_region, should_add_redirect_for_internal,
-        should_send_codewhisperer_optout,
+    clients::{
+        http_client::{
+            build_kiro_custom_user_agent,
+            resolve_kiro_upstream_region, should_add_redirect_for_internal,
+            should_send_codewhisperer_optout,
+        },
+        kiro_q_client::KiroQClient,
     },
 };
+
+const MAX_FAILURES_PER_ACCOUNT: u32 = 3;
+const MAX_KIRO_PAYLOAD_SIZE: usize = 615 * 1024; // 615KB - Kiro API 的 HTTP 请求大小限制
+
+// Token 限制的默认值（当无法从 API 获取时使用）
+const SUMMARIZATION_THRESHOLD_PERCENT: f64 = 0.8; // 80% 触发总结（Kiro IDE 的阈值）
 
 use super::{
     append_gateway_request_log,
     converter::{
-        build_kiro_payload, get_available_models, normalize_anthropic_request,
-        normalize_responses_request,
+        build_kiro_payload, get_available_models,
+        normalize_anthropic_request, normalize_responses_request,
     },
     eventstream::decode_message,
     effective_client_api_keys,
@@ -221,6 +229,325 @@ fn build_health_response() -> Value {
     json!({ "ok": true })
 }
 
+/// 获取账号可用模型列表
+///
+/// 调用 Kiro Q API 的 ListAvailableModels 接口获取账号权限内的模型
+async fn get_available_models_for_upstream(
+    upstream: &UpstreamCredentials,
+) -> Result<Vec<String>, String> {
+    let client = KiroQClient::new()?;
+
+    let response = client
+        .list_available_models(
+            &upstream.access_token,
+            &get_machine_id(),
+            &upstream.region,
+            upstream.profile_arn.as_deref(),
+            None, // model_provider
+            None, // next_token
+        )
+        .await?;
+
+    // 解析返回的模型列表
+    let models = response
+        .get("models")
+        .and_then(|v| v.as_array())
+        .ok_or("Invalid response: missing models array")?
+        .iter()
+        .filter_map(|m| m.get("modelId").and_then(|id| id.as_str()).map(String::from))
+        .collect();
+
+    Ok(models)
+}
+
+fn check_payload_size(payload: &Value) -> usize {
+    serde_json::to_string(payload)
+        .map(|s| s.len())
+        .unwrap_or(0)
+}
+
+/// Token 估算器类型（根据模型选择不同的估算方法）
+#[derive(Debug, Clone, Copy)]
+enum TokenizerType {
+    Claude,   // Anthropic Claude 模型
+    OpenAI,   // OpenAI GPT 模型（使用 tiktoken）
+    Llama,    // Meta Llama 模型
+    Generic,  // 通用估算（未知模型）
+}
+
+impl TokenizerType {
+    /// 根据模型 ID 判断使用哪种估算方法
+    fn from_model_id(model_id: &str) -> Self {
+        let model_lower = model_id.to_lowercase();
+        
+        // Claude 系列：4.5, 4.6, 4.7 及所有变体
+        if model_lower.contains("claude") {
+            TokenizerType::Claude
+        } else if model_lower.contains("gpt") || model_lower.contains("o1") || model_lower.contains("o3") {
+            TokenizerType::OpenAI
+        } else if model_lower.contains("llama") {
+            TokenizerType::Llama
+        } else {
+            TokenizerType::Generic
+        }
+    }
+}
+
+/// 估算请求消息的 token 数量（支持多种模型）
+/// 
+/// 参考 Kiro IDE 源码：extension.js 行 310847-310873
+/// - Claude: length / 4 + newlines * 0.5 + code_blocks * 2
+/// - OpenAI: 使用 Generic 方法（tiktoken 需要额外依赖）
+/// - Llama: length / 3.5
+/// - Generic: length / 4 + newlines * 0.5 + code_blocks * 2
+/// 
+/// 注意：这是粗略估算，用于提前拒绝明显超长的请求
+/// - Kiro API 的 max_input_tokens 是 200k
+/// - Kiro IDE 在 80% (160k tokens) 时触发自动总结
+/// - 网关在 160k tokens 时直接拒绝（无法实现 AI 总结）
+fn estimate_request_tokens(messages: &[NormalizedMessage], model_id: &str) -> usize {
+    let tokenizer_type = TokenizerType::from_model_id(model_id);
+    
+    messages
+        .iter()
+        .map(|msg| {
+            let mut tokens = 0;
+
+            // 估算 content 字段的 token 数
+            if let Some(content) = &msg.content {
+                let text = extract_plain_text(Some(content));
+                tokens += estimate_text_tokens(&text, tokenizer_type);
+            }
+
+            // 估算 tool_calls 的 token 数
+            if let Some(tool_calls) = &msg.tool_calls {
+                for tool_call in tool_calls {
+                    tokens += estimate_text_tokens(&tool_call.function.name, tokenizer_type);
+                    tokens += estimate_text_tokens(&tool_call.function.arguments, tokenizer_type);
+                }
+            }
+
+            tokens
+        })
+        .sum()
+}
+
+/// 估算单个文本的 token 数量（支持多种模型）
+///
+/// 参考 Kiro IDE 源码：extension.js 行 310878-310911
+///
+/// **Claude 估算**（行 310894-310895）：
+/// ```javascript
+/// estimateWithClaude(text) {
+///   return Math.ceil(text.length / 4);
+/// }
+/// ```
+///
+/// **Llama 估算**（行 310888-310889）：
+/// ```javascript
+/// estimateWithLlama(text) {
+///   return Math.ceil(text.length / 3.5);
+/// }
+/// ```
+///
+/// **Generic 估算**（行 310906-310911）：
+/// ```javascript
+/// estimateGeneric(text) {
+///   const baseTokens = Math.ceil(text.length / 4);
+///   const newlineTokens = Math.ceil(text.split('\n').length * 0.5);
+///   const codeBlockTokens = (text.match(/```/g) || []).length * 2;
+///   return baseTokens + newlineTokens + codeBlockTokens;
+/// }
+/// ```
+fn estimate_text_tokens(text: &str, tokenizer_type: TokenizerType) -> usize {
+    if text.is_empty() {
+        return 0;
+    }
+
+    match tokenizer_type {
+        TokenizerType::Claude => {
+            // Claude: length / 4
+            text.len().div_ceil(4)
+        }
+        TokenizerType::OpenAI => {
+            // OpenAI: 使用 Generic 方法（tiktoken 需要额外依赖，这里简化处理）
+            estimate_generic_tokens(text)
+        }
+        TokenizerType::Llama => {
+            // Llama: length / 3.5 (向上取整)
+            ((text.len() as f64 / 3.5).ceil() as usize).max(1)
+        }
+        TokenizerType::Generic => {
+            estimate_generic_tokens(text)
+        }
+    }
+}
+
+/// 通用 token 估算方法（Kiro IDE 的 estimateGeneric）
+///
+/// 公式：
+/// - base_tokens = ceil(length / 4)
+/// - newline_tokens = ceil(lines * 0.5)
+/// - code_block_tokens = code_blocks * 2
+/// - total = base_tokens + newline_tokens + code_block_tokens
+fn estimate_generic_tokens(text: &str) -> usize {
+    // 基础估算：4 字符 = 1 token（向上取整）
+    let base_tokens = text.len().div_ceil(4);
+
+    // 换行符：每行 +0.5 token（向上取整）
+    let lines = text.lines().count();
+    let newline_tokens = lines.div_ceil(2);
+
+    // 代码块：每个 ``` +2 tokens
+    let code_blocks = text.matches("```").count();
+    let code_block_tokens = code_blocks * 2;
+
+    base_tokens + newline_tokens + code_block_tokens
+}
+
+/// 获取模型的最大输入 token 数
+///
+/// 根据模型 ID 返回对应的 maxInputTokens
+/// 
+/// 数据来源：
+/// - Kiro 官方文档：https://kiro.dev/docs/models/
+/// - Claude Opus 4.6/4.7：1M tokens
+/// - Claude Sonnet 4.6：1M tokens
+/// - 其他 Claude 4.x：200k tokens
+async fn get_model_max_input_tokens(model_id: &str) -> usize {
+    let model_lower = model_id.to_lowercase();
+    
+    // 根据模型 ID 返回对应的 token 限制
+    if model_lower == "auto" {
+        1_000_000 // auto 模型支持 1M tokens
+    } else if model_lower.contains("opus-4.7") || model_lower.contains("opus-4-7") {
+        1_000_000 // Claude Opus 4.7: 1M tokens
+    } else if model_lower.contains("opus-4.6") || model_lower.contains("opus-4-6") {
+        1_000_000 // Claude Opus 4.6: 1M tokens
+    } else if model_lower.contains("sonnet-4.6") || model_lower.contains("sonnet-4-6") {
+        1_000_000 // Claude Sonnet 4.6: 1M tokens
+    } else if model_lower.contains("qwen") {
+        256_000 // Qwen3 Coder Next: 256k tokens
+    } else if model_lower.contains("llama") || model_lower.contains("deepseek") {
+        128_000 // Llama/DeepSeek: 128k tokens
+    } else {
+        // Claude 4.5/4.0、OpenAI、MiniMax、GLM 等其他模型默认 200k tokens
+        // 包括：
+        // - claude-opus-4.5, claude-sonnet-4.5/4.0, claude-haiku-4.5/4.6/4.7
+        // - gpt-4, gpt-4-turbo, o1, o3
+        // - minimax-m2.5, minimax-m2.1
+        // - glm-5
+        200_000
+    }
+}
+
+/// 智能裁剪 Kiro payload 历史记录
+///
+/// 策略：
+/// 1. 识别 tool call/result 配对（Assistant with tool_uses + User with tool_results）
+/// 2. 从最旧的完整对话单元开始删除
+/// 3. 保留最近的对话（至少保留最后 2 条消息）
+/// 4. 避免破坏 tool_calls 和 tool_results 的配对关系
+fn trim_kiro_payload_history(payload: &mut Value, max_bytes: usize) -> bool {
+    let original_size = check_payload_size(payload);
+    if original_size <= max_bytes {
+        return false;
+    }
+
+    let original_len = payload
+        .pointer("/conversationState/history")
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.len())
+        .unwrap_or(0);
+
+    if original_len == 0 {
+        return false;
+    }
+
+    // 循环删除最旧的消息单元，直到满足大小要求
+    let mut removed_count = 0;
+    loop {
+        // 检查当前大小
+        let current_size = check_payload_size(payload);
+        if current_size <= max_bytes {
+            break;
+        }
+
+        // 获取当前历史记录
+        let Some(history) = payload
+            .pointer_mut("/conversationState/history")
+            .and_then(|v| v.as_array_mut())
+        else {
+            break;
+        };
+
+        // 至少保留 2 条消息
+        if history.len() <= 2 {
+            break;
+        }
+
+        // 检查第一条消息是否是 Assistant 消息且包含 tool_uses
+        let first_is_assistant_with_tools = history
+            .first()
+            .and_then(|msg| msg.get("assistant_response_message"))
+            .and_then(|msg| msg.get("tool_uses"))
+            .and_then(|tools| tools.as_array())
+            .map(|arr| !arr.is_empty())
+            .unwrap_or(false);
+
+        if first_is_assistant_with_tools && history.len() > 1 {
+            // 检查第二条消息是否是 User 消息且包含 tool_results
+            let second_has_tool_results = history
+                .get(1)
+                .and_then(|msg| msg.get("user_input_message"))
+                .and_then(|msg| msg.get("user_input_message_context"))
+                .and_then(|ctx| ctx.get("tool_results"))
+                .and_then(|results| results.as_array())
+                .map(|arr| !arr.is_empty())
+                .unwrap_or(false);
+
+            if second_has_tool_results {
+                // 这是一个 tool call/result 配对，必须一起删除
+                if history.len() > 3 {
+                    // 确保删除后还剩至少 2 条消息
+                    history.remove(0);
+                    history.remove(0); // 删除第二条（现在变成第一条了）
+                    removed_count += 2;
+                    log::debug!("[Gateway] Removed tool call/result pair. Remaining: {}", history.len());
+                    continue;
+                } else {
+                    // 删除后会少于 2 条消息，停止裁剪
+                    break;
+                }
+            }
+        }
+
+        // 单个消息可以安全删除
+        history.remove(0);
+        removed_count += 1;
+        log::debug!("[Gateway] Removed single message. Remaining: {}", history.len());
+    }
+
+    let final_len = payload
+        .pointer("/conversationState/history")
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.len())
+        .unwrap_or(0);
+
+    let trimmed = final_len < original_len;
+
+    if trimmed {
+        log::info!(
+            "[Gateway] Trimmed history from {} to {} messages (removed {} messages)",
+            original_len,
+            final_len,
+            removed_count
+        );
+    }
+
+    trimmed
+}
+
 async fn guarded_local_response(
     state: RouterState,
     client_addr: SocketAddr,
@@ -299,6 +626,10 @@ async fn guarded_local_response(
         "success",
         None,
         Some(serialized.as_str()),
+        None, // input_tokens
+        None, // output_tokens
+        None, // cache_read_input_tokens
+        None, // cache_creation_input_tokens
     );
     Json(response_body).into_response()
 }
@@ -371,7 +702,19 @@ fn write_request_log(
     outcome: &str,
     error: Option<&str>,
     _response_body: Option<&str>,
+    input_tokens: Option<i32>,
+    output_tokens: Option<i32>,
+    cache_read_input_tokens: Option<i32>,
+    cache_creation_input_tokens: Option<i32>,
 ) {
+    // 调试日志：记录 tokens 信息
+    if input_tokens.is_none() && output_tokens.is_none() {
+        eprintln!("⚠️  [write_request_log] No tokens info for request #{}", context.request_index);
+    } else {
+        eprintln!("📊 [write_request_log] Request #{}: input={:?}, output={:?}, cache_read={:?}, cache_creation={:?}",
+            context.request_index, input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens);
+    }
+    
     let duration_ms = context
         .started_at
         .elapsed()
@@ -392,6 +735,10 @@ fn write_request_log(
         error: error.map(str::to_string),
         request_body: None,
         response_body: None,
+        input_tokens,
+        output_tokens,
+        cache_read_input_tokens,
+        cache_creation_input_tokens,
     };
     let _ = append_gateway_request_log(&entry);
 }
@@ -448,6 +795,10 @@ async fn gateway_error_with_log(
         "error",
         Some(error.message),
         logged_response_body.as_deref(),
+        None, // input_tokens
+        None, // output_tokens
+        None, // cache_read_input_tokens
+        None, // cache_creation_input_tokens
     );
     gateway_error_response(format, error.status, error.error_type, error.message)
 }
@@ -556,7 +907,7 @@ pub async fn proxy_handler(
         ..base_log_context.clone()
     };
 
-    let upstream = match resolve_upstream_credentials(&state.config, request_index).await {
+    let upstream = match resolve_upstream_credentials(&state.config, &state).await {
         Ok(creds) => creds,
         Err(message) => {
             let sanitized = sanitize_error(&message);
@@ -619,6 +970,10 @@ pub async fn proxy_handler(
                 "success",
                 None,
                 Some(response_body.as_str()),
+                Some(outcome.aggregated.input_tokens),
+                Some(outcome.aggregated.output_tokens),
+                outcome.aggregated.cache_read_input_tokens,
+                outcome.aggregated.cache_creation_input_tokens,
             );
             let body = format!("data: {}\n\ndata: [DONE]\n\n", response);
             return Response::builder()
@@ -673,63 +1028,271 @@ pub async fn proxy_handler(
             "success",
             None,
             Some(response_body.as_str()),
+            Some(outcome.aggregated.input_tokens),
+            Some(outcome.aggregated.output_tokens),
+            outcome.aggregated.cache_read_input_tokens,
+            outcome.aggregated.cache_creation_input_tokens,
         );
         return Json(response).into_response();
     }
 
-    let upstream_payload =
-        match build_kiro_payload(&state.http, &request, upstream.profile_arn.clone()).await {
-            Ok(payload) => payload,
-            Err(message) => {
-                let sanitized = sanitize_error(&message);
-                return gateway_error_with_log(
-                    &state,
-                    format,
-                    &upstream_log_context,
-                    GatewayErrorDetails {
-                        status: StatusCode::BAD_REQUEST,
-                        error_type: "invalid_request_error",
-                        message: &sanitized,
-                        response_body: None,
-                    },
-                )
-                .await;
-            }
-        };
-    let upstream_request_body = serde_json::to_string_pretty(&upstream_payload)
+    // 【第一层防护】Token 预估（硬限制，带缓存）
+    // 基于 Kiro IDE 的 80% 总结阈值
+    // Kiro IDE 在 80% 时触发 Truncation Summarization，网关无法实现，所以直接拒绝
+
+    // 生成缓存 key：messages 的 JSON 序列化 + model_id
+    let cache_key = format!("{}:{}",
+        serde_json::to_string(&request.messages).unwrap_or_default(),
+        request.model
+    );
+
+    // 尝试从缓存获取
+    let estimated_tokens = {
+        let mut cache = state.token_cache.lock().await;
+        cache.get(&cache_key)
+    };
+
+    // 如果缓存未命中，计算并存入缓存
+    let estimated_tokens = if let Some(tokens) = estimated_tokens {
+        tokens
+    } else {
+        let tokens = estimate_request_tokens(&request.messages, &request.model);
+        let mut cache = state.token_cache.lock().await;
+        cache.insert(cache_key, tokens);
+        tokens
+    };
+    
+    // 从可用模型列表中获取该模型的 maxInputTokens
+    let max_input_tokens = get_model_max_input_tokens(&request.model).await;
+    let threshold_tokens = (max_input_tokens as f64 * SUMMARIZATION_THRESHOLD_PERCENT) as usize;
+    
+    if estimated_tokens > threshold_tokens {
+        let error_message = format!(
+            "Input is too long. Estimated {} tokens exceeds the summarization threshold of {} tokens (80% of {}). Please reduce the size of your messages or start a new conversation.",
+            estimated_tokens,
+            threshold_tokens,
+            max_input_tokens
+        );
+        return gateway_error_with_log(
+            &state,
+            format,
+            &upstream_log_context,
+            GatewayErrorDetails {
+                status: StatusCode::BAD_REQUEST,
+                error_type: "invalid_request_error",
+                message: &error_message,
+                response_body: None,
+            },
+        )
+        .await;
+    }
+
+    // 获取账号可用模型列表（用于模型降级）
+    let available_models = match get_available_models_for_upstream(&upstream).await {
+        Ok(models) => {
+            log::debug!(
+                "[Gateway] 账号 {} 可用模型: {:?}",
+                upstream.source_label,
+                models
+            );
+            Some(models)
+        }
+        Err(e) => {
+            log::warn!(
+                "[Gateway] 无法获取账号 {} 的可用模型列表: {}，将不进行模型降级",
+                upstream.source_label,
+                e
+            );
+            None
+        }
+    };
+
+    let upstream_payload = match build_kiro_payload(
+        &state.http,
+        &request,
+        upstream.profile_arn.clone(),
+        available_models.as_deref(),
+    )
+    .await
+    {
+        Ok(payload) => payload,
+        Err(message) => {
+            let sanitized = sanitize_error(&message);
+            return gateway_error_with_log(
+                &state,
+                format,
+                &upstream_log_context,
+                GatewayErrorDetails {
+                    status: StatusCode::BAD_REQUEST,
+                    error_type: "invalid_request_error",
+                    message: &sanitized,
+                    response_body: None,
+                },
+            )
+            .await;
+        }
+    };
+    
+    // 【第二层防护】Payload 大小裁剪（硬限制 - 615KB）
+    // 如果 payload 超过 Kiro API 的 HTTP 请求大小限制，自动裁剪历史记录
+    let mut payload_value = serde_json::to_value(&upstream_payload)
+        .unwrap_or_else(|_| json!({}));
+
+    let original_size = check_payload_size(&payload_value);
+    if original_size > MAX_KIRO_PAYLOAD_SIZE {
+        log::info!(
+            "[Gateway] Payload size {} bytes exceeds limit {} bytes. Trimming history...",
+            original_size,
+            MAX_KIRO_PAYLOAD_SIZE
+        );
+        let trimmed = trim_kiro_payload_history(&mut payload_value, MAX_KIRO_PAYLOAD_SIZE);
+        if trimmed {
+            let final_size = check_payload_size(&payload_value);
+            log::info!(
+                "[Gateway] Payload trimmed from {} bytes to {} bytes",
+                original_size,
+                final_size
+            );
+        }
+    }
+    
+    let upstream_request_body = serde_json::to_string_pretty(&payload_value)
         .unwrap_or_else(|_| "[failed to serialize upstream payload]".to_string());
     let upstream_payload_log_context = RequestLogContext {
         request_body: Some(upstream_request_body.as_str()),
         ..upstream_log_context.clone()
     };
 
-    let upstream_resp = match send_generate_request(&state.http, &upstream, &upstream_payload).await
-    {
-        Ok(resp) => resp,
-        Err((status, error_type, message, upstream_response_body)) => {
+    // 账号重试循环：遇到 429 错误时切换账号
+    const MAX_ACCOUNT_RETRIES: u32 = 3;
+    let mut account_attempt = 0;
+    let mut tried_account_ids: HashSet<String> = HashSet::new();
+    
+    let upstream_resp = loop {
+        account_attempt += 1;
+        
+        if account_attempt > MAX_ACCOUNT_RETRIES {
+            // 所有账号都尝试过了，返回最后一个错误
             return gateway_error_with_log(
                 &state,
                 format,
                 &upstream_payload_log_context,
                 GatewayErrorDetails {
-                    status,
-                    error_type,
-                    message: &message,
-                    response_body: upstream_response_body.as_deref(),
+                    status: StatusCode::SERVICE_UNAVAILABLE,
+                    error_type: "rate_limit_error",
+                    message: "所有账号均达到速率限制，请稍后再试",
+                    response_body: None,
                 },
             )
             .await;
         }
+        
+        // 如果不是第一次尝试，需要重新选择账号
+        let current_upstream = if account_attempt > 1 {
+            match resolve_upstream_credentials(&state.config, &state).await {
+                Ok(creds) => {
+                    // 检查是否已经尝试过这个账号
+                    let account_id = extract_account_id_from_upstream(&creds);
+                    if tried_account_ids.contains(&account_id) {
+                        log::warn!(
+                            "[Gateway] 账号 {} 已尝试过，继续尝试下一个 (尝试: {}/{})",
+                            creds.source_label,
+                            account_attempt,
+                            MAX_ACCOUNT_RETRIES
+                        );
+                        continue;
+                    }
+                    tried_account_ids.insert(account_id);
+                    creds
+                }
+                Err(message) => {
+                    let sanitized = sanitize_error(&message);
+                    log::warn!(
+                        "[Gateway] 重新选择账号失败 (尝试: {}/{}): {}",
+                        account_attempt,
+                        MAX_ACCOUNT_RETRIES,
+                        sanitized
+                    );
+                    // 如果是账号不可用，继续尝试
+                    if message.contains("未找到符合反代配置的可用账号") {
+                        tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+                        continue;
+                    }
+                    // 其他错误直接返回
+                    return gateway_error_with_log(
+                        &state,
+                        format,
+                        &upstream_payload_log_context,
+                        GatewayErrorDetails {
+                            status: StatusCode::UNAUTHORIZED,
+                            error_type: "authentication_error",
+                            message: &sanitized,
+                            response_body: None,
+                        },
+                    )
+                    .await;
+                }
+            }
+        } else {
+            // 第一次尝试，使用已选择的账号
+            let account_id = extract_account_id_from_upstream(&upstream);
+            tried_account_ids.insert(account_id);
+            upstream.clone()
+        };
+        
+        // 发送请求
+        match send_generate_request(&state.http, &current_upstream, &payload_value).await {
+            Ok(resp) => break resp,
+            Err((status, error_type, message, upstream_response_body)) => {
+                // 检查是否是 429 错误
+                if status == StatusCode::TOO_MANY_REQUESTS {
+                    let account_id = extract_account_id_from_upstream(&current_upstream);
+                    
+                    // 标记账号为速率限制
+                    state.load_balancer.mark_rate_limited(&account_id).await;
+                    state.load_balancer.record_failure(&account_id).await;
+                    
+                    log::warn!(
+                        "[Gateway] 账号 {} 返回 429 错误，标记为速率限制并切换账号 (尝试: {}/{})",
+                        current_upstream.source_label,
+                        account_attempt,
+                        MAX_ACCOUNT_RETRIES
+                    );
+                    
+                    // 继续尝试下一个账号
+                    continue;
+                }
+                
+                // 其他错误直接返回
+                return gateway_error_with_log(
+                    &state,
+                    format,
+                    &upstream_payload_log_context,
+                    GatewayErrorDetails {
+                        status,
+                        error_type,
+                        message: &message,
+                        response_body: upstream_response_body.as_deref(),
+                    },
+                )
+                .await;
+            }
+        }
     };
 
     if request.stream {
-        write_request_log(
-            &upstream_payload_log_context,
-            upstream_resp.status(),
-            "stream",
-            None,
-            Some(STREAMING_RESPONSE_PLACEHOLDER),
-        );
+        // 流式开始时不记录日志，等流式结束后再记录完整的 tokens
+        // 将 log_context 转换为 'static 生命周期
+        let static_log_context = RequestLogContext {
+            request_index: upstream_payload_log_context.request_index,
+            endpoint: Box::leak(upstream_payload_log_context.endpoint.to_string().into_boxed_str()),
+            client_addr: upstream_payload_log_context.client_addr,
+            request: None, // 不持有引用
+            upstream: None, // 不持有引用
+            started_at: upstream_payload_log_context.started_at,
+            request_body: None,
+        };
+
         return stream_proxy_response(
             state.clone(),
             upstream_resp,
@@ -738,6 +1301,7 @@ pub async fn proxy_handler(
             request.messages.clone(),
             request.previous_response_id.clone(),
             Vec::new(),
+            static_log_context,
         );
     }
 
@@ -808,6 +1372,10 @@ pub async fn proxy_handler(
         "success",
         None,
         Some(body.as_str()),
+        Some(aggregated.input_tokens),
+        Some(aggregated.output_tokens),
+        aggregated.cache_read_input_tokens,
+        aggregated.cache_creation_input_tokens,
     );
     Json(response).into_response()
 }
@@ -882,7 +1450,7 @@ pub async fn mcp_proxy_handler(
         .await;
     }
 
-    let upstream = match resolve_upstream_credentials(&state.config, request_index).await {
+    let upstream = match resolve_upstream_credentials(&state.config, &state).await {
         Ok(creds) => creds,
         Err(message) => {
             let sanitized = sanitize_error(&message);
@@ -991,6 +1559,10 @@ pub async fn mcp_proxy_handler(
         "success",
         None,
         Some(logged_response_body.as_str()),
+        None, // input_tokens - MCP 代理无 tokens
+        None, // output_tokens
+        None, // cache_read_input_tokens
+        None, // cache_creation_input_tokens
     );
     builder.body(Body::from(body)).unwrap_or_else(|error| {
         gateway_error_response(
@@ -1024,14 +1596,38 @@ async fn execute_request_with_server_tools(
     );
     let mut server_tool_calls = Vec::new();
 
+    // 获取账号可用模型列表（用于模型降级）
+    let available_models = match get_available_models_for_upstream(upstream).await {
+        Ok(models) => {
+            log::debug!(
+                "[Gateway] 账号 {} 可用模型: {:?}",
+                upstream.source_label,
+                models
+            );
+            Some(models)
+        }
+        Err(e) => {
+            log::warn!(
+                "[Gateway] 无法获取账号 {} 的可用模型列表: {}，将不进行模型降级",
+                upstream.source_label,
+                e
+            );
+            None
+        }
+    };
+
     for _ in 0.._max_uses {
-        let upstream_payload =
-            build_kiro_payload(&state.http, &working_request, upstream.profile_arn.clone())
-                .await
-                .map_err(|message| {
-                    (
-                        StatusCode::BAD_REQUEST,
-                        "invalid_request_error",
+        let upstream_payload = build_kiro_payload(
+            &state.http,
+            &working_request,
+            upstream.profile_arn.clone(),
+            available_models.as_deref(),
+        )
+        .await
+        .map_err(|message| {
+            (
+                StatusCode::BAD_REQUEST,
+                "invalid_request_error",
                         sanitize_error(&message),
                     )
                 })?;
@@ -1153,10 +1749,16 @@ async fn send_generate_request<T: serde::Serialize + ?Sized>(
         }
 
         let body = upstream_resp.text().await.unwrap_or_default();
+        
+        // 429 错误不重试，直接返回（让外层切换账号）
+        if status == StatusCode::TOO_MANY_REQUESTS {
+            let (mapped_status, error_type, message) = map_upstream_error(status, &body);
+            return Err((mapped_status, error_type, message, Some(body)));
+        }
+        
+        // 其他错误（403、5xx）才重试
         let should_retry = attempt < MAX_RETRIES
-            && (status == StatusCode::TOO_MANY_REQUESTS
-                || status == StatusCode::FORBIDDEN
-                || status.is_server_error());
+            && (status == StatusCode::FORBIDDEN || status.is_server_error());
 
         if should_retry {
             let backoff_ms = 1000 * 2u64.pow(attempt - 1);
@@ -1507,22 +2109,73 @@ fn verify_client_auth(headers: &HeaderMap, config: &GatewayConfig) -> Result<(),
 
 async fn resolve_upstream_credentials(
     config: &GatewayConfig,
-    request_index: u64,
+    state: &RouterState,
 ) -> Result<UpstreamCredentials, String> {
     match config.account_mode.as_str() {
-        "single" | "group" => resolve_managed_account_credentials(config, request_index).await,
-        "local" => Err("反代不再支持 local 模式，请改用 single/group 账号池模式".to_string()),
-        _ => Err("accountMode 必须是 single/group".to_string()),
+        "single" | "group" | "pool" => resolve_managed_account_credentials(config, state).await,
+        "local" => Err("反代不再支持 local 模式，请改用 single/group/pool 账号池模式".to_string()),
+        _ => Err("accountMode 必须是 single/group/pool".to_string()),
     }
 }
 
 async fn resolve_managed_account_credentials(
     config: &GatewayConfig,
-    request_index: u64,
+    state: &RouterState,
 ) -> Result<UpstreamCredentials, String> {
     let mut store = AccountStore::new();
     store.reload();
-    let mut accounts = match config.account_mode.as_str() {
+
+    // 自愈机制：检查是否所有账号都因 "TooManyFailures" 被禁用
+    let all_disabled_by_failures = match config.account_mode.as_str() {
+        "single" => {
+            store
+                .accounts
+                .iter()
+                .filter(|account| config.account_id.as_deref() == Some(account.id.as_str()))
+                .all(|account| {
+                    account.disabled_reason.as_deref() == Some("TooManyFailures")
+                })
+        }
+        "group" => {
+            let group_accounts: Vec<_> = store
+                .accounts
+                .iter()
+                .filter(|account| config.group_id.as_deref() == account.group_id.as_deref())
+                .collect();
+
+            !group_accounts.is_empty()
+                && group_accounts.iter().all(|account| {
+                    account.disabled_reason.as_deref() == Some("TooManyFailures")
+                })
+        }
+        "pool" => {
+            let pool_accounts: Vec<_> = store
+                .accounts
+                .iter()
+                .filter(|account| account.is_available())
+                .collect();
+
+            !pool_accounts.is_empty()
+                && pool_accounts.iter().all(|account| {
+                    account.disabled_reason.as_deref() == Some("TooManyFailures")
+                })
+        }
+        _ => false,
+    };
+
+    if all_disabled_by_failures {
+        eprintln!("[Gateway] 所有账号均已被自动禁用，执行自愈机制重置失败计数");
+        for account in store.accounts.iter_mut() {
+            if account.disabled_reason.as_deref() == Some("TooManyFailures") {
+                account.failure_count = 0;
+                account.status = "active".to_string();
+                account.disabled_reason = None;
+            }
+        }
+        let _ = store.save_to_file();
+    }
+
+    let accounts = match config.account_mode.as_str() {
         "single" => store
             .accounts
             .iter()
@@ -1537,6 +2190,12 @@ async fn resolve_managed_account_credentials(
             })
             .cloned()
             .collect::<Vec<_>>(),
+        "pool" => store
+            .accounts
+            .iter()
+            .filter(|account| account.is_available())
+            .cloned()
+            .collect::<Vec<_>>(),
         _ => Vec::new(),
     };
 
@@ -1544,83 +2203,101 @@ async fn resolve_managed_account_credentials(
         return Err("未找到符合反代配置的可用账号".to_string());
     }
 
-    order_accounts(&mut accounts, &config.strategy, request_index);
-    let mut last_error = "没有可用的账号可供反代使用".to_string();
+    // 使用 LoadBalancer 选择账号
+    let selected_account = state.load_balancer.select_account(&accounts).await;
 
-    for (index, account) in accounts.iter().enumerate() {
-        match refresh_token_by_provider(account).await {
-            Ok(refresh) => {
-                let provider = account.provider.as_deref().unwrap_or("Google").to_string();
-                let usage_result = get_usage_by_provider(&provider, &refresh.access_token).await;
-                let mut usage_data = None;
-                let mut is_banned = false;
-                let mut is_auth_error = false;
+    let Some(account) = selected_account else {
+        return Err("LoadBalancer 未能选择可用账号".to_string());
+    };
 
-                if let Ok(usage) = usage_result {
-                    usage_data = Some(usage.usage_data);
-                    is_banned = usage.is_banned;
-                    is_auth_error = usage.is_auth_error;
-                }
+    // 增加连接计数
+    state.load_balancer.increment_connections(&account.id).await;
+    let request_start = Instant::now();
 
-                persist_account_refresh(
-                    account,
-                    &refresh,
-                    usage_data.clone(),
-                    is_banned,
-                    is_auth_error,
-                );
+    match refresh_token_by_provider(&account).await {
+        Ok(refresh) => {
+            let provider = account.provider.as_deref().unwrap_or("Google").to_string();
+            let usage_result = get_usage_by_provider(&provider, &refresh.access_token).await;
+            let mut usage_data = None;
+            let mut is_banned = false;
+            let mut is_auth_error = false;
 
-                if (is_banned || is_auth_error) && index + 1 < accounts.len() {
-                    last_error = format!("账号 {} 已不可用，尝试下一个账号", account.label);
-                    continue;
-                }
-
-                if let Some(usage_data) = usage_data {
-                    if usage_exceeds_threshold(&usage_data, config.threshold)
-                        && index + 1 < accounts.len()
-                    {
-                        last_error = format!(
-                            "账号 {} 已达到阈值 {}%，尝试下一个账号",
-                            account.label, config.threshold
-                        );
-                        continue;
-                    }
-                }
-
-                let machine_id = account
-                    .machine_id
-                    .clone()
-                    .filter(|value| !value.trim().is_empty())
-                    .unwrap_or_else(get_machine_id);
-                let profile_arn = refresh.profile_arn.or_else(|| account.profile_arn.clone());
-                let region = resolve_kiro_upstream_region(
-                    profile_arn.as_deref(),
-                    account.region.as_deref(),
-                    &config.region,
-                );
-
-                return Ok(UpstreamCredentials {
-                    access_token: refresh.access_token,
-                    profile_arn,
-                    provider: account.provider.clone(),
-                    region,
-                    source_label: format_managed_upstream_source(config, account),
-                    user_agent: build_kiro_custom_user_agent(&machine_id),
-                    auth_method: account.auth_method.clone(),
-                    send_opt_out: should_send_codewhisperer_optout(),
-                });
+            if let Ok(usage) = usage_result {
+                usage_data = Some(usage.usage_data);
+                is_banned = usage.is_banned;
+                is_auth_error = usage.is_auth_error;
             }
-            Err(error) => {
-                last_error = format!(
-                    "刷新账号 {} 失败: {}",
-                    account.label,
-                    sanitize_error(&error)
-                );
+
+            // 失败追踪：如果账号被封禁或认证失败，累加失败计数
+            let should_increment_failure = is_banned || is_auth_error;
+
+            persist_account_refresh(
+                &account,
+                &refresh,
+                usage_data.clone(),
+                is_banned,
+                is_auth_error,
+                should_increment_failure,
+            );
+
+            // 减少连接计数
+            state.load_balancer.decrement_connections(&account.id).await;
+
+            if is_banned || is_auth_error {
+                // 记录失败
+                state.load_balancer.record_failure(&account.id).await;
+                return Err(format!("账号 {} 已不可用", account.label));
             }
+
+            if let Some(usage_data) = &usage_data {
+                if usage_exceeds_threshold(usage_data, config.threshold) {
+                    return Err(format!(
+                        "账号 {} 已达到阈值 {}%",
+                        account.label, config.threshold
+                    ));
+                }
+            }
+
+            // 记录成功
+            let response_time_ms = request_start.elapsed().as_millis() as u64;
+            state.load_balancer.record_success(&account.id, response_time_ms).await;
+
+            let machine_id = account
+                .machine_id
+                .clone()
+                .filter(|value| !value.trim().is_empty())
+                .unwrap_or_else(get_machine_id);
+            let profile_arn = refresh.profile_arn.or_else(|| account.profile_arn.clone());
+            let region = resolve_kiro_upstream_region(
+                profile_arn.as_deref(),
+                account.region.as_deref(),
+                &config.region,
+            );
+
+            Ok(UpstreamCredentials {
+                access_token: refresh.access_token,
+                profile_arn,
+                provider: account.provider.clone(),
+                region,
+                source_label: format_managed_upstream_source(config, &account),
+                user_agent: build_kiro_custom_user_agent(&machine_id),
+                auth_method: account.auth_method.clone(),
+                send_opt_out: should_send_codewhisperer_optout(),
+            })
+        }
+        Err(error) => {
+            // 减少连接计数
+            state.load_balancer.decrement_connections(&account.id).await;
+            // 记录失败
+            state.load_balancer.record_failure(&account.id).await;
+
+            Err(format!(
+                "刷新账号 {} 失败: {}",
+                account.label,
+                sanitize_error(&error)
+            ))
         }
     }
-
-    Err(last_error)
 }
 
 fn format_managed_upstream_source(config: &GatewayConfig, account: &Account) -> String {
@@ -1648,23 +2325,8 @@ fn format_managed_upstream_source(config: &GatewayConfig, account: &Account) -> 
             "group:{}:{account_label}",
             config.group_id.as_deref().unwrap_or("unknown")
         ),
+        "pool" => format!("pool:{account_label}"),
         _ => account_label,
-    }
-}
-
-fn order_accounts(accounts: &mut [Account], strategy: &str, request_index: u64) {
-    match strategy {
-        "most_quota" => accounts.sort_by(|left, right| {
-            remaining_quota(right)
-                .partial_cmp(&remaining_quota(left))
-                .unwrap_or(std::cmp::Ordering::Equal)
-        }),
-        "random" => accounts.shuffle(&mut thread_rng()),
-        _ => {
-            if !accounts.is_empty() {
-                accounts.rotate_left((request_index as usize) % accounts.len());
-            }
-        }
     }
 }
 
@@ -1674,6 +2336,7 @@ fn persist_account_refresh(
     usage_data: Option<Value>,
     is_banned: bool,
     is_auth_error: bool,
+    should_increment_failure: bool,
 ) {
     let mut store = AccountStore::new();
     if let Some(target) = store
@@ -1693,21 +2356,38 @@ fn persist_account_refresh(
             target.usage_data = Some(data);
         }
         target.status = calc_status(is_banned, is_auth_error);
+
+        // 失败追踪逻辑
+        if should_increment_failure {
+            target.failure_count += 1;
+            target.last_failure_at = Some(Local::now().to_rfc3339());
+
+            // 如果失败次数达到阈值，自动禁用账号
+            if target.failure_count >= MAX_FAILURES_PER_ACCOUNT {
+                target.status = "disabled".to_string();
+                target.disabled_reason = Some("TooManyFailures".to_string());
+                eprintln!(
+                    "[Gateway] 账号 {} 失败次数达到 {}，自动禁用",
+                    target.label, MAX_FAILURES_PER_ACCOUNT
+                );
+            }
+        } else {
+            // 请求成功，重置失败计数并累加成功计数
+            target.failure_count = 0;
+            target.success_count += 1;
+            target.last_failure_at = None;
+
+            // 如果之前因为失败过多被禁用，现在恢复
+            if target.disabled_reason.as_deref() == Some("TooManyFailures") {
+                target.disabled_reason = None;
+                if target.status == "disabled" {
+                    target.status = "active".to_string();
+                }
+            }
+        }
+
         let _ = store.save_to_file();
     }
-}
-
-fn remaining_quota(account: &Account) -> f64 {
-    let Some(usage_data) = account.usage_data.as_ref() else {
-        return 0.0;
-    };
-    let Some((current, limit)) = extract_usage_totals(usage_data) else {
-        return 0.0;
-    };
-    if limit <= 0 {
-        return 0.0;
-    }
-    (limit - current).max(0) as f64
 }
 
 fn usage_exceeds_threshold(usage_data: &Value, threshold: i32) -> bool {
@@ -2403,6 +3083,16 @@ fn short_uuid() -> String {
     uuid::Uuid::new_v4().to_string().replace('-', "")
 }
 
+fn extract_account_id_from_upstream(upstream: &UpstreamCredentials) -> String {
+    // 从 source_label 提取账号标识
+    // 格式：single:email@example.com 或 group:group_name:email@example.com
+    upstream.source_label
+        .split(':')
+        .last()
+        .unwrap_or(&upstream.source_label)
+        .to_string()
+}
+
 fn stream_proxy_response(
     state: RouterState,
     upstream_resp: reqwest::Response,
@@ -2411,6 +3101,7 @@ fn stream_proxy_response(
     request_messages: Vec<NormalizedMessage>,
     previous_response_id: Option<String>,
     server_tool_calls: Vec<ServerToolCall>,
+    log_context: RequestLogContext<'static>,
 ) -> Response {
     let (tx, rx) = mpsc::channel::<Result<Bytes, Infallible>>(2048);
     tokio::spawn(async move {
@@ -2555,11 +3246,15 @@ fn stream_proxy_response(
                                         KiroEvent::Usage {
                                             input_tokens: input,
                                             output_tokens: output,
+                                            cache_read_input_tokens,
+                                            cache_creation_input_tokens,
                                         } => {
                                             input_tokens = input;
                                             output_tokens = output;
                                             aggregated.input_tokens = input;
                                             aggregated.output_tokens = output;
+                                            aggregated.cache_read_input_tokens = cache_read_input_tokens;
+                                            aggregated.cache_creation_input_tokens = cache_creation_input_tokens;
                                         }
                                         KiroEvent::ContextUsage { percentage } => {
                                             aggregated.context_usage_percentage = Some(percentage);
@@ -3133,6 +3828,19 @@ fn stream_proxy_response(
                 send_data(&tx, "[DONE]").await;
             }
         }
+
+        // 流式结束后记录完整的 tokens
+        write_request_log(
+            &log_context,
+            StatusCode::OK,
+            "stream",
+            None,
+            Some(STREAMING_RESPONSE_PLACEHOLDER),
+            Some(aggregated.input_tokens),
+            Some(aggregated.output_tokens),
+            aggregated.cache_read_input_tokens,
+            aggregated.cache_creation_input_tokens,
+        );
     }); // tokio::spawn 闭合
 
     Response::builder()
@@ -3329,6 +4037,7 @@ async fn send_data(tx: &mpsc::Sender<Result<Bytes, Infallible>>, payload: &str) 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::gateway::token_cache::TokenCache;
     use serde_json::json;
     use std::sync::{
         atomic::AtomicU64,
@@ -3348,6 +4057,7 @@ mod tests {
             last_error: Arc::new(AsyncMutex::new(None)),
             http: Client::new(),
             responses_sessions: Arc::new(AsyncMutex::new(HashMap::new())),
+            token_cache: Arc::new(AsyncMutex::new(TokenCache::new())),
         }
     }
 
@@ -3494,6 +4204,205 @@ mod tests {
             Some(&"{\"q\":\"gateway\"}".to_string())
         );
         assert_eq!(chat_request.messages[2].content, Some(json!("命中结果")));
+    }
+
+    #[test]
+    fn test_tokenizer_type_from_model_id() {
+        assert!(matches!(
+            TokenizerType::from_model_id("claude-3-7-sonnet-20250219"),
+            TokenizerType::Claude
+        ));
+        assert!(matches!(
+            TokenizerType::from_model_id("gpt-4"),
+            TokenizerType::OpenAI
+        ));
+        assert!(matches!(
+            TokenizerType::from_model_id("o1-preview"),
+            TokenizerType::OpenAI
+        ));
+        assert!(matches!(
+            TokenizerType::from_model_id("llama-3-70b"),
+            TokenizerType::Llama
+        ));
+        assert!(matches!(
+            TokenizerType::from_model_id("unknown-model"),
+            TokenizerType::Generic
+        ));
+    }
+
+    #[test]
+    fn test_estimate_text_tokens_claude() {
+        let text = "Hello, world!";
+        let tokens = estimate_text_tokens(text, TokenizerType::Claude);
+        assert_eq!(tokens, (text.len() + 3) / 4);
+    }
+
+    #[test]
+    fn test_estimate_text_tokens_llama() {
+        let text = "Hello, world!";
+        let tokens = estimate_text_tokens(text, TokenizerType::Llama);
+        assert_eq!(tokens, ((text.len() as f64 / 3.5).ceil() as usize).max(1));
+    }
+
+    #[test]
+    fn test_estimate_text_tokens_generic() {
+        let text = "Hello\nWorld\n```rust\nfn main() {}\n```";
+        let tokens = estimate_text_tokens(text, TokenizerType::Generic);
+
+        let base_tokens = (text.len() + 3) / 4;
+        let lines = text.lines().count();
+        let newline_tokens = (lines + 1) / 2;
+        let code_blocks = text.matches("```").count();
+        let code_block_tokens = code_blocks * 2;
+        let expected = base_tokens + newline_tokens + code_block_tokens;
+
+        assert_eq!(tokens, expected);
+    }
+
+    #[test]
+    fn test_estimate_request_tokens() {
+        let messages = vec![
+            NormalizedMessage {
+                role: "user".to_string(),
+                content: Some(json!("Hello, how are you?")),
+                tool_calls: None,
+                tool_call_id: None,
+                metadata: None,
+            },
+            NormalizedMessage {
+                role: "assistant".to_string(),
+                content: Some(json!("I'm doing well, thank you!")),
+                tool_calls: None,
+                tool_call_id: None,
+                metadata: None,
+            },
+        ];
+
+        let tokens = estimate_request_tokens(&messages, "claude-3-7-sonnet-20250219");
+        assert!(tokens > 0);
+    }
+
+    #[test]
+    fn test_check_payload_size() {
+        let payload = json!({
+            "model": "claude-3-7-sonnet-20250219",
+            "messages": [
+                {"role": "user", "content": "Hello"}
+            ]
+        });
+
+        let size = check_payload_size(&payload);
+        assert!(size > 0);
+    }
+
+    #[test]
+    fn test_trim_kiro_payload_history_removes_oldest_messages() {
+        let mut payload = json!({
+            "conversationState": {
+                "history": [
+                    {
+                        "user_input_message": {
+                            "user_input_message_context": {
+                                "text": "First message"
+                            }
+                        }
+                    },
+                    {
+                        "assistant_response_message": {
+                            "text": "First response"
+                        }
+                    },
+                    {
+                        "user_input_message": {
+                            "user_input_message_context": {
+                                "text": "Second message"
+                            }
+                        }
+                    },
+                    {
+                        "assistant_response_message": {
+                            "text": "Second response"
+                        }
+                    }
+                ]
+            }
+        });
+
+        let max_bytes = 100;
+        let trimmed = trim_kiro_payload_history(&mut payload, max_bytes);
+
+        assert!(trimmed);
+        let history = payload
+            .pointer("/conversationState/history")
+            .and_then(|v| v.as_array())
+            .unwrap();
+        assert!(history.len() < 4);
+        assert!(history.len() >= 2);
+    }
+
+    #[test]
+    fn test_trim_kiro_payload_history_preserves_tool_call_pairs() {
+        let mut payload = json!({
+            "conversationState": {
+                "history": [
+                    {
+                        "assistant_response_message": {
+                            "text": "Let me search for that",
+                            "tool_uses": [
+                                {
+                                    "id": "call_1",
+                                    "name": "search",
+                                    "input": {"q": "test"}
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "user_input_message": {
+                            "user_input_message_context": {
+                                "tool_results": [
+                                    {
+                                        "call_id": "call_1",
+                                        "output": "Found results"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        "user_input_message": {
+                            "user_input_message_context": {
+                                "text": "Recent message"
+                            }
+                        }
+                    }
+                ]
+            }
+        });
+
+        let max_bytes = 200;
+        let trimmed = trim_kiro_payload_history(&mut payload, max_bytes);
+
+        if trimmed {
+            let history = payload
+                .pointer("/conversationState/history")
+                .and_then(|v| v.as_array())
+                .unwrap();
+
+            if history.len() == 1 {
+                assert!(history[0].get("user_input_message").is_some());
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_get_model_max_input_tokens() {
+        assert_eq!(get_model_max_input_tokens("auto").await, 1_000_000);
+        assert_eq!(get_model_max_input_tokens("claude-3-7-sonnet-20250219").await, 200_000);
+        assert_eq!(get_model_max_input_tokens("gpt-4").await, 200_000);
+        assert_eq!(get_model_max_input_tokens("deepseek-chat").await, 200_000);
+        assert_eq!(get_model_max_input_tokens("llama-3-70b").await, 128_000);
+        assert_eq!(get_model_max_input_tokens("unknown-model").await, 200_000);
     }
 
     #[tokio::test]
@@ -3649,6 +4558,8 @@ mod tests {
             output_tokens: 20,
             context_usage_percentage: None,
             citations: Vec::new(),
+            cache_read_input_tokens: None,
+            cache_creation_input_tokens: None,
         };
         let response = build_anthropic_response(
             "claude-sonnet-4-5",
@@ -3682,6 +4593,8 @@ mod tests {
             output_tokens: 24,
             context_usage_percentage: None,
             citations: Vec::new(),
+            cache_read_input_tokens: None,
+            cache_creation_input_tokens: None,
         };
         let response = build_responses_response_with_ids(
             "gpt-4.1",
@@ -3930,6 +4843,8 @@ mod tests {
             output_tokens: 5,
             context_usage_percentage: None,
             citations: Vec::new(),
+            cache_read_input_tokens: None,
+            cache_creation_input_tokens: None,
         };
 
         let event = build_stream_responses_completed_event(

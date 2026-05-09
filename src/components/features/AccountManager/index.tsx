@@ -18,7 +18,7 @@ import AccountListView from './AccountListView'
 import ImportAccountModal from './ImportAccountModal'
 import AccountDetailModal from './AccountDetailModal'
 import EditAccountModal from './EditAccountModal'
-import BatchTagModal from './BatchTagModal'
+import BatchEditModal from './BatchEditModal'
 import ConfirmModal from './ConfirmModal'
 import { AccountListSkeleton, AccountTableSkeleton } from '../../shared/Skeleton'
 import { getThemeAccent } from '../KiroConfig/themeAccent'
@@ -41,7 +41,7 @@ function AccountManager({ onNavigate }: AccountManagerProps) {
   const [editingAccount, setEditingAccount] = useState<any>(null)
   const [editingLabelAccount, setEditingLabelAccount] = useState<any>(null)
   const [showImportModal, setShowImportModal] = useState(false)
-  const [showBatchTagModal, setShowBatchTagModal] = useState(false)
+  const [showBatchEditModal, setShowBatchEditModal] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null)
@@ -200,7 +200,10 @@ function AccountManager({ onNavigate }: AccountManagerProps) {
       const errorMsg = result.error
       if (errorMsg.includes('BANNED')) {
         showError(t('accounts.accountBanned'))
-      } else if (errorMsg.includes('AUTH_ERROR') || errorMsg.includes('401') || errorMsg.includes('invalid')) {
+      } else if (errorMsg.includes('AUTH_ERROR')) {
+        // AUTH_ERROR: 静默处理，不弹窗
+        console.log('[Sync] Token 已失效，已自动标记账号状态')
+      } else if (errorMsg.includes('401') || errorMsg.includes('invalid')) {
         showError(t('accounts.tokenInvalid'))
       } else if (errorMsg.includes('error sending request') || errorMsg.includes('connection') || errorMsg.includes('network') || errorMsg.includes('timeout')) {
         showError('❌ 网络连接失败\n\n可能原因：\n• 网络不稳定\n• 代理设置有误\n• 防火墙拦截\n\n解决方法：\n1. 检查网络连接\n2. 检查代理设置\n3. 关闭防火墙或添加白名单')
@@ -224,7 +227,10 @@ function AccountManager({ onNavigate }: AccountManagerProps) {
       const errorMsg = String(e)
       if (errorMsg.includes('BANNED')) {
         showError('账号已封禁')
-      } else if (errorMsg.includes('AUTH_ERROR') || errorMsg.includes('401') || errorMsg.includes('invalid')) {
+      } else if (errorMsg.includes('AUTH_ERROR')) {
+        // AUTH_ERROR: 静默处理，不弹窗（账号已自动标记为 invalid）
+        console.log('[Refresh] Token 已失效，已自动标记账号状态')
+      } else if (errorMsg.includes('401') || errorMsg.includes('invalid')) {
         showError('Token 无效，刷新失败')
       } else if (errorMsg.includes('error sending request') || errorMsg.includes('connection') || errorMsg.includes('network') || errorMsg.includes('timeout')) {
         showError('❌ 网络连接失败\n\n可能原因：\n• 网络不稳定\n• 代理设置有误\n• 防火墙拦截\n\n解决方法：\n1. 检查网络连接\n2. 检查代理设置\n3. 关闭防火墙或添加白名单')
@@ -466,7 +472,7 @@ function AccountManager({ onNavigate }: AccountManagerProps) {
         onSearchChange={handleSearchChange}
         selectedCount={selectedIds.length}
         onBatchDelete={onBatchDelete}
-        onBatchTag={() => setShowBatchTagModal(true)}
+        onBatchEdit={() => setShowBatchEditModal(true)}
         onImport={() => setShowImportModal(true)}
         onExport={async () => {
           if (selectedIds.length === 0) {
@@ -627,19 +633,23 @@ function AccountManager({ onNavigate }: AccountManagerProps) {
           onNavigate={onNavigate}
         />
       )}
-      {showBatchTagModal && (
-        <BatchTagModal
+      {showBatchEditModal && (
+        <BatchEditModal
           accountIds={selectedIds}
           accounts={accounts}
-          onClose={() => setShowBatchTagModal(false)}
-          onSuccess={({ accountIds: updatedIds, selectedTagIds }) => {
-            setShowBatchTagModal(false)
+          onClose={() => setShowBatchEditModal(false)}
+          onSuccess={({ accountIds: updatedIds, selectedTagIds, selectedGroupId }) => {
+            setShowBatchEditModal(false)
             setAccounts(prev => prev.map(account => {
               if (!updatedIds.includes(account.id)) return account
               const nextTagLinks = Array.isArray(selectedTagIds)
                 ? selectedTagIds.map(tagId => ({ tagId }))
                 : account.tagLinks
-              return { ...account, tagLinks: nextTagLinks }
+              return { 
+                ...account, 
+                tagLinks: nextTagLinks,
+                groupId: selectedGroupId
+              }
             }))
             loadTagDefinitions()
             setSelectedIds([])

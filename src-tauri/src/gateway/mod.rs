@@ -1,9 +1,11 @@
 mod converter;
 mod eventstream;
+pub(crate) mod load_balancer;
 mod models;
 mod proxy;
 mod stream;
 mod thinking_parser;
+mod token_cache;
 
 use axum::{
     extract::{ConnectInfo, State},
@@ -35,6 +37,7 @@ use tokio::{
 };
 
 use crate::clients::http_client::{build_streaming_http_client, is_supported_kiro_region};
+use crate::gateway::token_cache::TokenCache;
 
 #[cfg(test)]
 thread_local! {
@@ -115,6 +118,18 @@ pub struct GatewayRequestLogEntry {
     pub request_body: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub response_body: Option<String>,
+    /// Prompt Caching: 输入 tokens
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_tokens: Option<i32>,
+    /// Prompt Caching: 输出 tokens
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_tokens: Option<i32>,
+    /// Prompt Caching: 缓存读取 tokens（节省 90% 成本）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_read_input_tokens: Option<i32>,
+    /// Prompt Caching: 缓存写入 tokens（首次写入成本 +25%）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_creation_input_tokens: Option<i32>,
 }
 
 #[derive(Debug)]
@@ -146,6 +161,8 @@ struct RouterState {
     last_error: Arc<AsyncMutex<Option<String>>>,
     http: Client,
     responses_sessions: ResponsesSessionStore,
+    token_cache: Arc<AsyncMutex<TokenCache>>,
+    load_balancer: Arc<load_balancer::LoadBalancer>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -174,7 +191,7 @@ fn default_region() -> String {
 }
 
 fn default_account_mode() -> String {
-    "single".to_string()
+    "pool".to_string()
 }
 
 fn default_strategy() -> String {
@@ -243,6 +260,7 @@ pub(crate) fn effective_client_api_keys(config: &GatewayConfig) -> Vec<String> {
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
+        .filter(|value| !value.starts_with("#disabled#")) // 过滤禁用的 Key
     {
         keys.push(key.to_string());
     }
@@ -252,6 +270,7 @@ pub(crate) fn effective_client_api_keys(config: &GatewayConfig) -> Vec<String> {
         .iter()
         .map(|item| item.trim())
         .filter(|item| !item.is_empty())
+        .filter(|item| !item.starts_with("#disabled#")) // 过滤禁用的 Key
     {
         if !keys.iter().any(|existing| existing == key) {
             keys.push(key.to_string());
@@ -308,11 +327,11 @@ fn ensure_config_valid(config: &GatewayConfig) -> Result<(), String> {
         {
             return Err("group 模式必须选择分组".to_string());
         }
-        "single" | "group" => {}
+        "single" | "group" | "pool" => {}
         "local" => {
-            return Err("反代不再支持 local 模式，请改用 single/group 账号池模式".to_string());
+            return Err("反代不再支持 local 模式，请改用 single/group/pool 账号池模式".to_string());
         }
-        _ => return Err("accountMode 必须是 single/group".to_string()),
+        _ => return Err("accountMode 必须是 single/group/pool".to_string()),
     }
     if !matches!(
         config.log_level.as_str(),
@@ -610,9 +629,14 @@ async fn spawn_runtime(config: GatewayConfig) -> Result<GatewayRuntime, String> 
     let request_count = Arc::new(AtomicU64::new(0));
     let last_error = Arc::new(AsyncMutex::new(None));
     let responses_sessions = Arc::new(AsyncMutex::new(HashMap::new()));
+    let token_cache = Arc::new(AsyncMutex::new(TokenCache::new()));
 
     let http = build_streaming_http_client()
         .map_err(|e| format!("初始化 HTTP 客户端失败: {e}"))?;
+
+    // 初始化负载均衡器
+    let strategy = load_balancer::LoadBalancerStrategy::from_str(&config.strategy);
+    let load_balancer = Arc::new(load_balancer::LoadBalancer::new(strategy));
 
     let state = RouterState {
         config: config.clone(),
@@ -620,6 +644,8 @@ async fn spawn_runtime(config: GatewayConfig) -> Result<GatewayRuntime, String> 
         last_error: last_error.clone(),
         http,
         responses_sessions,
+        token_cache,
+        load_balancer,
     };
 
     let app = router(state);
@@ -802,17 +828,21 @@ mod tests {
     }
 
     fn gateway_runtime_test_state() -> RouterState {
+        let config = GatewayConfig {
+            access_token: Some("sk-test".to_string()),
+            account_mode: "single".to_string(),
+            account_id: Some("test-account".to_string()),
+            ..GatewayConfig::default()
+        };
+        let strategy = load_balancer::LoadBalancerStrategy::from_str(&config.strategy);
         RouterState {
-            config: GatewayConfig {
-                access_token: Some("sk-test".to_string()),
-                account_mode: "single".to_string(),
-                account_id: Some("test-account".to_string()),
-                ..GatewayConfig::default()
-            },
+            config,
             request_count: Arc::new(AtomicU64::new(0)),
             last_error: Arc::new(AsyncMutex::new(None)),
             http: Client::new(),
             responses_sessions: Arc::new(AsyncMutex::new(HashMap::new())),
+            token_cache: Arc::new(AsyncMutex::new(TokenCache::new())),
+            load_balancer: Arc::new(load_balancer::LoadBalancer::new(strategy)),
         }
     }
 
@@ -831,12 +861,16 @@ mod tests {
     
 
     fn test_router_state() -> RouterState {
+        let config = GatewayConfig::default();
+        let strategy = load_balancer::LoadBalancerStrategy::from_str(&config.strategy);
         RouterState {
-            config: GatewayConfig::default(),
+            config,
             request_count: Arc::new(AtomicU64::new(0)),
             last_error: Arc::new(AsyncMutex::new(None)),
             http: Client::new(),
             responses_sessions: Arc::new(AsyncMutex::new(HashMap::new())),
+            token_cache: Arc::new(AsyncMutex::new(TokenCache::new())),
+            load_balancer: Arc::new(load_balancer::LoadBalancer::new(strategy)),
         }
     }
 

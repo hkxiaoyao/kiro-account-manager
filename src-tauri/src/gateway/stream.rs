@@ -17,6 +17,8 @@ pub enum KiroEvent {
     Usage {
         input_tokens: i32,
         output_tokens: i32,
+        cache_read_input_tokens: Option<i32>,
+        cache_creation_input_tokens: Option<i32>,
     },
     ContextUsage {
         percentage: f32,
@@ -42,6 +44,8 @@ pub struct AggregatedKiroResponse {
     pub tool_calls: Vec<(String, String, String)>,
     pub input_tokens: i32,
     pub output_tokens: i32,
+    pub cache_read_input_tokens: Option<i32>,
+    pub cache_creation_input_tokens: Option<i32>,
     pub context_usage_percentage: Option<f32>,
     pub citations: Vec<AggregatedCitation>,
 }
@@ -100,10 +104,25 @@ pub fn parse_kiro_event_full(json_str: &str) -> Option<KiroEvent> {
             .or_else(|| usage.get("output_tokens"))
             .and_then(|item| item.as_i64())
             .unwrap_or(0) as i32;
-        if input_tokens > 0 || output_tokens > 0 {
+
+        // 解析 Prompt Caching 相关的 token 使用情况
+        let cache_read_input_tokens = usage
+            .get("cacheReadInputTokens")
+            .or_else(|| usage.get("cache_read_input_tokens"))
+            .and_then(|item| item.as_i64())
+            .map(|v| v as i32);
+        let cache_creation_input_tokens = usage
+            .get("cacheCreationInputTokens")
+            .or_else(|| usage.get("cache_creation_input_tokens"))
+            .and_then(|item| item.as_i64())
+            .map(|v| v as i32);
+
+        if input_tokens > 0 || output_tokens > 0 || cache_read_input_tokens.is_some() || cache_creation_input_tokens.is_some() {
             return Some(KiroEvent::Usage {
                 input_tokens,
                 output_tokens,
+                cache_read_input_tokens,
+                cache_creation_input_tokens,
             });
         }
     }
@@ -223,6 +242,7 @@ pub fn aggregate_kiro_response(raw: &str) -> AggregatedKiroResponse {
     let mut remaining = raw;
     let mut tool_accumulators: std::collections::HashMap<String, (String, String)> =
         std::collections::HashMap::new();
+    let mut found_usage = false;
 
     while let Some(start) = remaining.find('{') {
         remaining = &remaining[start..];
@@ -253,9 +273,16 @@ pub fn aggregate_kiro_response(raw: &str) -> AggregatedKiroResponse {
                 KiroEvent::Usage {
                     input_tokens,
                     output_tokens,
+                    cache_read_input_tokens,
+                    cache_creation_input_tokens,
                 } => {
+                    found_usage = true;
+                    eprintln!("📊 [aggregate_kiro_response] Found usage event: input={}, output={}, cache_read={:?}, cache_creation={:?}",
+                        input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens);
                     aggregated.input_tokens = input_tokens;
                     aggregated.output_tokens = output_tokens;
+                    aggregated.cache_read_input_tokens = cache_read_input_tokens;
+                    aggregated.cache_creation_input_tokens = cache_creation_input_tokens;
                 }
                 KiroEvent::ContextUsage { percentage } => {
                     aggregated.context_usage_percentage = Some(percentage);
@@ -269,6 +296,10 @@ pub fn aggregate_kiro_response(raw: &str) -> AggregatedKiroResponse {
         }
 
         remaining = &remaining[json_len..];
+    }
+
+    if !found_usage {
+        eprintln!("⚠️  [aggregate_kiro_response] No usage event found in response");
     }
 
     aggregated.tool_calls = deduplicate_tool_calls(aggregated.tool_calls);
@@ -513,6 +544,8 @@ mod tests {
             Some(KiroEvent::Usage {
                 input_tokens: 12,
                 output_tokens: 34,
+                cache_read_input_tokens: None,
+                cache_creation_input_tokens: None,
             })
         );
     }

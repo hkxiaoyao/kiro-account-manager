@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Loader2, Search, Trash2, Download, MessageSquare, ChevronRight, ChevronDown } from 'lucide-react'
 import { save } from '@tauri-apps/plugin-dialog'
 import { writeTextFile } from '@tauri-apps/plugin-fs'
@@ -440,14 +441,13 @@ export default function SessionManager() {
                         </button>
 
                         {/* Checkbox */}
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={selectedWorkspaceHashes.has(workspace)}
-                          onChange={(e) => {
-                            e.stopPropagation()
+                          onCheckedChange={(checked) => {
                             toggleWorkspaceSelection(workspace)
                           }}
-                          className="h-4 w-4 rounded border-gray-300 cursor-pointer shrink-0"
+                          onClick={(e) => e.stopPropagation()}
+                          className="shrink-0 cursor-pointer"
                         />
 
                         {/* Workspace Name */}

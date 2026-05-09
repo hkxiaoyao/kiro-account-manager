@@ -1,16 +1,21 @@
 import { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
-import { Activity, Play, RotateCcw, Square, LayoutDashboard, Plug, Activity as ActivityIcon, Settings } from 'lucide-react'
+import { Activity, Play, RotateCcw, Square, Plug, Activity as ActivityIcon, Settings } from 'lucide-react'
 import { Alert as AlertPrimitive, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useApp } from '../../../hooks/useApp'
 import { Stack, Group, Badge, Card, Text } from '@/components/shared/layout'
-import GatewayAdvanced from './GatewayAdvanced'
+import GatewayConfigComponent from './GatewayConfig'
 import GatewayIntegration from './GatewayIntegration'
 import GatewayObservability from './GatewayObservability'
-import GatewayOverview from './GatewayOverview'
 import { getThemeAccent } from '../KiroConfig/themeAccent'
 import { GatewayConfig, GatewayStatus } from './gatewayPageState'
+import {
+  GatewayConfigProvider,
+  GatewayStatusProvider,
+  GatewayDataProvider,
+  GatewayObservabilityProvider
+} from './contexts'
 import { 
   applyGatewayLocalOnlyChange, 
   buildClientSamples, 
@@ -80,7 +85,7 @@ function GatewayPage() {
   const [saving, setSaving] = useState(false)
   const [copySuccess, setCopySuccess] = useState('')
   const [logDir, setLogDir] = useState('')
-  const [activeTab, setActiveTab] = useState('overview')
+  const [activeTab, setActiveTab] = useState('config')
   const [requestLogs, setRequestLogs] = useState<any[]>([])
   const [requestLogsLoading, setRequestLogsLoading] = useState(false)
   const [requestLogOutcome, setRequestLogOutcome] = useState('all')
@@ -279,40 +284,18 @@ function GatewayPage() {
     return checks
   }, [hasFieldErrors, status.running, statusSummary.listen, statusSummary.requests, hasUnsavedChanges, hasRuntimeChanges, latestErrorEntry])
 
-  const observabilityHighlights = useMemo(() => ([
-    {
-      label: '流式请求',
-      value: String(requestLogSummary.streaming),
-      detail: '最近请求日志中被识别为 stream 的记录数。'},
-    {
-      label: '成功率',
-      value: requestMetrics.successRateLabel,
-      detail: `统计样本 ${requestMetrics.total} 条，平均耗时 ${requestMetrics.avgDurationLabel}。`},
-    {
-      label: '错误率',
-      value: requestMetrics.errorRateLabel,
-      detail: '结合错误聚合与请求日志，可快速定位上游错误、鉴权失败和流式异常。'},
-    {
-      label: '模型覆盖',
-      value: `${requestMetrics.uniqueModels} / ${requestMetrics.uniqueUpstreams}`,
-      detail: '分别表示模型数 / 上游来源数，用于判断路由与账号池是否均衡。'},
-  ]), [requestLogSummary.streaming, requestMetrics.successRateLabel, requestMetrics.total, requestMetrics.avgDurationLabel, requestMetrics.errorRateLabel, requestMetrics.uniqueModels, requestMetrics.uniqueUpstreams])
-
   const integrationGuidance = useMemo(() => ([
     {
-      label: 'Anthropic / Claude',
-      detail: '使用 ANTHROPIC_BASE_URL + ANTHROPIC_API_KEY 直连本地反代，适合 Claude Code / Claude Desktop 兼容链路。'},
+      label: 'Anthropic Messages API',
+      value: '/v1/messages',
+      detail: '使用 ANTHROPIC_BASE_URL + ANTHROPIC_API_KEY 直连本地反代，支持原生 Messages API 格式。'},
     {
-      label: 'OpenAI Chat Completions',
-      detail: '使用 OPENAI_BASE_URL + OPENAI_API_KEY，支持传统 OpenAI Chat Completions 格式（/v1/chat/completions），兼容标准 OpenAI 客户端库。'},
-    {
-      label: 'OpenAI Responses',
-      detail: '使用 OPENAI_BASE_URL + OPENAI_API_KEY，反代会把 /v1/responses 请求映射到 Kiro 上游并保留流式事件序列。'},
-    {
-      label: '客户端鉴权',
-      detail: '客户端永远只看本地反代 API Key；反代到 Kiro 的 access token 由本地账号自动托管。'},
+      label: 'OpenAI API',
+      value: '/v1/chat/completions, /v1/responses',
+      detail: '使用 OPENAI_BASE_URL + OPENAI_API_KEY，支持 Chat Completions 和 Responses 两种格式，兼容标准 OpenAI 客户端库。'},
     {
       label: '排障入口',
+      value: '观测页',
       detail: '日志目录、错误历史、请求明细都统一收口在观测页，不需要再翻系统日志。'},
   ]), [])
 
@@ -550,6 +533,41 @@ function GatewayPage() {
     }
   }
 
+  const handleAutoStartToggle = async (checked: boolean) => {
+    setField('enabled', checked)
+    
+    // 延迟执行，确保 setField 先更新状态
+    setTimeout(async () => {
+      try {
+        // 先保存配置
+        await saveGatewayConfig({ ...config, enabled: checked })
+        setSavedConfigSnapshot(buildGatewayConfigSnapshot({ ...config, enabled: checked }))
+        
+        // 如果勾选自动启动且配置有效，立即启动反代
+        if (checked && !hasFieldErrors) {
+          setSaving(true)
+          const st = await startGateway({ ...config, enabled: checked })
+          const nextStatus = buildGatewayStatusState(st, st, { ...config, enabled: checked })
+          setStatus(nextStatus)
+          setAppliedRuntimeSnapshot(nextStatus.runtimeConfig ? buildGatewayRuntimeSnapshot(nextStatus.runtimeConfig) : buildGatewayRuntimeSnapshot({ ...config, enabled: checked }))
+          setLastStatusSyncAt(formatGatewayTimestamp())
+          setSaving(false)
+        } else if (!checked && status.running) {
+          // 如果取消自动启动且反代正在运行，停止反代
+          setSaving(true)
+          await stopGateway()
+          setStatus(prev => ({ ...prev, running: false }))
+          setAppliedRuntimeSnapshot(null)
+          setLastStatusSyncAt(formatGatewayTimestamp())
+          setSaving(false)
+        }
+      } catch (e) {
+        pushError(e)
+        setSaving(false)
+      }
+    }, 100)
+  }
+
   const copyText = async (text: string, successMessage: string) => {
     try {
       await navigator.clipboard.writeText(text)
@@ -561,36 +579,40 @@ function GatewayPage() {
   }
 
   return (
-    <div className={`h-full overflow-y-auto p-6 glass-main`}>
-      <Stack gap="md">
-        <Card className={`glass-card border border-border rounded-xl p-6`}>
-          <Stack gap="sm">
-            <Group justify="space-between" align="flex-start">
-              <Stack gap={6}>
-                <Text fw={700} className={"text-foreground"}>Kiro API 反代</Text>
-                <Text size="sm" className={"text-muted-foreground"}>
-                  把入口状态、客户端接入、安全边界和观测线索压到一屏里，优先处理保存/启动/重启这几类主动作。
-                </Text>
-              </Stack>
-              <Group gap="xs">
-                <Badge color="indigo">Gateway Console</Badge>
-                <Badge color={status.running ? 'green' : 'gray'}>{status.running ? '流量入口已在线' : '等待启动'}</Badge>
-              </Group>
-            </Group>
+    <GatewayConfigProvider>
+      <GatewayStatusProvider>
+        <GatewayDataProvider>
+          <GatewayObservabilityProvider>
+            <div className={`h-full overflow-y-auto p-4 glass-main`}>
+              <Stack gap="md">
+                <Card className={`glass-card border border-border rounded-xl p-4`}>
+                  <Stack gap="sm">
+                    <Group justify="space-between" align="flex-start">
+                      <Stack gap={6}>
+                        <Text fw={700} className={"text-foreground"}>Kiro API 反代</Text>
+                        <Text size="sm" className={"text-muted-foreground"}>
+                          把入口状态、客户端接入、安全边界和观测线索压到一屏里，优先处理保存/启动/重启这几类主动作。
+                        </Text>
+                      </Stack>
+                      <Group gap="xs">
+                        <Badge color="indigo">Gateway Console</Badge>
+                        <Badge color={status.running ? 'green' : 'gray'}>{status.running ? '流量入口已在线' : '等待启动'}</Badge>
+                      </Group>
+                    </Group>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {consoleHighlights.map((item) => (
-                <Card key={item.label} className="border rounded-xl p-6">
+                <Card key={item.label} className="border rounded-xl p-4">
                   <Text size="xs" className={"text-muted-foreground"}>{item.label}</Text>
                   <Text fw={700} className={"text-foreground"} mt={4}>{item.value}</Text>
-                  <Text size="sm" className={"text-muted-foreground"} mt={6}>{item.detail}</Text>
+                  <Text size="sm" className={"text-muted-foreground"} mt={4}>{item.detail}</Text>
                 </Card>
               ))}
             </div>
           </Stack>
         </Card>
 
-        <Card className={`glass-card border border-border rounded-xl p-6`}>
+        <Card className={`glass-card border border-border rounded-xl p-4`}>
           <Stack gap="sm">
             <Group justify="space-between" align="flex-start">
               <Stack gap={4}>
@@ -648,22 +670,22 @@ function GatewayPage() {
               </Group>
             </Group>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card className="border rounded-xl p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card className="border rounded-xl p-4">
                 <Text size="xs" className={"text-muted-foreground"}>运行快照</Text>
                 <Text fw={700} className={"text-foreground"}>{statusSummary.listen}</Text>
                 <Text size="sm" className={"text-muted-foreground"} mt={4}>
                   {statusSummary.routing} · {statusSummary.region}
                 </Text>
               </Card>
-              <Card className="border rounded-xl p-6">
+              <Card className="border rounded-xl p-4">
                 <Text size="xs" className={"text-muted-foreground"}>接入与鉴权</Text>
                 <Text fw={700} className={"text-foreground"}>{integrationSummary.endpointLabel}</Text>
                 <Text size="sm" className={"text-muted-foreground"} mt={4}>
                   {integrationSummary.authLabel}
                 </Text>
               </Card>
-              <Card className="border rounded-xl p-6">
+              <Card className="border rounded-xl p-4">
                 <Text size="xs" className={"text-muted-foreground"}>最新风险</Text>
                 <Text fw={700} className={"text-foreground"}>
                   {latestErrorEntry ? '最近有错误请求' : '最近未发现错误'}
@@ -690,14 +712,14 @@ function GatewayPage() {
           value={activeTab}
           onValueChange={(value) => {
             startTransition(() => {
-              setActiveTab(value || 'overview')
+              setActiveTab(value || 'config')
             })
           }}
         >
           <TabsList>
-            <TabsTrigger value="overview" className="flex items-center gap-2">
-              <LayoutDashboard size={16} />
-              {t('gateway.overview')}
+            <TabsTrigger value="config" className="flex items-center gap-2">
+              <Settings size={16} />
+              {t('gateway.config')}
             </TabsTrigger>
             <TabsTrigger value="integration" className="flex items-center gap-2">
               <Plug size={16} />
@@ -707,32 +729,7 @@ function GatewayPage() {
               <ActivityIcon size={16} />
               {t('gateway.observability')}
             </TabsTrigger>
-            <TabsTrigger value="advanced" className="flex items-center gap-2">
-              <Settings size={16} />
-              {t('gateway.advanced')}
-            </TabsTrigger>
           </TabsList>
-
-          <TabsContent value="overview">
-            <GatewayOverview
-              colors={colors}
-              loading={loading}
-              handleRefresh={handleRefresh}
-              effectiveBaseUrl={effectiveBaseUrl}
-              effectiveRoutingSummary={effectiveRoutingSummary}
-              effectiveSecuritySummary={effectiveSecuritySummary}
-              statusSummary={statusSummary}
-              actionSummary={actionSummary}
-              operationsChecklist={operationsChecklist}
-              clientSamples={clientSamples}
-              copyText={copyText}
-              handleOpenLogDir={handleOpenLogDir}
-              copySuccess={copySuccess}
-              effectiveConfig={effectiveConfig}
-              logDir={logDir}
-              latestErrorEntry={latestErrorEntry}
-            />
-          </TabsContent>
 
           <TabsContent value="integration">
             <GatewayIntegration
@@ -743,13 +740,14 @@ function GatewayPage() {
               clientSamples={clientSamples}
               copyText={copyText}
               copySuccess={copySuccess}
+              effectiveConfig={effectiveConfig}
+              status={status}
             />
           </TabsContent>
 
           <TabsContent value="observability">
             <GatewayObservability
               colors={colors}
-              observabilityHighlights={observabilityHighlights}
               effectiveConfig={effectiveConfig}
               status={status}
               loading={loading}
@@ -769,27 +767,21 @@ function GatewayPage() {
               lastRequestLogsSyncAt={lastRequestLogsSyncAt}
               requestLogOutcome={requestLogOutcome}
               setRequestLogOutcome={setRequestLogOutcome}
-              selectClassNames={selectClassNames}
               requestLogQuery={requestLogQuery}
               setRequestLogQuery={setRequestLogQuery}
-              inputClassNames={inputClassNames}
               requestLogSummary={requestLogSummary}
               requestMetrics={requestMetrics}
-              renderMetricList={renderMetricList}
               filteredRequestLogs={filteredRequestLogs}
             />
           </TabsContent>
 
-          <TabsContent value="advanced">
-            <GatewayAdvanced
+          <TabsContent value="config">
+            <GatewayConfigComponent
               colors={colors}
               config={config}
               hasFieldErrors={hasFieldErrors}
               hasUnsavedChanges={hasUnsavedChanges}
               fieldErrors={fieldErrors}
-              inputClassNames={inputClassNames}
-              selectClassNames={selectClassNames}
-              switchClassNames={switchClassNames}
               setField={setField}
               handleGenerateApiKey={handleGenerateApiKey}
               securitySummary={securitySummary}
@@ -801,11 +793,17 @@ function GatewayPage() {
               setConfig={setConfig}
               applyGatewayLocalOnlyChange={applyGatewayLocalOnlyChange}
               createGeneratedApiKey={createGeneratedApiKey}
+              handleSaveConfig={handleSave}
+              handleAutoStartToggle={handleAutoStartToggle}
             />
           </TabsContent>
         </Tabs>
       </Stack>
     </div>
+          </GatewayObservabilityProvider>
+        </GatewayDataProvider>
+      </GatewayStatusProvider>
+    </GatewayConfigProvider>
   )
 }
 

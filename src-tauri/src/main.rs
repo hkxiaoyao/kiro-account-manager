@@ -1,5 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+// 速度测试 - 修改 1
+
 // 核心模块
 mod core;
 mod state;
@@ -18,7 +20,7 @@ use core::account::{AccountStore, GroupTagStore};
 use auth::AuthState;
 use state::AppState;
 use std::sync::Mutex;
-use tauri::Listener;
+use tauri::{Listener, Manager};
 use services::session_storage::SessionStorage;
 
 // 导入命令
@@ -37,10 +39,15 @@ use commands::app_settings_cmd::{
     get_usage_history, save_app_settings, save_usage_history_entry, unbind_machine_id_from_account,
     get_custom_kiro_path, set_custom_kiro_path, clear_custom_kiro_path,
 };
+use commands::app_data_cmd::{get_app_data_dir, open_app_data_dir};
 //授权相关
 use commands::auth_cmd::{
     cancel_kiro_login, get_current_user, get_supported_providers, handle_kiro_social_callback,
     kiro_login, logout,
+};
+use commands::cli_config_cmd::{
+    check_claude_code_installed, check_codex_cli_installed, write_claude_code_config,
+    write_codex_cli_config,
 };
 
 //网关反代
@@ -224,6 +231,18 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+#[tauri::command]
+fn show_main_window(app: tauri::AppHandle) -> Result<(), String> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or("main window not found")?;
+
+    window.show().map_err(|e| e.to_string())?;
+    window.set_focus().map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
 #[allow(clippy::too_many_lines)] // Tauri 框架要求在 main 中注册所有命令，无法拆分
 fn main() {
     tauri::Builder::default()
@@ -348,6 +367,8 @@ fn main() {
             restart_as_admin,
             // 浏览器检测
             detect_installed_browsers,
+            // 窗口控制
+            show_main_window,
             // MCP 管理命令
             get_mcp_config,
             save_mcp_server,
@@ -411,7 +432,15 @@ fn main() {
             delete_session,
             delete_workspace,
             export_session,
-            search_sessions
+            search_sessions,
+            // CLI 配置命令
+            check_claude_code_installed,
+            check_codex_cli_installed,
+            write_claude_code_config,
+            write_codex_cli_config,
+            // 应用数据目录命令
+            get_app_data_dir,
+            open_app_data_dir
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

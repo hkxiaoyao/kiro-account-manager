@@ -1,5 +1,40 @@
 use serde::{Deserialize, Serialize};
 
+/// 最大思考预算 tokens
+const MAX_BUDGET_TOKENS: i32 = 24576;
+
+/// Thinking 配置
+#[derive(Debug, Deserialize, Clone, Serialize)]
+pub struct Thinking {
+    #[serde(rename = "type")]
+    pub thinking_type: String,
+    #[serde(
+        default = "default_budget_tokens",
+        deserialize_with = "deserialize_budget_tokens"
+    )]
+    pub budget_tokens: i32,
+}
+
+impl Thinking {
+    /// 是否启用了 thinking（enabled 或 adaptive）
+    #[allow(dead_code)]
+    pub fn is_enabled(&self) -> bool {
+        self.thinking_type == "enabled" || self.thinking_type == "adaptive"
+    }
+}
+
+fn default_budget_tokens() -> i32 {
+    20000
+}
+
+fn deserialize_budget_tokens<'de, D>(deserializer: D) -> Result<i32, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = i32::deserialize(deserializer)?;
+    Ok(value.min(MAX_BUDGET_TOKENS))
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct NormalizedRequest {
@@ -15,6 +50,8 @@ pub struct NormalizedRequest {
     pub tool_choice: Option<serde_json::Value>,
     #[serde(default)]
     pub previous_response_id: Option<String>,
+    #[serde(default)]
+    pub thinking: Option<Thinking>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -118,9 +155,17 @@ pub struct UserInputMessage {
     pub model_id: String,
     pub origin: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_point: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_cache_config: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub documents: Option<Vec<serde_json::Value>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub images: Option<Vec<ImageBlock>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_input_message_context: Option<UserInputMessageContext>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_intent: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -140,11 +185,29 @@ pub struct ImageSource {
 #[serde(rename_all = "camelCase")]
 pub struct UserInputMessageContext {
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub additional_context: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub app_studio_context: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub console_state: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub diagnostic: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub editor_state: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub env_state: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub git_state: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub shell_state: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_results: Option<Vec<KiroToolResult>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub tools: Option<Vec<KiroTool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_choice: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tool_results: Option<Vec<KiroToolResult>>,
+    pub user_settings: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -217,6 +280,10 @@ pub struct MessageMetadataEvent {
 pub struct UsageInfo {
     pub input_tokens: i32,
     pub output_tokens: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_read_input_tokens: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_creation_input_tokens: Option<i32>,
 }
 
 // ============================================================================
@@ -376,6 +443,7 @@ pub struct AnthropicMessagesRequest {
     pub stop_sequences: Option<Vec<String>>,
     pub tools: Option<Vec<AnthropicTool>>,
     pub tool_choice: Option<serde_json::Value>,
+    pub thinking: Option<Thinking>,
     #[allow(dead_code)]
     pub metadata: Option<serde_json::Value>,
 }

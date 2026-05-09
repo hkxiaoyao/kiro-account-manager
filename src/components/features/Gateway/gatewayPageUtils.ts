@@ -5,22 +5,29 @@ const ALLOWED_REGIONS = [
   'ap-northeast-1',
   'ap-southeast-1',
   'us-gov-west-1',
-]
+] as const
 
-export const parseAllowedIps = (value: any) => String(value || '')
-  .split(/[\n,]+/)
-  .map(item => item.trim())
-  .filter(Boolean)
+export const parseAllowedIps = (value: string | string[]): string[] => {
+  if (Array.isArray(value)) return value
+  return String(value || '')
+    .split(/[\n,]+/)
+    .map(item => item.trim())
+    .filter(Boolean)
+}
 
-export const parseClientApiKeys = (value: any) => String(value || '')
-  .split(/[\n,]+/)
-  .map(item => item.trim())
-  .filter(Boolean)
-  .filter((item, index, items) => items.indexOf(item) === index)
+export const parseClientApiKeys = (value: string | string[]): string[] => {
+  if (Array.isArray(value)) return value
+  return String(value || '')
+    .split(/[\n,]+/)
+    .map(item => item.trim())
+    .filter(Boolean)
+    .filter((item, index, items) => items.indexOf(item) === index)
+}
 
-export const getPrimaryClientApiKey = (value: any) => parseClientApiKeys(value)[0] || ''
+export const getPrimaryClientApiKey = (value: string | string[]): string =>
+  parseClientApiKeys(value)[0] || ''
 
-const isValidIpv4Address = (value: any) => {
+const isValidIpv4Address = (value: string): boolean => {
   if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(value)) {
     return false
   }
@@ -33,7 +40,7 @@ const isValidIpv4Address = (value: any) => {
     })
 }
 
-const isValidIpv6Address = (value: any) => {
+const isValidIpv6Address = (value: string): boolean => {
   try {
     const parsed = new URL(`http://[${value}]/`)
     return parsed.hostname === value
@@ -42,7 +49,7 @@ const isValidIpv6Address = (value: any) => {
   }
 }
 
-const isValidGatewayHost = (value: any) => {
+const isValidGatewayHost = (value: string): boolean => {
   const host = String(value || '').trim()
   if (!host) {
     return false
@@ -55,7 +62,7 @@ const isValidGatewayHost = (value: any) => {
   return isValidIpv4Address(host) || isValidIpv6Address(host)
 }
 
-const isValidAllowlistEntry = (value: any) => {
+const isValidAllowlistEntry = (value: string): boolean => {
   const entry = String(value || '').trim()
   if (!entry) {
     return false
@@ -85,7 +92,7 @@ const isValidAllowlistEntry = (value: any) => {
   return false
 }
 
-export const buildGatewayConnectHost = (host: any, localOnly: any) => {
+export const buildGatewayConnectHost = (host: string, localOnly: boolean): string => {
   const value = String(host || '').trim()
   if (!value) {
     return '127.0.0.1'
@@ -98,31 +105,37 @@ export const buildGatewayConnectHost = (host: any, localOnly: any) => {
   return value
 }
 
-export const buildGatewayBaseUrl = (host: any, port: any, localOnly: any) => {
+export const buildGatewayBaseUrl = (host: string, port: number, localOnly: boolean): string => {
   const connectHost = buildGatewayConnectHost(host, localOnly)
   const needsBrackets = connectHost.includes(':') && !connectHost.startsWith('[')
   const normalizedHost = needsBrackets ? `[${connectHost}]` : connectHost
   return `http://${normalizedHost}:${Number(port) || 8765}`
 }
 
-export const applyGatewayLocalOnlyChange = (config: any, nextLocalOnly: any, createApiKey: any) => {
+export const applyGatewayLocalOnlyChange = (
+  config: any,
+  nextLocalOnly: boolean,
+  createApiKey: () => string
+): any => {
   const nextConfig = {
     ...config,
-    localOnly: !!nextLocalOnly}
+    localOnly: !!nextLocalOnly
+  }
 
   if (!nextLocalOnly && !parseClientApiKeys(config?.clientApiKeysText || config?.apiKey).length) {
     const generatedKey = createApiKey()
     return {
       ...nextConfig,
       apiKey: generatedKey,
-      clientApiKeysText: generatedKey}
+      clientApiKeysText: generatedKey
+    }
   }
 
   return nextConfig
 }
 
-export const formatGatewayTimestamp = (date = new Date()) => {
-  const pad = (value: any) => String(value).padStart(2, '0')
+export const formatGatewayTimestamp = (date = new Date()): string => {
+  const pad = (value: number) => String(value).padStart(2, '0')
 
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
 }
@@ -149,12 +162,12 @@ export const createGatewayFieldErrors = (config: any) => {
 
   if (!region) {
     errors.region = 'region 不能为空'
-  } else if (!ALLOWED_REGIONS.includes(region)) {
+  } else if (!(ALLOWED_REGIONS as readonly string[]).includes(region)) {
     errors.region = `region 不受支持: ${region}`
   }
 
-  if (!['single', 'group'].includes(accountMode)) {
-    errors.accountMode = 'accountMode 必须是 single/group'
+  if (!['single', 'group', 'pool'].includes(accountMode)) {
+    errors.accountMode = 'accountMode 必须是 single/group/pool'
   } else if (accountMode === 'single' && !String(config?.accountId || '').trim()) {
     errors.accountId = 'single 模式必须选择账号'
   } else if (accountMode === 'group' && !String(config?.groupId || '').trim()) {
@@ -177,7 +190,7 @@ export const createGatewayFieldErrors = (config: any) => {
   return errors
 }
 
-export const redactGatewayApiKey = (apiKey: any) => {
+export const redactGatewayApiKey = (apiKey: string): string => {
   const value = String(apiKey || '').trim()
   if (!value) {
     return 'sk-your-gateway-api-key'
@@ -188,7 +201,19 @@ export const redactGatewayApiKey = (apiKey: any) => {
   return `${value.slice(0, 6)}...${value.slice(-4)}`
 }
 
-export const mergeErrorHistory = (history: any, message: any, seenAt: any, limit = 8) => {
+interface ErrorHistoryEntry {
+  message: string
+  firstSeenAt: string
+  lastSeenAt: string
+  count: number
+}
+
+export const mergeErrorHistory = (
+  history: ErrorHistoryEntry[],
+  message: string,
+  seenAt: string,
+  limit = 8
+): ErrorHistoryEntry[] => {
   const normalizedMessage = String(message || '').trim()
   if (!normalizedMessage) {
     return history
@@ -201,7 +226,8 @@ export const mergeErrorHistory = (history: any, message: any, seenAt: any, limit
     next[existingIndex] = {
       ...existing,
       count: existing.count + 1,
-      lastSeenAt: seenAt}
+      lastSeenAt: seenAt
+    }
     return next
   }
 
@@ -210,13 +236,23 @@ export const mergeErrorHistory = (history: any, message: any, seenAt: any, limit
       message: normalizedMessage,
       firstSeenAt: seenAt,
       lastSeenAt: seenAt,
-      count: 1},
+      count: 1
+    },
     ...history,
   ].slice(0, limit)
 }
 
-export const buildClientSamples = (baseUrl: any, apiKey: any) => {
+interface ClientSamples {
+  anthropic: { env: string }
+  openai: { env: string; curl: string }
+  openaiChat: { env: string; curl: string }
+  claudeCode: { config: string; apiKey: string }
+  codex: { config: string; apiKey: string }
+}
+
+export const buildClientSamples = (baseUrl: string, apiKey: string | string[]): ClientSamples => {
   const safeKey = redactGatewayApiKey(getPrimaryClientApiKey(apiKey))
+  const realKey = getPrimaryClientApiKey(apiKey)
   const anthropicEnv = `ANTHROPIC_BASE_URL=${baseUrl}\nANTHROPIC_API_KEY=${safeKey}`
   const openaiEnv = `OPENAI_BASE_URL=${baseUrl}\nOPENAI_API_KEY=${safeKey}`
   const openaiResponsesCurl = [
@@ -232,18 +268,58 @@ export const buildClientSamples = (baseUrl: any, apiKey: any) => {
     '  -d "{\\"model\\":\\"claude-sonnet-4-5-20250929\\",\\"messages\\":[{\\"role\\":\\"user\\",\\"content\\":\\"hello\\"}]}"',
   ].join('\n')
 
+  // Claude Code 配置（~/.claude/settings.json）
+  const claudeCodeConfig = [
+    '{',
+    '  "env": {',
+    `    "ANTHROPIC_BASE_URL": "${baseUrl}",`,
+    `    "ANTHROPIC_AUTH_TOKEN": "${safeKey}"`,
+    '  }',
+    '}',
+  ].join('\n')
+
+  // Codex CLI 配置（~/.codex/config.toml + ~/.codex/auth.json）
+  const codexConfig = [
+    '# ~/.codex/config.toml',
+    'model_provider = "custom"',
+    'model = "claude-sonnet-4-5-20250929"',
+    '',
+    '[model_providers.custom]',
+    'name = "custom"',
+    `base_url = "${baseUrl}"`,
+    'wire_api = "responses"',
+    'requires_openai_auth = true',
+    '',
+    '# ~/.codex/auth.json',
+    '{',
+    `  "OPENAI_API_KEY": "${safeKey}"`,
+    '}',
+  ].join('\n')
+
   return {
     anthropic: {
-      env: anthropicEnv},
+      env: anthropicEnv
+    },
     openai: {
       env: openaiEnv,
-      curl: openaiResponsesCurl},
+      curl: openaiResponsesCurl
+    },
     openaiChat: {
       env: openaiEnv,
-      curl: openaiChatCurl}}
+      curl: openaiChatCurl
+    },
+    claudeCode: {
+      config: claudeCodeConfig,
+      apiKey: realKey
+    },
+    codex: {
+      config: codexConfig,
+      apiKey: realKey
+    }
+  }
 }
 
-export const formatGatewayAccountOptionLabel = (account: any) => {
+export const formatGatewayAccountOptionLabel = (account: any): string => {
   const email = String(account?.email || '').trim()
   const userId = String(account?.userId || '').trim()
   return email || userId || '未知账号'
@@ -258,7 +334,7 @@ export const buildGatewayStatusSummary = ({ config, status, errorHistory, lastSt
   const errorHits = Array.isArray(errorHistory) ? errorHistory.reduce((sum, item) => sum + Number(item.count || 0), 0) : 0
 
   return {
-    listen: `${listenHost}:${listenPort}`,
+    listen: `http://${listenHost}:${listenPort}`,
     requests: String(status?.requestCount || 0),
     region: config?.region || 'us-east-1',
     logLevel: config?.logLevel || 'debug',
@@ -288,6 +364,16 @@ export const buildGatewayRoutingSummary = ({ config, counts, selectedLabels = {}
       modeDescription: '先锁定账号分组，再按策略和阈值从该分组中挑选可用账号。',
       selectionLabel: '当前分组',
       selectionValue: selectedLabels.group || '未选择分组',
+      inventorySummary,
+      strategySummary: `策略 ${config?.strategy || 'round_robin'} / 阈值 ${Number(config?.threshold) || 90}%`}
+  }
+
+  if (mode === 'pool') {
+    return {
+      modeLabel: '账号管理池',
+      modeDescription: '使用所有可用账号，按策略和阈值自动选择，不限制分组。',
+      selectionLabel: '账号范围',
+      selectionValue: '所有可用账号',
       inventorySummary,
       strategySummary: `策略 ${config?.strategy || 'round_robin'} / 阈值 ${Number(config?.threshold) || 90}%`}
   }
@@ -377,7 +463,7 @@ export const buildGatewayIntegrationSummary = ({ baseUrl, apiKey, clientApiKeysT
     errorDigest: `${errorCount} 条错误 / ${errorHits} 次命中`}
 }
 
-export const formatGatewayRequestDuration = (durationMs: any) => {
+export const formatGatewayRequestDuration = (durationMs: number): string => {
   const duration = Number(durationMs) || 0
   if (duration < 1000) {
     return `${duration} ms`
@@ -385,7 +471,7 @@ export const formatGatewayRequestDuration = (durationMs: any) => {
   return `${(duration / 1000).toFixed(duration >= 10_000 ? 0 : 2)} s`
 }
 
-export const getGatewayRequestOutcomeColor = (outcome: any) => {
+export const getGatewayRequestOutcomeColor = (outcome: string): string => {
   if (outcome === 'success') return 'teal'
   if (outcome === 'stream') return 'blue'
   if (outcome === 'error') return 'red'
@@ -400,39 +486,110 @@ export const buildGatewayRequestLogSummary = (entries: any) => {
   const maxDuration = logs.reduce((max, item) => Math.max(max, Number(item?.durationMs || 0)), 0)
   const latestOccurredAt = logs[0]?.occurredAt || '-'
 
+  // Prompt Caching 统计
+  let totalInputTokens = 0
+  let totalOutputTokens = 0
+  let totalCacheReadTokens = 0
+  let totalCacheCreationTokens = 0
+  let requestsWithCache = 0
+
+  logs.forEach(item => {
+    const inputTokens = Number(item?.inputTokens || 0)
+    const outputTokens = Number(item?.outputTokens || 0)
+    const cacheReadTokens = Number(item?.cacheReadInputTokens || 0)
+    const cacheCreationTokens = Number(item?.cacheCreationInputTokens || 0)
+
+    totalInputTokens += inputTokens
+    totalOutputTokens += outputTokens
+    totalCacheReadTokens += cacheReadTokens
+    totalCacheCreationTokens += cacheCreationTokens
+
+    if (cacheReadTokens > 0 || cacheCreationTokens > 0) {
+      requestsWithCache++
+    }
+  })
+
+  // 计算缓存命中率
+  const cacheHitRate = logs.length > 0 
+    ? Math.round((requestsWithCache / logs.length) * 100) 
+    : 0
+
+  // 计算节省成本百分比（缓存读取成本是输入成本的 10%）
+  const totalCacheableTokens = totalCacheReadTokens + totalCacheCreationTokens
+  const costSavings = totalCacheableTokens > 0
+    ? Math.round((totalCacheReadTokens / totalCacheableTokens) * 90)
+    : 0
+
   return {
     total: logs.length,
     errors,
     streaming,
     success,
     maxDurationLabel: formatGatewayRequestDuration(maxDuration),
-    latestOccurredAt}
+    latestOccurredAt,
+    // Prompt Caching 统计
+    totalInputTokens,
+    totalOutputTokens,
+    totalCacheReadTokens,
+    totalCacheCreationTokens,
+    requestsWithCache,
+    cacheHitRate,
+    costSavings,
+  }
 }
 
-const buildTopEntries = (values: any, limit = 5) => Object.entries(values)
-  .sort((left, right) => {
-    if (right[1] !== left[1]) {
-      return (right[1] as number) - (left[1] as number)
-    }
-    return left[0].localeCompare(right[0], 'zh-CN')
-  })
-  .slice(0, limit)
-  .map(([label, count]) => ({ label, count }))
+interface MetricEntry {
+  label: string
+  count: number
+  percent: string
+}
+
+const buildTopEntries = (values: Record<string, number>, total: number, limit = 5): MetricEntry[] =>
+  Object.entries(values)
+    .sort((left, right) => {
+      if (right[1] !== left[1]) {
+        return right[1] - left[1]
+      }
+      return left[0].localeCompare(right[0], 'zh-CN')
+    })
+    .slice(0, limit)
+    .map(([label, count]) => ({
+      label,
+      count,
+      percent: total > 0 ? `${Math.round((count / total) * 100)}%` : '0%'
+    }))
 
 export const buildGatewayMetricsSummary = (entries: any) => {
   const logs = Array.isArray(entries) ? entries : []
   const total = logs.length
-  const durations = logs.map(item => Number(item?.durationMs || 0))
-  const totalDuration = durations.reduce((sum, value) => sum + value, 0)
-  const avgDuration = total ? Math.round(totalDuration / total) : 0
+
+  if (total === 0) {
+    return {
+      total: 0,
+      avgDurationLabel: '0 ms',
+      successRateLabel: '0%',
+      errorRateLabel: '0%',
+      uniqueModels: 0,
+      uniqueUpstreams: 0,
+      topModels: [],
+      topUpstreams: [],
+      topStatuses: [],
+      topEndpoints: [],
+      topRegions: []
+    }
+  }
+
   const outcomeCounts = { success: 0, stream: 0, error: 0, other: 0 }
-  const modelCounts = {}
-  const upstreamCounts = {}
-  const statusCounts = {}
-  const endpointCounts = {}
-  const regionCounts = {}
+  const modelCounts: Record<string, number> = {}
+  const upstreamCounts: Record<string, number> = {}
+  const statusCounts: Record<string, number> = {}
+  const endpointCounts: Record<string, number> = {}
+  const regionCounts: Record<string, number> = {}
+  let totalDuration = 0
 
   logs.forEach(item => {
+    totalDuration += Number(item?.durationMs || 0)
+
     const outcome = String(item?.outcome || 'other')
     if (outcomeCounts[outcome] !== undefined) {
       outcomeCounts[outcome] += 1
@@ -456,21 +613,24 @@ export const buildGatewayMetricsSummary = (entries: any) => {
     regionCounts[region] = (regionCounts[region] || 0) + 1
   })
 
+  const avgDuration = Math.round(totalDuration / total)
+
   return {
     total,
     avgDurationLabel: formatGatewayRequestDuration(avgDuration),
-    successRateLabel: total ? `${Math.round((outcomeCounts.success / total) * 100)}%` : '0%',
-    errorRateLabel: total ? `${Math.round((outcomeCounts.error / total) * 100)}%` : '0%',
+    successRateLabel: `${Math.round((outcomeCounts.success / total) * 100)}%`,
+    errorRateLabel: `${Math.round((outcomeCounts.error / total) * 100)}%`,
     uniqueModels: Object.keys(modelCounts).length,
     uniqueUpstreams: Object.keys(upstreamCounts).length,
-    topModels: buildTopEntries(modelCounts),
-    topUpstreams: buildTopEntries(upstreamCounts),
-    topStatuses: buildTopEntries(statusCounts),
-    topEndpoints: buildTopEntries(endpointCounts),
-    topRegions: buildTopEntries(regionCounts)}
+    topModels: buildTopEntries(modelCounts, total),
+    topUpstreams: buildTopEntries(upstreamCounts, total),
+    topStatuses: buildTopEntries(statusCounts, total),
+    topEndpoints: buildTopEntries(endpointCounts, total),
+    topRegions: buildTopEntries(regionCounts, total)
+  }
 }
 
-const stringifyGatewayRequestLog = (entry: any) => {
+const stringifyGatewayRequestLog = (entry: any): string => {
   if (!entry || typeof entry !== 'object') {
     return ''
   }
@@ -494,7 +654,13 @@ const stringifyGatewayRequestLog = (entry: any) => {
     .toLowerCase()
 }
 
-export const filterGatewayRequestLogs = (entries: any, { outcome = 'all', query = '' }: any = {}) => {
+interface FilterOptions {
+  outcome?: string
+  query?: string
+}
+
+export const filterGatewayRequestLogs = (entries: any[], options: FilterOptions = {}): any[] => {
+  const { outcome = 'all', query = '' } = options
   const logs = Array.isArray(entries) ? entries : []
   const normalizedOutcome = String(outcome || 'all').trim()
   const normalizedQuery = String(query || '').trim().toLowerCase()
