@@ -201,11 +201,11 @@ pub struct UserInputMessageContext {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub shell_state: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tool_results: Option<Vec<KiroToolResult>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub tools: Option<Vec<KiroTool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_choice: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_results: Option<Vec<KiroToolResult>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_settings: Option<serde_json::Value>,
 }

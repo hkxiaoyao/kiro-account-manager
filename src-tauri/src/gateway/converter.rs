@@ -778,7 +778,7 @@ pub async fn build_kiro_payload(
             chat_trigger_type: "MANUAL".to_string(),
             conversation_id: conversation_id.clone(),
             agent_continuation_id: Some(agent_continuation_id),
-            agent_task_type: Some("VIBE".to_string()),
+            agent_task_type: Some("vibe".to_string()),
             current_message: CurrentMessage {
                 user_input_message: UserInputMessage {
                     content: current_content,
