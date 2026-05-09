@@ -440,14 +440,13 @@ export default function SessionManager() {
                         </button>
 
                         {/* Checkbox */}
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={selectedWorkspaceHashes.has(workspace)}
-                          onChange={(e) => {
-                            e.stopPropagation()
+                          onCheckedChange={(checked) => {
                             toggleWorkspaceSelection(workspace)
                           }}
-                          className="h-4 w-4 rounded border-gray-300 cursor-pointer shrink-0"
+                          onClick={(e) => e.stopPropagation()}
+                          className="shrink-0 cursor-pointer"
                         />
 
                         {/* Workspace Name */}
