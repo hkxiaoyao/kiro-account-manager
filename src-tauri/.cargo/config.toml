@@ -7,14 +7,9 @@ incremental = true
 pipelining = true
 
 # Windows 使用默认链接器（lld 在 Windows 上可能有兼容性问题）
-# Linux/macOS 使用 lld 链接器
+# Linux 使用 lld 链接器
+# macOS 使用默认链接器（不支持 lld）
 [target.x86_64-unknown-linux-gnu]
-rustflags = ["-C", "link-arg=-fuse-ld=lld"]
-
-[target.x86_64-apple-darwin]
-rustflags = ["-C", "link-arg=-fuse-ld=lld"]
-
-[target.aarch64-apple-darwin]
 rustflags = ["-C", "link-arg=-fuse-ld=lld"]
 
 # 网络配置
