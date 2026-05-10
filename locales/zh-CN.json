@@ -238,7 +238,6 @@
   "settings.agentAutopilot": "自动驾驶 - 自动执行修改",
   "settings.enableTabAutocomplete": "启用 Tab 自动补全",
   "settings.usageSummary": "显示使用量摘要",
-  "settings.codeReferences": "显示代码引用",
   "settings.enableDebugLogs": "启用调试日志",
   "settings.notifications": "通知设置",
   "settings.notifyActionRequired": "需要操作时通知",

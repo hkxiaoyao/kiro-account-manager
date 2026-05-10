@@ -6,13 +6,11 @@ interface SettingsAgentProps {
   enableCodebaseIndexing: boolean;
   enableTabAutocomplete: boolean;
   usageSummary: boolean;
-  codeReferences: boolean;
   enableDebugLogs: boolean;
   referenceTracker: boolean;
   handleCodebaseIndexingChange: (checked: boolean) => Promise<void>;
   handleTabAutocompleteChange: (checked: boolean) => Promise<void>;
   handleUsageSummaryChange: (checked: boolean) => Promise<void>;
-  handleCodeReferencesChange: (checked: boolean) => Promise<void>;
   handleDebugLogsChange: (checked: boolean) => Promise<void>;
   handleReferenceTrackerChange: (checked: boolean) => Promise<void>;
   t: (key: string) => string;
@@ -22,13 +20,11 @@ function SettingsAgent({
   enableCodebaseIndexing,
   enableTabAutocomplete,
   usageSummary,
-  codeReferences,
   enableDebugLogs,
   referenceTracker,
   handleCodebaseIndexingChange,
   handleTabAutocompleteChange,
   handleUsageSummaryChange,
-  handleCodeReferencesChange,
   handleDebugLogsChange,
   handleReferenceTrackerChange,
   t
@@ -53,16 +49,12 @@ function SettingsAgent({
             <span className="text-xs text-foreground">{t('settings.usageSummary')}</span>
           </div>
           <div className="flex items-center gap-2 cursor-pointer p-2 rounded-lg border border-border bg-muted/30 hover:bg-muted/50">
-            <Switch checked={codeReferences} onCheckedChange={handleCodeReferencesChange} />
-            <span className="text-xs text-foreground">{t('settings.codeReferences')}</span>
+            <Switch checked={referenceTracker} onCheckedChange={handleReferenceTrackerChange} />
+            <span className="text-xs text-foreground">{t('settings.referenceTracker')}</span>
           </div>
           <div className="flex items-center gap-2 cursor-pointer p-2 rounded-lg border border-border bg-muted/30 hover:bg-muted/50">
             <Switch checked={enableDebugLogs} onCheckedChange={handleDebugLogsChange} />
             <span className="text-xs text-foreground">{t('settings.enableDebugLogs')}</span>
-          </div>
-          <div className="flex items-center gap-2 cursor-pointer p-2 rounded-lg border border-border bg-muted/30 hover:bg-muted/50">
-            <Switch checked={referenceTracker} onCheckedChange={handleReferenceTrackerChange} />
-            <span className="text-xs text-foreground">{t('settings.referenceTracker')}</span>
           </div>
         </div>
       </CardContent>

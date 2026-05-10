@@ -45,7 +45,6 @@ pub struct KiroSettings {
     pub agent_autonomy: Option<String>,
     pub enable_tab_autocomplete: bool,
     pub usage_summary: bool,
-    pub code_references: bool,
     pub enable_debug_logs: bool,
     // 通知设置
     pub notify_action_required: bool,
@@ -74,7 +73,6 @@ impl Default for KiroSettings {
             agent_autonomy: Some("Supervised".to_string()),
             enable_tab_autocomplete: true,
             usage_summary: true,
-            code_references: true,
             enable_debug_logs: false,
             notify_action_required: true,
             notify_failure: true,
@@ -320,10 +318,6 @@ fn get_kiro_settings_inner() -> Result<KiroSettings, String> {
     let usage_summary = app_settings.usage_summary.unwrap_or(true);
     ide_modified |= upsert_bool_if_changed(&mut json, "kiroAgent.usageSummary", usage_summary);
 
-    // codeReferences
-    let code_references = app_settings.code_references.unwrap_or(true);
-    ide_modified |= upsert_bool_if_changed(&mut json, "kiroAgent.codeReferences", code_references);
-
     // enableDebugLogs
     let debug_logs = app_settings.enable_debug_logs.unwrap_or(false);
     ide_modified |= upsert_bool_if_changed(&mut json, "kiroAgent.enableDebugLogs", debug_logs);
@@ -417,7 +411,6 @@ fn get_kiro_settings_inner() -> Result<KiroSettings, String> {
         agent_autonomy: get_string_value(&json, "kiroAgent.agentAutonomy"),
         enable_tab_autocomplete: tab_autocomplete,
         usage_summary,
-        code_references,
         enable_debug_logs: debug_logs,
         notify_action_required: notify_action,
         notify_failure,
@@ -593,19 +586,6 @@ pub async fn set_kiro_usage_summary(enabled: bool) -> Result<(), String> {
     run_kiro_blocking(move || set_kiro_usage_summary_inner(enabled)).await
 }
 
-// 设置代码引用
-fn set_kiro_code_references_inner(enabled: bool) -> Result<(), String> {
-    set_kiro_generic_inner(
-        "kiroAgent.codeReferences".to_string(),
-        serde_json::json!(enabled),
-    )
-}
-
-#[tauri::command]
-pub async fn set_kiro_code_references(enabled: bool) -> Result<(), String> {
-    run_kiro_blocking(move || set_kiro_code_references_inner(enabled)).await
-}
-
 // 设置调试日志
 fn set_kiro_debug_logs_inner(enabled: bool) -> Result<(), String> {
     set_kiro_generic_inner(
@@ -687,9 +667,6 @@ fn sync_to_app_settings(key: &str, value: &serde_json::Value) {
         }
         "kiroAgent.usageSummary" => {
             app.usage_summary = value.as_bool();
-        }
-        "kiroAgent.codeReferences" => {
-            app.code_references = value.as_bool();
         }
         "kiroAgent.enableDebugLogs" => {
             app.enable_debug_logs = value.as_bool();

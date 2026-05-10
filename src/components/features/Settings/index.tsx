@@ -49,7 +49,6 @@ function Settings() {
     const [agentAutonomy, setAgentAutonomy] = useState('Supervised') // 'Autopilot' | 'Supervised'
     const [enableTabAutocomplete, setEnableTabAutocomplete] = useState(true)
     const [usageSummary, setUsageSummary] = useState(true)
-    const [codeReferences, setCodeReferences] = useState(true)
     const [enableDebugLogs, setEnableDebugLogs] = useState(false)
 
     // 通知设置
@@ -113,7 +112,6 @@ function Settings() {
                 setAgentAutonomy(kiroSettings.agentAutonomy || 'Supervised')
                 setEnableTabAutocomplete(kiroSettings.enableTabAutocomplete ?? true)
                 setUsageSummary(kiroSettings.usageSummary ?? true)
-                setCodeReferences(kiroSettings.codeReferences ?? true)
                 setEnableDebugLogs(kiroSettings.enableDebugLogs ?? false)
                 // 通知设置
                 setNotifyActionRequired(kiroSettings.notifyActionRequired ?? true)
@@ -329,11 +327,6 @@ function Settings() {
     const handleUsageSummaryChange = async (checked: boolean) => {
         setUsageSummary(checked)
         await runKiroCommand('set_kiro_usage_summary', { enabled: checked }, { usageSummary: checked })
-    }
-
-    const handleCodeReferencesChange = async (checked: boolean) => {
-        setCodeReferences(checked)
-        await runKiroCommand('set_kiro_code_references', { enabled: checked }, { codeReferences: checked })
     }
 
     const handleDebugLogsChange = async (checked: boolean) => {
@@ -565,13 +558,11 @@ function Settings() {
                             enableCodebaseIndexing={enableCodebaseIndexing}
                             enableTabAutocomplete={enableTabAutocomplete}
                             usageSummary={usageSummary}
-                            codeReferences={codeReferences}
                             enableDebugLogs={enableDebugLogs}
                             referenceTracker={referenceTracker}
                             handleCodebaseIndexingChange={handleCodebaseIndexingChange}
                             handleTabAutocompleteChange={handleTabAutocompleteChange}
                             handleUsageSummaryChange={handleUsageSummaryChange}
-                            handleCodeReferencesChange={handleCodeReferencesChange}
                             handleDebugLogsChange={handleDebugLogsChange}
                             handleReferenceTrackerChange={handleReferenceTrackerChange}
                             t={t}

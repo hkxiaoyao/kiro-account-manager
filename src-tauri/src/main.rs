@@ -68,7 +68,7 @@ use commands::kiro_cli_cmd::{
 };
 //kiroshe
 use commands::kiro_settings_cmd::{
-    get_kiro_settings, set_kiro_agent_autonomy, set_kiro_code_references,
+    get_kiro_settings, set_kiro_agent_autonomy,
     set_kiro_codebase_indexing, set_kiro_configure_mcp, set_kiro_debug_logs, set_kiro_model,
     set_kiro_notification, set_kiro_proxy, set_kiro_reference_tracker, set_kiro_tab_autocomplete,
     set_kiro_telemetry, set_kiro_trusted_commands, set_kiro_trusted_tools, set_kiro_usage_summary,
@@ -337,7 +337,6 @@ fn main() {
             set_kiro_agent_autonomy,
             set_kiro_tab_autocomplete,
             set_kiro_usage_summary,
-            set_kiro_code_references,
             set_kiro_debug_logs,
             set_kiro_notification,
             set_kiro_trusted_tools,
