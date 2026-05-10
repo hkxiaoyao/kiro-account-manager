@@ -173,7 +173,7 @@ npm run tauri build  # 构建发行版
 
 ## 💖 赞助
 
-如果这个项目对你有帮助，可以请作者喝杯咖啡 ☕
+如果这个项目对你有帮助，可以请作者喝杯咖啡 ☕（请备注 GitHub 用户名，方便添加到赞赏名单）
 
 <p align="center">
   <img src="src/assets/donate/wechat.jpg" alt="微信" width="200">
