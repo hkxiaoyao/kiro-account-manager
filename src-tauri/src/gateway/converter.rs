@@ -1041,6 +1041,19 @@ fn convert_responses_input_items(items: &[Value]) -> Vec<NormalizedMessage> {
             "input_text" | "output_text" | "input_image" | "image_url" | "image" => {
                 pending_user_items.push(item.clone());
             }
+            "compaction" => {
+                // Compact item 需要原样保留，作为 system 消息传递
+                flush_pending_responses_user_items(&mut messages, &mut pending_user_items);
+                messages.push(NormalizedMessage {
+                    role: "system".to_string(),
+                    content: Some(item.clone()),
+                    tool_calls: None,
+                    tool_call_id: None,
+                    metadata: Some(json!({
+                        "is_compaction": true
+                    })),
+                });
+            }
             _ => {}
         }
     }
@@ -3192,6 +3205,63 @@ mod tests {
                 panic!("expected ImageSource::Bytes, got ImageSource::Other");
             }
         }
+    }
+
+    #[test]
+    fn normalize_responses_request_preserves_compaction_items() {
+        // 测试：Responses API 的 compaction item 应该被保留
+        let payload = json!({
+            "model": "gpt-5",
+            "input": [
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": "Hello"
+                },
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": "Hi there!"
+                },
+                {
+                    "type": "compaction",
+                    "data": "encrypted_compaction_data_here"
+                },
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": "Continue"
+                }
+            ]
+        });
+
+        let normalized = normalize_responses_request(&payload).expect("should normalize successfully");
+        
+        // 验证消息数量：user + assistant + compaction + user = 4
+        assert_eq!(normalized.messages.len(), 4, "should have 4 messages");
+        
+        // 验证 compaction item 被保留为 system 消息
+        assert_eq!(normalized.messages[2].role, "system", "compaction should be system role");
+        assert!(
+            normalized.messages[2].metadata.as_ref()
+                .and_then(|m| m.get("is_compaction"))
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false),
+            "compaction should have is_compaction metadata"
+        );
+        
+        // 验证 compaction 内容被原样保留
+        let compaction_content = normalized.messages[2].content.as_ref().unwrap();
+        assert_eq!(
+            compaction_content.get("type").and_then(|v| v.as_str()),
+            Some("compaction"),
+            "compaction type should be preserved"
+        );
+        assert_eq!(
+            compaction_content.get("data").and_then(|v| v.as_str()),
+            Some("encrypted_compaction_data_here"),
+            "compaction data should be preserved"
+        );
     }
 }
 
