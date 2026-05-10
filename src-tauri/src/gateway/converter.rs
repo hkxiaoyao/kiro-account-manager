@@ -1258,7 +1258,7 @@ fn merge_adjacent_messages(messages: &[&NormalizedMessage]) -> Vec<NormalizedMes
 
     for message in messages {
         if let Some(last) = merged.last_mut() {
-            if last.role == message.role {
+            if last.role == message.role && last.role != "tool" {
                 let existing = extract_text_content(last.content.as_ref());
                 let incoming = extract_text_content(message.content.as_ref());
                 last.content = Some(Value::String(join_with_newline(&existing, &incoming)));
