@@ -26,7 +26,6 @@ pub struct AppSettings {
     pub enable_codebase_indexing: Option<bool>,
     pub enable_tab_autocomplete: Option<bool>,
     pub usage_summary: Option<bool>,
-    pub code_references: Option<bool>,
     pub enable_debug_logs: Option<bool>,
     pub notify_action_required: Option<bool>,
     pub notify_failure: Option<bool>,
@@ -68,7 +67,6 @@ impl Default for AppSettings {
             enable_codebase_indexing: Some(true),
             enable_tab_autocomplete: Some(true),
             usage_summary: Some(true),
-            code_references: Some(true),
             enable_debug_logs: Some(false),
             notify_action_required: Some(true),
             notify_failure: Some(true),
@@ -111,7 +109,6 @@ impl AppSettings {
         apply_if_some!(enable_codebase_indexing);
         apply_if_some!(enable_tab_autocomplete);
         apply_if_some!(usage_summary);
-        apply_if_some!(code_references);
         apply_if_some!(enable_debug_logs);
         apply_if_some!(notify_action_required);
         apply_if_some!(notify_failure);

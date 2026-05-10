@@ -68,7 +68,7 @@ use commands::kiro_cli_cmd::{
 };
 //kiroshe
 use commands::kiro_settings_cmd::{
-    get_kiro_settings, set_kiro_agent_autonomy, set_kiro_code_references,
+    get_kiro_settings, set_kiro_agent_autonomy,
     set_kiro_codebase_indexing, set_kiro_configure_mcp, set_kiro_debug_logs, set_kiro_model,
     set_kiro_notification, set_kiro_proxy, set_kiro_reference_tracker, set_kiro_tab_autocomplete,
     set_kiro_telemetry, set_kiro_trusted_commands, set_kiro_trusted_tools, set_kiro_usage_summary,
@@ -231,18 +231,6 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-#[tauri::command]
-fn show_main_window(app: tauri::AppHandle) -> Result<(), String> {
-    let window = app
-        .get_webview_window("main")
-        .ok_or("main window not found")?;
-
-    window.show().map_err(|e| e.to_string())?;
-    window.set_focus().map_err(|e| e.to_string())?;
-
-    Ok(())
-}
-
 #[allow(clippy::too_many_lines)] // Tauri 框架要求在 main 中注册所有命令，无法拆分
 fn main() {
     tauri::Builder::default()
@@ -337,7 +325,6 @@ fn main() {
             set_kiro_agent_autonomy,
             set_kiro_tab_autocomplete,
             set_kiro_usage_summary,
-            set_kiro_code_references,
             set_kiro_debug_logs,
             set_kiro_notification,
             set_kiro_trusted_tools,
@@ -367,8 +354,6 @@ fn main() {
             restart_as_admin,
             // 浏览器检测
             detect_installed_browsers,
-            // 窗口控制
-            show_main_window,
             // MCP 管理命令
             get_mcp_config,
             save_mcp_server,
