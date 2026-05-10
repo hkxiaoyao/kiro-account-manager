@@ -454,58 +454,81 @@ fn string_array_from_values(values: &[Value]) -> Vec<String> {
 }
 
 pub fn get_internal_model_id(external_model: &str) -> Result<String, String> {
+    // 最后更新：2026-05-10
+    // 模型映射基于 Kiro ListAvailableModels API 实际返回
+    // OpenAI 模型列表参考：https://developers.openai.com/api/docs/models/all
     let normalized_model = normalize_external_model_alias(external_model);
     let model_id = match normalized_model.as_str() {
-        // OpenAI GPT 模型映射到 Claude
-        "gpt-5.5" | "gpt-5.5-turbo" | "gpt-5.5-preview" => "claude-opus-4.7",
-        "gpt-4o" | "gpt-4o-2024-11-20" | "gpt-4o-2024-08-06" => "claude-opus-4.7",
-        "gpt-4o-mini" | "gpt-4o-mini-2024-07-18" => "claude-sonnet-4.7",
-        "o1" | "o1-preview" | "o1-2024-12-17" => "claude-opus-4.7",
-        "o1-mini" | "o1-mini-2024-09-12" => "claude-sonnet-4.7",
-        "o3" | "o3-mini" | "o3-mini-2025-01-31" => "claude-sonnet-4.7",
-        "gpt-4-turbo" | "gpt-4-turbo-preview" | "gpt-4-1106-preview" | "gpt-4-0125-preview" => "claude-opus-4.7",
-        "gpt-4" | "gpt-4-0613" | "gpt-4-32k" => "claude-opus-4.7",
-        "gpt-3.5-turbo" | "gpt-3.5-turbo-16k" | "gpt-3.5-turbo-0125" => "claude-haiku-4.7",
-        // Claude 4.7 系列
+        // ============================================================
+        // OpenAI GPT 模型映射到 Claude（仅当前可用模型）
+        // ============================================================
+        // GPT-5.5 系列（最新旗舰）-> Opus 4.7
+        "gpt-5.5" | "gpt-5.5-pro" => "claude-opus-4.7",
+        // GPT-5.4 系列 -> Opus/Sonnet 4.6
+        "gpt-5.4" | "gpt-5.4-pro" => "claude-opus-4.6",
+        "gpt-5.4-mini" => "claude-sonnet-4.6",
+        "gpt-5.4-nano" => "claude-sonnet-4.5",
+        // GPT-5 系列 -> Opus/Sonnet 4.5
+        "gpt-5" | "gpt-5-pro" => "claude-opus-4.5",
+        "gpt-5-mini" | "gpt-5-nano" => "claude-sonnet-4.5",
+        // ============================================================
+        // OpenAI Codex 模型映射
+        // ============================================================
+        "gpt-5.3-codex" => "claude-opus-4.6",
+        "gpt-5.2-codex" | "gpt-5.1-codex" | "gpt-5.1-codex-max" => "claude-opus-4.5",
+        "gpt-5.1-codex-mini" | "gpt-5-codex" => "claude-sonnet-4.5",
+        // ============================================================
+        // Claude 4.7 系列（目前仅 Opus 存在）
+        // ============================================================
         "claude-opus-4-7" | "claude-opus-4.7" | "opus-4-7" | "opus" => "claude-opus-4.7",
         "claude-opus-4-7-thinking" | "claude-opus-4.7-thinking" => "claude-opus-4.7",
-        "claude-sonnet-4-7" | "claude-sonnet-4.7" | "sonnet-4-7" | "sonnet" => "claude-sonnet-4.7",
-        "claude-sonnet-4-7-thinking" | "claude-sonnet-4.7-thinking" => "claude-sonnet-4.7",
-        "claude-haiku-4-7" | "claude-haiku-4.7" | "haiku-4-7" | "haiku" => "claude-haiku-4.7",
-        "claude-haiku-4-7-thinking" | "claude-haiku-4.7-thinking" => "claude-haiku-4.7",
-        // Claude 4.6 系列
-        "claude-opus-4-6-20260205" => "claude-opus-4.6",
+        // TODO: 待 Kiro API 支持 Sonnet/Haiku 4.7 后启用
+        // "claude-sonnet-4-7" | "claude-sonnet-4.7" | "sonnet-4-7" => "claude-sonnet-4.7",
+        // "claude-sonnet-4-7-thinking" | "claude-sonnet-4.7-thinking" => "claude-sonnet-4.7",
+        // "claude-haiku-4-7" | "claude-haiku-4.7" | "haiku-4-7" => "claude-haiku-4.7",
+        // "claude-haiku-4-7-thinking" | "claude-haiku-4.7-thinking" => "claude-haiku-4.7",
+        // ============================================================
+        // Claude 4.6 系列（Opus 和 Sonnet）
+        // ============================================================
         "claude-opus-4-6" | "claude-opus-4.6" | "opus-4-6" => "claude-opus-4.6",
         "claude-opus-4-6-thinking" | "claude-opus-4.6-thinking" => "claude-opus-4.6",
-        "claude-sonnet-4-6-20260217" => "claude-sonnet-4.6",
-        "claude-sonnet-4-6" | "claude-sonnet-4.6" | "sonnet-4-6" => "claude-sonnet-4.6",
+        "claude-sonnet-4-6" | "claude-sonnet-4.6" | "sonnet-4-6" | "sonnet" => "claude-sonnet-4.6",
         "claude-sonnet-4-6-thinking" | "claude-sonnet-4.6-thinking" => "claude-sonnet-4.6",
-        "claude-haiku-4-6" | "claude-haiku-4.6" | "haiku-4-6" => "claude-haiku-4.6",
-        "claude-haiku-4-6-thinking" | "claude-haiku-4.6-thinking" => "claude-haiku-4.6",
-        // Claude 4.5 系列（带日期）
-        "claude-opus-4-5" | "claude-opus-4.5" => "claude-opus-4-5-20251101",
-        "claude-opus-4-5-20251101" | "claude-opus-4-5-20251101-thinking" => "claude-opus-4-5-20251101",
-        "claude-sonnet-4-5" | "claude-sonnet-4.5" | "claude-sonnet-latest" => "claude-sonnet-4-5-20250929",
-        "claude-sonnet-4-5-20250929" | "claude-sonnet-4-5-20250929-thinking" => "claude-sonnet-4-5-20250929",
-        "claude-haiku-4-5" | "claude-haiku-4.5" => "claude-haiku-4-5-20251001",
-        "claude-haiku-4-5-20251001" | "claude-haiku-4-5-20251001-thinking" => "claude-haiku-4-5-20251001",
+        // ============================================================
+        // Claude 4.5 系列
+        // ============================================================
+        "claude-opus-4-5" | "claude-opus-4.5" => "claude-opus-4.5",
+        "claude-opus-4-5-thinking" | "claude-opus-4.5-thinking" => "claude-opus-4.5",
+        "claude-sonnet-4-5" | "claude-sonnet-4.5" | "claude-sonnet-latest" => "claude-sonnet-4.5",
+        "claude-sonnet-4-5-thinking" | "claude-sonnet-4.5-thinking" => "claude-sonnet-4.5",
+        "claude-haiku-4-5" | "claude-haiku-4.5" | "haiku-4-5" | "haiku" => "claude-haiku-4.5",
+        "claude-haiku-4-5-thinking" | "claude-haiku-4.5-thinking" => "claude-haiku-4.5",
+        // ============================================================
         // Claude 4 系列
-        "claude-sonnet-4" | "claude-sonnet-4-20250514" => "claude-sonnet-4",
-        // Claude 3.x 系列
-        "claude-3-7-sonnet-20250219" | "claude-3.7-sonnet" => "claude-3-7-sonnet-20250219",
-        "claude-3-5-sonnet-20241022" | "claude-3-5-sonnet-latest" | "claude-3.5-sonnet" => {
-            "claude-3-5-sonnet-20241022"
-        }
+        // ============================================================
+        "claude-sonnet-4" => "claude-sonnet-4",
+        "claude-sonnet-4-thinking" => "claude-sonnet-4",
+        // ============================================================
+        // 开源模型
+        // ============================================================
+        "deepseek-3-2" | "deepseek-3.2" | "deepseek" => "deepseek-3.2",
+        "minimax-m2-5" | "minimax-m2.5" | "minimax" => "minimax-m2.5",
+        "minimax-m2-1" | "minimax-m2.1" => "minimax-m2.1",
+        "glm-5" | "glm5" => "glm-5",
+        "qwen3-coder-next" | "qwen3-coder" | "qwen3" | "qwen" => "qwen3-coder-next",
+        // ============================================================
         // 特殊模式
+        // ============================================================
         "auto" | "default" => "auto",
+        // ============================================================
         // 前缀匹配（支持未来版本）
+        // ============================================================
         other if other.starts_with("gpt-5.5-") => "claude-opus-4.7",
+        other if other.starts_with("gpt-5.4-") => "claude-opus-4.6",
+        other if other.starts_with("gpt-5-") => "claude-opus-4.5",
         other if other.starts_with("claude-opus-4-7-") => "claude-opus-4.7",
-        other if other.starts_with("claude-sonnet-4-7-") => "claude-sonnet-4.7",
-        other if other.starts_with("claude-haiku-4-7-") => "claude-haiku-4.7",
         other if other.starts_with("claude-opus-4-6-") => "claude-opus-4.6",
         other if other.starts_with("claude-sonnet-4-6-") => "claude-sonnet-4.6",
-        other if other.starts_with("claude-haiku-4-6-") => "claude-haiku-4.6",
         other => other,
     };
 
@@ -526,15 +549,20 @@ pub fn get_internal_model_id_with_fallback(
         return Ok(mapped_model);
     }
 
-    // 降级策略：4.7/4.6 -> 4.5
-    let fallback = if mapped_model.contains("opus-4.7") || mapped_model.contains("opus-4.6") {
+    // 降级策略：4.7 -> 4.6 -> 4.5
+    let fallback = if mapped_model.contains("opus-4.7") {
+        // Opus 4.7 -> Opus 4.6 -> Opus 4.5
+        if available_models.iter().any(|m| m.contains("opus-4.6")) {
+            "claude-opus-4.6"
+        } else {
+            "claude-opus-4.5"
+        }
+    } else if mapped_model.contains("opus-4.6") {
         "claude-opus-4.5"
-    } else if mapped_model.contains("sonnet-4.7") || mapped_model.contains("sonnet-4.6") {
+    } else if mapped_model.contains("sonnet-4.6") {
         "claude-sonnet-4.5"
-    } else if mapped_model.contains("haiku-4.7") || mapped_model.contains("haiku-4.6") {
-        "claude-haiku-4.5"
     } else {
-        // 如果不是 4.6/4.7 模型，或者降级后的模型也不可用，返回原模型
+        // 如果不是高版本模型，返回原模型
         return Ok(mapped_model);
     };
 
@@ -802,33 +830,42 @@ pub async fn build_kiro_payload(
 }
 
 pub fn get_available_models() -> Vec<ModelInfo> {
+    // 最后更新：2026-05-10
+    // 数据来源：Kiro ListAvailableModels API 实际返回
+    // API 返回的 modelId：auto, claude-opus-4.7, claude-opus-4.6, claude-sonnet-4.6,
+    //   claude-opus-4.5, claude-sonnet-4.5, claude-sonnet-4, claude-haiku-4.5,
+    //   deepseek-3.2, minimax-m2.5, minimax-m2.1, glm-5, qwen3-coder-next
     [
-        // Claude 4.7 系列（不带日期）
-        "claude-opus-4-7",
-        "claude-opus-4-7-thinking",
-        "claude-sonnet-4-7",
-        "claude-sonnet-4-7-thinking",
-        "claude-haiku-4-7",
-        "claude-haiku-4-7-thinking",
-        // Claude 4.6 系列（不带日期）
-        "claude-opus-4-6",
-        "claude-opus-4-6-thinking",
-        "claude-sonnet-4-6",
-        "claude-sonnet-4-6-thinking",
-        "claude-haiku-4-6",
-        "claude-haiku-4-6-thinking",
-        // Claude 4.5 系列（带日期）
-        "claude-opus-4-5-20251101",
-        "claude-opus-4-5-20251101-thinking",
-        "claude-sonnet-4-5-20250929",
-        "claude-sonnet-4-5-20250929-thinking",
-        "claude-haiku-4-5-20251001",
-        "claude-haiku-4-5-20251001-thinking",
+        // 自动选择
+        "auto",
+        // Claude 4.7 系列（目前仅 Opus 4.7）
+        "claude-opus-4.7",
+        "claude-opus-4.7-thinking",
+        // "claude-sonnet-4.7",        // TODO: 待 Kiro API 支持后启用
+        // "claude-sonnet-4.7-thinking",
+        // "claude-haiku-4.7",         // TODO: 待 Kiro API 支持后启用
+        // "claude-haiku-4.7-thinking",
+        // Claude 4.6 系列（Opus 和 Sonnet）
+        "claude-opus-4.6",
+        "claude-opus-4.6-thinking",
+        "claude-sonnet-4.6",
+        "claude-sonnet-4.6-thinking",
+        // Claude 4.5 系列
+        "claude-opus-4.5",
+        "claude-opus-4.5-thinking",
+        "claude-sonnet-4.5",
+        "claude-sonnet-4.5-thinking",
+        "claude-haiku-4.5",
+        "claude-haiku-4.5-thinking",
         // Claude 4 系列
         "claude-sonnet-4",
-        "claude-sonnet-4-20250514",
-        // Claude 3.x 系列
-        "claude-3-7-sonnet-20250219",
+        "claude-sonnet-4-thinking",
+        // 开源模型
+        "deepseek-3.2",
+        "minimax-m2.5",
+        "minimax-m2.1",
+        "glm-5",
+        "qwen3-coder-next",
     ]
     .into_iter()
     .map(|id| ModelInfo {
