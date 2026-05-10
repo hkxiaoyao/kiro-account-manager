@@ -3641,6 +3641,21 @@ fn stream_proxy_response(
                                                 }
                                             }
                                         }
+                                        KiroEvent::Metering { unit, unit_plural, usage } => {
+                                            // 记录 metering 信息到聚合响应
+                                            aggregated.metering_usage = Some(usage);
+                                            
+                                            // 如果是 Anthropic 格式，发送 metering 事件
+                                            if matches!(format, ResponseFormat::Anthropic) {
+                                                let data = json!({
+                                                    "type": "metering",
+                                                    "unit": unit,
+                                                    "unitPlural": unit_plural,
+                                                    "usage": usage
+                                                });
+                                                send_event(&tx, Some("metering"), &data.to_string()).await;
+                                            }
+                                        }
                                     }
                                 }
 

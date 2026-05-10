@@ -23,6 +23,11 @@ pub enum KiroEvent {
     ContextUsage {
         percentage: f32,
     },
+    Metering {
+        unit: String,
+        unit_plural: String,
+        usage: f64,
+    },
     Citation {
         text: Option<String>,
         link: String,
@@ -47,6 +52,7 @@ pub struct AggregatedKiroResponse {
     pub cache_read_input_tokens: Option<i32>,
     pub cache_creation_input_tokens: Option<i32>,
     pub context_usage_percentage: Option<f32>,
+    pub metering_usage: Option<f64>,
     pub citations: Vec<AggregatedCitation>,
 }
 
@@ -134,6 +140,31 @@ pub fn parse_kiro_event_full(json_str: &str) -> Option<KiroEvent> {
         return Some(KiroEvent::ContextUsage {
             percentage: percentage as f32,
         });
+    }
+
+    if let Some(metering) = value.get("meteringEvent").and_then(|item| item.as_object()) {
+        let unit = metering
+            .get("unit")
+            .and_then(|item| item.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let unit_plural = metering
+            .get("unitPlural")
+            .and_then(|item| item.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let usage = metering
+            .get("usage")
+            .and_then(|item| item.as_f64())
+            .unwrap_or(0.0);
+
+        if !unit.is_empty() {
+            return Some(KiroEvent::Metering {
+                unit,
+                unit_plural,
+                usage,
+            });
+        }
     }
 
     if let Some(text) = parse_reasoning_text(&value) {
@@ -286,6 +317,9 @@ pub fn aggregate_kiro_response(raw: &str) -> AggregatedKiroResponse {
                 }
                 KiroEvent::ContextUsage { percentage } => {
                     aggregated.context_usage_percentage = Some(percentage);
+                }
+                KiroEvent::Metering { usage, .. } => {
+                    aggregated.metering_usage = Some(usage);
                 }
                 KiroEvent::Citation { text, link, target } => {
                     aggregated
@@ -555,6 +589,18 @@ mod tests {
         assert_eq!(
             parse_kiro_event_full(r#"{"reasoningContentEvent":{"text":"分析中"}}"#),
             Some(KiroEvent::Thinking("分析中".to_string()))
+        );
+    }
+
+    #[test]
+    fn parse_kiro_event_full_reads_metering_event() {
+        assert_eq!(
+            parse_kiro_event_full(r#"{"meteringEvent":{"unit":"credit","unitPlural":"credits","usage":0.3876425741791045}}"#),
+            Some(KiroEvent::Metering {
+                unit: "credit".to_string(),
+                unit_plural: "credits".to_string(),
+                usage: 0.3876425741791045,
+            })
         );
     }
 

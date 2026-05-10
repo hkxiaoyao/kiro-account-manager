@@ -691,7 +691,6 @@ pub async fn build_kiro_payload(
                     let images = extract_images(client, message.content.as_ref()).await;
                     let mut user_context = build_user_context(
                         None,
-                        None,
                         extract_tool_results(message.content.as_ref()),
                     );
                     
@@ -727,7 +726,6 @@ pub async fn build_kiro_payload(
                             origin: "AI_EDITOR".to_string(),
                             images: None,
                             user_input_message_context: build_user_context(
-                                None,
                                 None,
                                 extract_tool_results_from_tool_message(message),
                             ),
@@ -790,7 +788,6 @@ pub async fn build_kiro_payload(
                     images: images_option(current_images),
                     user_input_message_context: build_user_context(
                         convert_tools(&processed_tools),
-                        normalize_tool_choice(&request.tool_choice, &processed_tools)?,
                         current_tool_results,
                     ),
                     user_intent: None,
@@ -1221,10 +1218,9 @@ fn merge_adjacent_messages(messages: &[&NormalizedMessage]) -> Vec<NormalizedMes
 
 fn build_user_context(
     tools: Option<Vec<KiroTool>>,
-    tool_choice: Option<Value>,
     tool_results: Vec<KiroToolResult>,
 ) -> Option<UserInputMessageContext> {
-    if tools.is_none() && tool_choice.is_none() && tool_results.is_empty() {
+    if tools.is_none() && tool_results.is_empty() {
         return None;
     }
 
@@ -1237,13 +1233,12 @@ fn build_user_context(
         env_state: None,
         git_state: None,
         shell_state: None,
-        tools,
-        tool_choice,
         tool_results: if tool_results.is_empty() {
             None
         } else {
             Some(tool_results)
         },
+        tools,
         user_settings: None,
     })
 }
@@ -1506,7 +1501,7 @@ fn extract_tool_results(content: Option<&Value>) -> Vec<KiroToolResult> {
             };
 
             Some(KiroToolResult {
-                content: vec![KiroToolResultContent { text: content_text }],
+                content: vec![KiroToolResultContent::Text { text: content_text }],
                 status: status.to_string(),
                 tool_use_id,
             })
@@ -1516,7 +1511,7 @@ fn extract_tool_results(content: Option<&Value>) -> Vec<KiroToolResult> {
 
 fn extract_tool_results_from_tool_message(message: &NormalizedMessage) -> Vec<KiroToolResult> {
     vec![KiroToolResult {
-        content: vec![KiroToolResultContent {
+        content: vec![KiroToolResultContent::Text {
             text: extract_text_content(message.content.as_ref()),
         }],
         status: "success".to_string(),
@@ -1556,9 +1551,8 @@ async fn extract_image_block(client: &Client, item: &Value) -> Option<ImageBlock
                 .unwrap_or("image/png");
             Some(ImageBlock {
                 format: media_type_to_format(media_type)?,
-                source: ImageSource {
-                    source_type: "base64".to_string(),
-                    data: bytes,
+                source: ImageSource::Bytes {
+                    bytes,
                 },
             })
         }
@@ -1570,9 +1564,8 @@ async fn extract_image_block(client: &Client, item: &Value) -> Option<ImageBlock
             let (format, bytes) = resolve_image_source(client, url).await?;
             Some(ImageBlock {
                 format,
-                source: ImageSource {
-                    source_type: "base64".to_string(),
-                    data: bytes,
+                source: ImageSource::Bytes {
+                    bytes,
                 },
             })
         }
@@ -1584,9 +1577,8 @@ async fn extract_image_block(client: &Client, item: &Value) -> Option<ImageBlock
             let (format, bytes) = resolve_image_source(client, url).await?;
             Some(ImageBlock {
                 format,
-                source: ImageSource {
-                    source_type: "base64".to_string(),
-                    data: bytes,
+                source: ImageSource::Bytes {
+                    bytes,
                 },
             })
         }
@@ -1782,6 +1774,7 @@ fn extract_tool_uses(message: &NormalizedMessage) -> Option<Vec<KiroToolUse>> {
     }
 }
 
+#[allow(dead_code)]
 fn normalize_tool_choice(
     tool_choice: &Option<Value>,
     tools: &Option<Vec<Tool>>,
@@ -1840,7 +1833,7 @@ fn convert_tools(tools: &Option<Vec<Tool>>) -> Option<Vec<KiroTool>> {
     tools.as_ref().map(|items| {
         items
             .iter()
-            .map(|tool| KiroTool {
+            .map(|tool| KiroTool::ToolSpecification {
                 tool_specification: KiroToolSpec {
                     name: tool.function.name.clone(),
                     description: tool_description(tool),

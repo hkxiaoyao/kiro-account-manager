@@ -159,7 +159,7 @@ pub struct UserInputMessage {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub client_cache_config: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub documents: Option<Vec<serde_json::Value>>,
+    pub documents: Option<Vec<DocumentBlock>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub images: Option<Vec<ImageBlock>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -175,10 +175,36 @@ pub struct ImageBlock {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct ImageSource {
-    #[serde(rename = "type")]
-    pub source_type: String,
-    pub data: String,
+#[serde(untagged)]
+#[allow(dead_code)]
+pub enum ImageSource {
+    Bytes {
+        bytes: String,  // Base64 编码的图片数据
+    },
+    Other {
+        #[serde(flatten)]
+        data: serde_json::Value,
+    },
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DocumentBlock {
+    pub format: String,
+    pub name: String,
+    pub source: DocumentSource,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(untagged)]
+#[allow(dead_code)]
+pub enum DocumentSource {
+    Bytes {
+        bytes: String,  // Base64 编码的字节数据
+    },
+    Other {
+        #[serde(flatten)]
+        data: serde_json::Value,
+    },
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -201,19 +227,30 @@ pub struct UserInputMessageContext {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub shell_state: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tools: Option<Vec<KiroTool>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tool_choice: Option<serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_results: Option<Vec<KiroToolResult>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tools: Option<Vec<KiroTool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_settings: Option<serde_json::Value>,
 }
 
+// Tool 是联合类型
 #[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct KiroTool {
-    pub tool_specification: KiroToolSpec,
+#[serde(untagged)]
+#[allow(dead_code)]
+pub enum KiroTool {
+    CachePoint {
+        #[serde(rename = "cachePoint")]
+        cache_point: serde_json::Value,
+    },
+    ToolSpecification {
+        #[serde(rename = "toolSpecification")]
+        tool_specification: KiroToolSpec,
+    },
+    Other {
+        #[serde(flatten)]
+        data: serde_json::Value,
+    },
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -237,9 +274,21 @@ pub struct KiroToolResult {
     pub tool_use_id: String,
 }
 
+// ToolResultContentBlock 是联合类型
 #[derive(Debug, Clone, Serialize)]
-pub struct KiroToolResultContent {
-    pub text: String,
+#[serde(untagged)]
+#[allow(dead_code)]
+pub enum KiroToolResultContent {
+    Text {
+        text: String,
+    },
+    Json {
+        json: serde_json::Value,
+    },
+    Other {
+        #[serde(flatten)]
+        data: serde_json::Value,
+    },
 }
 
 // AWS EventStream 响应事件类型
