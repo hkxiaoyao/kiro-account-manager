@@ -3202,6 +3202,8 @@ fn stream_proxy_response(
         let mut text_block_index: Option<usize> = None;
         let mut thinking_block_index: Option<usize> = None;
         let mut tool_block_indexes: HashMap<String, usize> = HashMap::new();
+        let mut openai_tool_call_indexes: HashMap<String, i32> = HashMap::new();
+        let mut openai_next_tool_index = 0i32;
         let mut saw_tool_calls = false;
         let mut input_tokens = 0i32;
         let mut output_tokens = 0i32;
@@ -3465,8 +3467,36 @@ fn stream_proxy_response(
                                                     send_data(&tx, &data.to_string()).await;
                                                 }
                                                 ResponseFormat::OpenAI => {
-                                                    // OpenAI Chat Completions stream should not emit
-                                                    // Responses API events.
+                                                    // OpenAI Chat Completions: 发送工具调用开始 chunk
+                                                    let tool_index = openai_next_tool_index;
+                                                    openai_next_tool_index += 1;
+                                                    openai_tool_call_indexes.insert(id.clone(), tool_index);
+                                                    
+                                                    let chunk = stream::build_openai_chunk(
+                                                        &completion_id,
+                                                        created_at,
+                                                        &model,
+                                                        crate::gateway::models::OpenAIChatDelta {
+                                                            role: None,
+                                                            content: None,
+                                                            tool_calls: Some(vec![
+                                                                crate::gateway::models::OpenAIDeltaToolCall {
+                                                                    index: tool_index,
+                                                                    id: id.clone(),
+                                                                    call_type: "function".to_string(),
+                                                                    function: crate::gateway::models::OpenAIToolCallFunction {
+                                                                        name: name.clone(),
+                                                                        arguments: "".to_string(),
+                                                                    },
+                                                                }
+                                                            ]),
+                                                        },
+                                                        None,
+                                                        None,
+                                                    );
+                                                    if let Ok(chunk_json) = serde_json::to_string(&chunk) {
+                                                        send_data(&tx, &chunk_json).await;
+                                                    }
                                                 }
                                             }
                                         }
@@ -3512,8 +3542,34 @@ fn stream_proxy_response(
                                                     send_data(&tx, &data.to_string()).await;
                                                 }
                                                 ResponseFormat::OpenAI => {
-                                                    // OpenAI Chat Completions stream should not emit
-                                                    // Responses API events.
+                                                    // OpenAI Chat Completions: 发送参数增量 chunk
+                                                    if let Some(&tool_index) = openai_tool_call_indexes.get(&id) {
+                                                        let chunk = stream::build_openai_chunk(
+                                                            &completion_id,
+                                                            created_at,
+                                                            &model,
+                                                            crate::gateway::models::OpenAIChatDelta {
+                                                                role: None,
+                                                                content: None,
+                                                                tool_calls: Some(vec![
+                                                                    crate::gateway::models::OpenAIDeltaToolCall {
+                                                                        index: tool_index,
+                                                                        id: "".to_string(),
+                                                                        call_type: "function".to_string(),
+                                                                        function: crate::gateway::models::OpenAIToolCallFunction {
+                                                                            name: "".to_string(),
+                                                                            arguments: input_delta.clone(),
+                                                                        },
+                                                                    }
+                                                                ]),
+                                                            },
+                                                            None,
+                                                            None,
+                                                        );
+                                                        if let Ok(chunk_json) = serde_json::to_string(&chunk) {
+                                                            send_data(&tx, &chunk_json).await;
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
@@ -3808,52 +3864,8 @@ fn stream_proxy_response(
                 send_data(&tx, "[DONE]").await;
             }
             ResponseFormat::OpenAI => {
-                // 发送 tool_calls（如果有）
-                if !aggregated.tool_calls.is_empty() {
-                    let tool_calls_delta: Vec<_> = aggregated
-                        .tool_calls
-                        .iter()
-                        .enumerate()
-                        .map(|(index, (id, name, arguments))| {
-                            json!({
-                                "index": index,
-                                "id": id,
-                                "type": "function",
-                                "function": {
-                                    "name": name,
-                                    "arguments": arguments
-                                }
-                            })
-                        })
-                        .collect();
-
-                    let chunk = stream::build_openai_chunk(
-                        &completion_id,
-                        created_at,
-                        &model,
-                        crate::gateway::models::OpenAIChatDelta {
-                            role: None,
-                            content: None,
-                            tool_calls: Some(tool_calls_delta.iter().map(|tc| {
-                                crate::gateway::models::OpenAIDeltaToolCall {
-                                    index: tc["index"].as_i64().unwrap() as i32,
-                                    id: tc["id"].as_str().unwrap().to_string(),
-                                    call_type: "function".to_string(),
-                                    function: crate::gateway::models::OpenAIToolCallFunction {
-                                        name: tc["function"]["name"].as_str().unwrap().to_string(),
-                                        arguments: tc["function"]["arguments"].as_str().unwrap().to_string(),
-                                    },
-                                }
-                            }).collect()),
-                        },
-                        None,
-                        None,
-                    );
-                    let chunk_json = serde_json::to_string(&chunk).unwrap_or_default();
-                    send_data(&tx, &chunk_json).await;
-                }
-
-                // 发送最终 chunk（带 finish_reason 和 usage）
+                // OpenAI Chat Completions: 工具调用已在流式过程中增量发送
+                // 这里只需要发送最终 chunk（带 finish_reason 和 usage）
                 let finish_reason = if saw_tool_calls { "tool_calls" } else { "stop" };
                 let final_chunk = stream::build_openai_chunk(
                     &completion_id,
