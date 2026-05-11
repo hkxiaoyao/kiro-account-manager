@@ -71,6 +71,9 @@ function Settings() {
     const [autoSwitchThreshold, setAutoSwitchThreshold] = useState(1)
     const [autoSwitchInterval, setAutoSwitchInterval] = useState(5)
 
+    // 关闭窗口行为
+    const [closeToTray, setCloseToTray] = useState(true)
+
     // Kiro IDE 状态
     const [loading, setLoading] = useState(false)
 
@@ -141,6 +144,8 @@ function Settings() {
                 setAutoSwitchEnabled(appSettings.autoSwitchEnabled ?? false)
                 setAutoSwitchThreshold(appSettings.autoSwitchThreshold ?? 1)
                 setAutoSwitchInterval(appSettings.autoSwitchInterval ?? 5)
+                // 关闭窗口行为
+                setCloseToTray(appSettings.closeToTray ?? true)
             }
         } catch (err) {
             console.error('Failed to load settings:', err)
@@ -246,6 +251,11 @@ function Settings() {
         const interval = parseInt(value) || 5
         setAutoSwitchInterval(interval)
         await saveAppSettings({ autoSwitchInterval: interval }, true)
+    }
+
+    const handleCloseToTrayChange = async (checked: boolean) => {
+        setCloseToTray(checked)
+        await saveAppSettings({ closeToTray: checked })
     }
 
     const handleBrowseKiroPath = async () => {
@@ -488,6 +498,7 @@ function Settings() {
                             autoSwitchEnabled={autoSwitchEnabled}
                             autoSwitchThreshold={autoSwitchThreshold}
                             autoSwitchInterval={autoSwitchInterval}
+                            closeToTray={closeToTray}
                             browserPath={browserPath}
                             setBrowserPath={setBrowserPath}
                             originalBrowserPath={originalBrowserPath}
@@ -510,6 +521,7 @@ function Settings() {
                             handleAutoSwitchEnabledChange={handleAutoSwitchEnabledChange}
                             handleAutoSwitchThresholdChange={handleAutoSwitchThresholdChange}
                             handleAutoSwitchIntervalChange={handleAutoSwitchIntervalChange}
+                            handleCloseToTrayChange={handleCloseToTrayChange}
                             appDataDir={appDataDir}
                             handleOpenAppDataDir={handleOpenAppDataDir}
                             t={t}

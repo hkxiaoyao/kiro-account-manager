@@ -29,6 +29,7 @@ interface SettingsGeneralProps {
   autoSwitchEnabled: boolean;
   autoSwitchThreshold: number;
   autoSwitchInterval: number;
+  closeToTray: boolean;
   browserPath: string;
   setBrowserPath: (path: string) => void;
   originalBrowserPath: string;
@@ -53,6 +54,7 @@ interface SettingsGeneralProps {
   handleAutoSwitchEnabledChange: (checked: boolean) => void;
   handleAutoSwitchThresholdChange: (value: number) => void;
   handleAutoSwitchIntervalChange: (value: string) => void;
+  handleCloseToTrayChange: (checked: boolean) => void;
   t: TFunction;
 }
 
@@ -66,6 +68,7 @@ function SettingsGeneral({
   autoSwitchEnabled,
   autoSwitchThreshold,
   autoSwitchInterval,
+  closeToTray,
   browserPath,
   setBrowserPath,
   originalBrowserPath,
@@ -90,6 +93,7 @@ function SettingsGeneral({
   handleAutoSwitchEnabledChange,
   handleAutoSwitchThresholdChange,
   handleAutoSwitchIntervalChange,
+  handleCloseToTrayChange,
   t
 }: SettingsGeneralProps) {
   const accountToggleContainerClass = "bg-card hover:bg-muted/50 border border-border text-foreground"
@@ -264,6 +268,30 @@ function SettingsGeneral({
             </button>
 
             <p className="text-xs text-muted-foreground">{t('settings.appDataDirTip')}</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 关闭窗口行为 */}
+      <Card className="card-glow animate-slide-in-left delay-237">
+        <CardContent className="p-6">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-1 h-5 bg-primary rounded-full"></div>
+            <h2 className="text-lg font-semibold text-foreground">关闭窗口行为</h2>
+          </div>
+          <p className="text-sm text-muted-foreground mb-5">设置点击关闭按钮时的行为</p>
+
+          <div className="space-y-3">
+            <label className={`flex items-center gap-2 cursor-pointer px-4 py-3 rounded-xl border transition-colors ${accountToggleContainerClass}`}>
+              <Switch checked={closeToTray} onCheckedChange={handleCloseToTrayChange} />
+              <span className="text-sm font-medium whitespace-nowrap">最小化到托盘</span>
+              <span className="text-xs text-muted-foreground ml-1">(推荐，后台任务继续运行)</span>
+            </label>
+            <p className="text-xs text-muted-foreground">
+              {closeToTray 
+                ? '✓ 关闭窗口时最小化到系统托盘，后台任务继续运行。点击托盘图标可重新打开窗口。' 
+                : '✗ 关闭窗口时直接退出应用，所有后台任务将停止。'}
+            </p>
           </div>
         </CardContent>
       </Card>

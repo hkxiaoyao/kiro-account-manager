@@ -41,6 +41,8 @@ pub struct AppSettings {
     pub telemetry_feedback: Option<bool>,
     // Kiro IDE 自定义安装路径
     pub custom_kiro_path: Option<String>,
+    // 关闭窗口时的行为
+    pub close_to_tray: Option<bool>, // true=最小化到托盘, false=直接退出
 }
 
 // 兼容旧配置文件中的 redeem_server 字段（已废弃）
@@ -80,6 +82,7 @@ impl Default for AppSettings {
             telemetry_edit_stats: Some(false),
             telemetry_feedback: Some(false),
             custom_kiro_path: None,
+            close_to_tray: Some(true), // 默认最小化到托盘
         }
     }
 }
@@ -122,6 +125,7 @@ impl AppSettings {
         apply_if_some!(telemetry_edit_stats);
         apply_if_some!(telemetry_feedback);
         apply_if_some!(custom_kiro_path);
+        apply_if_some!(close_to_tray);
     }
 }
 

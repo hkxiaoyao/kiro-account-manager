@@ -240,9 +240,86 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let app_handle = app.handle().clone();
     auto_switch::start_auto_switch_task(app_handle);
 
-    // 不创建托盘图标，关闭窗口直接退出应用
+    // 创建托盘图标
+    setup_system_tray(app)?;
+
+    // 监听窗口关闭事件
+    setup_window_close_handler(app)?;
 
     // 主窗口由前端首屏 ready 后通过命令触发显示，避免 setup 阶段过早白屏
+
+    Ok(())
+}
+
+/// 创建系统托盘
+fn setup_system_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    use tauri::{
+        menu::{Menu, MenuItem},
+        tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+        Manager,
+    };
+
+    let show_item = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;
+    let quit_item = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
+
+    let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
+
+    let _tray = TrayIconBuilder::new()
+        .menu(&menu)
+        .on_menu_event(|app, event| match event.id.as_ref() {
+            "show" => {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
+            "quit" => {
+                app.exit(0);
+            }
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                let app = tray.app_handle();
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
+        })
+        .build(app)?;
+
+    Ok(())
+}
+
+/// 监听窗口关闭事件
+fn setup_window_close_handler(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    use tauri::Manager;
+    
+    if let Some(window) = app.get_webview_window("main") {
+        let window_clone = window.clone();
+        window.on_window_event(move |event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                // 读取配置，决定是最小化到托盘还是直接退出
+                let settings = commands::app_settings_cmd::get_app_settings_inner()
+                    .unwrap_or_default();
+
+                if settings.close_to_tray.unwrap_or(true) {
+                    // 最小化到托盘
+                    api.prevent_close();
+                    let _ = window_clone.hide();
+                } else {
+                    // 直接退出
+                    // 不调用 api.prevent_close()，让窗口正常关闭
+                }
+            }
+        });
+    }
 
     Ok(())
 }
