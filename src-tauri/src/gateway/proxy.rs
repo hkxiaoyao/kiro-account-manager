@@ -1922,6 +1922,8 @@ async fn call_mcp_tool(
         }
     });
 
+    log::debug!("[Gateway] MCP 工具调用请求: tool={}, arguments={}", tool_name, serde_json::to_string(&arguments).unwrap_or_default());
+
     let response = with_kiro_upstream_headers(
         http.post(upstream_url),
         upstream,
@@ -1934,6 +1936,7 @@ async fn call_mcp_tool(
     .send()
     .await
     .map_err(|error| {
+        log::error!("[Gateway] MCP 上游请求失败: {}", error);
         (
             StatusCode::BAD_GATEWAY,
             "api_error",
@@ -1943,14 +1946,19 @@ async fn call_mcp_tool(
 
     let status = response.status();
     let body = response.text().await.map_err(|error| {
+        log::error!("[Gateway] 读取 MCP 上游响应失败: {}", error);
         (
             StatusCode::BAD_GATEWAY,
             "api_error",
             sanitize_error(&format!("读取 MCP 上游响应失败: {error}")),
         )
     })?;
+    
+    log::debug!("[Gateway] MCP 工具调用响应: status={}, body={}", status, body);
+    
     if !status.is_success() {
         let (mapped_status, error_type, message) = map_upstream_error(status, &body);
+        log::error!("[Gateway] MCP 工具调用失败: status={}, error_type={}, message={}", mapped_status, error_type, message);
         return Err((mapped_status, error_type, message));
     }
 
@@ -1962,6 +1970,7 @@ async fn call_mcp_tool(
             .and_then(Value::as_str)
             .unwrap_or("MCP 工具调用失败")
             .to_string();
+        log::error!("[Gateway] MCP 工具调用返回错误: {}", message);
         return Err((
             StatusCode::BAD_GATEWAY,
             "api_error",
