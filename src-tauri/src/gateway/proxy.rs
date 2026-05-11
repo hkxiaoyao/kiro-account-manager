@@ -3465,24 +3465,8 @@ fn stream_proxy_response(
                                                     send_data(&tx, &data.to_string()).await;
                                                 }
                                                 ResponseFormat::OpenAI => {
-                                                    let output_index = responses_next_output_index;
-                                                    responses_next_output_index += 1;
-                                                    responses_tool_output_indexes
-                                                        .insert(id.clone(), output_index);
-                                                    let data = json!({
-                                                        "type": "response.output_item.added",
-                                                        "response_id": response_id,
-                                                        "output_index": output_index,
-                                                        "item": {
-                                                            "id": id,
-                                                            "type": "function_call",
-                                                            "status": "in_progress",
-                                                            "call_id": id,
-                                                            "name": name,
-                                                            "arguments": ""
-                                                        }
-                                                    });
-                                                    send_data(&tx, &data.to_string()).await;
+                                                    // OpenAI Chat Completions stream should not emit
+                                                    // Responses API events.
                                                 }
                                             }
                                         }
@@ -3528,13 +3512,8 @@ fn stream_proxy_response(
                                                     send_data(&tx, &data.to_string()).await;
                                                 }
                                                 ResponseFormat::OpenAI => {
-                                                    let data = json!({
-                                                        "type": "response.function_call_arguments.delta",
-                                                        "response_id": response_id,
-                                                        "call_id": id,
-                                                        "delta": input_delta
-                                                    });
-                                                    send_data(&tx, &data.to_string()).await;
+                                                    // OpenAI Chat Completions stream should not emit
+                                                    // Responses API events.
                                                 }
                                             }
                                         }
@@ -3605,33 +3584,6 @@ fn stream_proxy_response(
                                                         name.clone(),
                                                         input.clone(),
                                                     ));
-                                                    let done = build_stream_responses_function_call_arguments_done_event(
-                                                        &response_id,
-                                                        &id,
-                                                        &input,
-                                                    );
-                                                    send_data(&tx, &done.to_string()).await;
-                                                    let output_index = responses_tool_output_indexes
-                                                        .remove(&id)
-                                                        .unwrap_or_else(|| {
-                                                            let idx = responses_next_output_index;
-                                                            responses_next_output_index += 1;
-                                                            idx
-                                                        });
-                                                    let data = json!({
-                                                        "type": "response.output_item.done",
-                                                        "response_id": response_id,
-                                                        "output_index": output_index,
-                                                        "item": {
-                                                            "id": id,
-                                                            "type": "function_call",
-                                                            "status": "completed",
-                                                            "call_id": id,
-                                                            "name": name,
-                                                            "arguments": input
-                                                        }
-                                                    });
-                                                    send_data(&tx, &data.to_string()).await;
                                                 }
                                             }
                                         },
@@ -3712,24 +3664,9 @@ fn stream_proxy_response(
                                                     }
                                                 }
                                                 ResponseFormat::OpenAI => {
-                                                    // OpenAI format - similar to Responses
-                                                    if let Some(annotation) =
-                                                        build_responses_citation_annotations(
-                                                            std::slice::from_ref(&citation),
-                                                        )
-                                                        .into_iter()
-                                                        .next()
-                                                    {
-                                                        let data = build_responses_annotation_added_event(
-                                                            &response_id,
-                                                            &message_id,
-                                                            annotation,
-                                                            aggregated.citations.len() - 1,
-                                                            responses_sequence_number,
-                                                        );
-                                                        responses_sequence_number += 1;
-                                                        send_data(&tx, &data.to_string()).await;
-                                                    }
+                                                    // OpenAI Chat Completions stream should not emit
+                                                    // Responses API events like response.annotation.added.
+                                                    // Citations are not part of the Chat Completions API.
                                                 }
                                             }
                                         }
