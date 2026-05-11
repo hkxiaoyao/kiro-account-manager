@@ -479,18 +479,40 @@ function AccountDetailModal({ account, onClose }: AccountDetailModalProps) {
                     )}
                   </div>
                 </div>
+                <div className={`p-3 rounded-lg bg-muted/30`}>
+                  <div className={`text-xs text-muted-foreground mb-1`}>超额能力</div>
+                  <div className={"text-foreground"}>
+                    {currentAccount.usageData?.subscriptionInfo?.overageCapability === 'OVERAGE_CAPABLE' ? (
+                      <span className="text-green-500 font-medium">✓ 支持</span>
+                    ) : (
+                      <span className={"text-muted-foreground"}>✗ 不支持</span>
+                    )}
+                  </div>
+                </div>
                 {breakdown?.overageRate != null && (
                   <>
                     <div className={`p-3 rounded-lg bg-muted/30`}>
-                      <div className={`text-xs text-muted-foreground mb-1`}>{t('detail.overageRate')}</div>
+                      <div className={`text-xs text-muted-foreground mb-1`}>超额费率</div>
                       <div className={`text-foreground font-medium`}>
-                        {breakdown.currency === 'USD' ? '$' : breakdown.currency}{breakdown.overageRate}/{t('detail.perCredit')}
+                        {breakdown.currency === 'USD' ? '$' : breakdown.currency}{breakdown.overageRate}/Credit
                       </div>
                     </div>
                     <div className={`p-3 rounded-lg bg-muted/30`}>
-                      <div className={`text-xs text-muted-foreground mb-1`}>{t('detail.overageCap')}</div>
+                      <div className={`text-xs text-muted-foreground mb-1`}>超额上限</div>
                       <div className={`text-foreground font-medium`}>
                         {breakdown.currency === 'USD' ? '$' : breakdown.currency}{breakdown.overageCap}
+                      </div>
+                    </div>
+                    <div className={`p-3 rounded-lg bg-muted/30`}>
+                      <div className={`text-xs text-muted-foreground mb-1`}>当前超额</div>
+                      <div className={`text-foreground font-bold ${breakdown.currentOverages > 0 ? 'text-orange-500' : ''}`}>
+                        {formatUsage(breakdown.currentOverages || 0)}
+                      </div>
+                    </div>
+                    <div className={`p-3 rounded-lg bg-muted/30`}>
+                      <div className={`text-xs text-muted-foreground mb-1`}>超额费用</div>
+                      <div className={`text-foreground font-bold ${breakdown.overageCharges > 0 ? 'text-orange-500' : ''}`}>
+                        {breakdown.currency === 'USD' ? '$' : breakdown.currency}{breakdown.overageCharges?.toFixed(2) || '0.00'}
                       </div>
                     </div>
                   </>
