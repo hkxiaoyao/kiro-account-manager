@@ -9,6 +9,8 @@ mod state;
 // 功能模块
 mod auth;
 mod auto_refresh;
+mod auto_switch;
+mod model_lock;
 mod clients;
 mod commands;
 mod gateway;
@@ -229,6 +231,14 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     // 启动自动刷新后台任务
     let app_handle = app.handle().clone();
     auto_refresh::start_auto_refresh_task(app_handle);
+
+    // 启动模型锁定后台任务
+    let app_handle = app.handle().clone();
+    model_lock::start_model_lock_task(app_handle);
+
+    // 启动自动换号后台任务
+    let app_handle = app.handle().clone();
+    auto_switch::start_auto_switch_task(app_handle);
 
     // 不创建托盘图标，关闭窗口直接退出应用
 

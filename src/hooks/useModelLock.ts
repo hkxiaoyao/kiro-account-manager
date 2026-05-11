@@ -1,63 +1,16 @@
-import { useEffect, useRef } from 'react'
-import { invoke } from '@tauri-apps/api/core'
-import { AppSettings } from '../contexts/AppSettingsContext'
-
 /**
- * 模型锁定检查 Hook
- * @param appSettings - 应用设置
- * @param settingsLoading - 设置是否加载中
+ * 模型锁定 Hook（后端实现）
+ * 
+ * 后端已使用 tokio::time::interval 实现真正的后台定时检查
+ * 前端不再需要定时器，后端自动运行
+ * 
+ * 后端模型锁定功能：
+ * - 使用 Rust tokio 后台任务，应用最小化后继续运行
+ * - 自动读取 app-settings.json 中的 lockModel 和 lockedModel 配置
+ * - 每 30 秒检查一次 Kiro IDE 的模型设置
+ * - 如果检测到模型变更，自动恢复锁定的模型
  */
-export function useModelLock(appSettings: AppSettings | null, settingsLoading: boolean) {
-  const modelLockTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const appSettingsRef = useRef<AppSettings | null>(appSettings)
-
-  // 同步 appSettings 到 ref
-  useEffect(() => {
-    appSettingsRef.current = appSettings
-  }, [appSettings])
-
-  // 检查并恢复锁定的模型
-  const checkAndRestoreLockedModel = async () => {
-    try {
-      const settings = appSettingsRef.current
-      if (!settings || !settings.lockModel || !settings.lockedModel) return
-
-      const kiroSettings = await invoke<{ modelSelection?: string }>('get_kiro_settings').catch(() => ({ modelSelection: undefined }))
-      const currentModel = kiroSettings.modelSelection
-
-      if (currentModel && currentModel !== settings.lockedModel) {
-        await invoke('set_kiro_model', { model: settings.lockedModel })
-      }
-    } catch (e) {
-      // 静默处理
-    }
-  }
-
-  // 启动定时器
-  const startModelLockTimer = () => {
-    if (modelLockTimerRef.current) {
-      clearInterval(modelLockTimerRef.current)
-    }
-
-    // 启动时立即检查一次
-    checkAndRestoreLockedModel()
-
-    // 每 30 秒检查一次
-    modelLockTimerRef.current = setInterval(checkAndRestoreLockedModel, 30 * 1000)
-  }
-
-  // 设置加载完成后启动定时器
-  useEffect(() => {
-    if (settingsLoading) return
-
-    startModelLockTimer()
-
-    return () => {
-      if (modelLockTimerRef.current) {
-        clearInterval(modelLockTimerRef.current)
-      }
-    }
-  }, [settingsLoading])
-
-  return { checkAndRestoreLockedModel }
+export function useModelLock() {
+  // 后端自动运行，前端无需任何操作
+  return {}
 }

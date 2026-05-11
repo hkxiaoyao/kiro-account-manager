@@ -41,6 +41,8 @@ pub fn start_auto_refresh_task(app_handle: AppHandle) {
 
             // 创建定时器
             let mut timer = interval(interval_duration);
+            // 消耗第一次 tick（立即返回），避免重复刷新
+            timer.tick().await;
 
             // 立即执行一次刷新
             refresh_all_accounts(&app_handle).await;

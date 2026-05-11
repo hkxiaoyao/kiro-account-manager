@@ -54,10 +54,10 @@ function App() {
     setMountedRouteIds(prev => getMountedRouteIds(prev, activeMenu))
   }, [activeMenu])
 
-  // 使用抽离的 hooks
-  const { startAutoRefreshTimer } = useAutoRefresh() // 后端自动刷新，无需传参
-  const { startAutoSwitchTimer } = useAutoSwitch(appSettings, settingsLoading)
-  const { checkAndRestoreLockedModel } = useModelLock(appSettings, settingsLoading)
+  // 后端自动运行，前端无需调用
+  useAutoRefresh()
+  useAutoSwitch()
+  useModelLock()
 
   useEffect(() => {
     dismissBootSplash()
@@ -73,8 +73,6 @@ function App() {
     }
 
     let unlisten: UnlistenFn | null = null
-    let unlistenSettings: UnlistenFn | null = null
-    let unlistenAppSettings: UnlistenFn | null = null
     let unlistenBanned: UnlistenFn | null = null
     let unlistenTokenInvalid: UnlistenFn | null = null
     let unlistenNetworkError: UnlistenFn | null = null
@@ -87,17 +85,8 @@ function App() {
         setActiveMenu('accounts')
       })
       
-      unlistenSettings = await listen('settings-changed', () => {
-        if (!mounted) return
-        startAutoRefreshTimer()
-        startAutoSwitchTimer()
-      })
+      // 后端自动运行，前端无需监听 settings-changed 和 app-settings-changed
       
-      unlistenAppSettings = await listen('app-settings-changed', () => {
-        if (!mounted) return
-        checkAndRestoreLockedModel()
-      })
-
       unlistenBanned = await listen<{ email: string }>('account-banned', (event) => {
         if (!mounted) return
         showError('账号已封禁', `账号 ${event.payload.email} 已被封禁，无法继续使用`)
@@ -119,8 +108,6 @@ function App() {
     return () => { 
       mounted = false
       if (unlisten) unlisten()
-      if (unlistenSettings) unlistenSettings()
-      if (unlistenAppSettings) unlistenAppSettings()
       if (unlistenBanned) unlistenBanned()
       if (unlistenTokenInvalid) unlistenTokenInvalid()
       if (unlistenNetworkError) unlistenNetworkError()
