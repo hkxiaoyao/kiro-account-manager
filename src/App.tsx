@@ -55,7 +55,7 @@ function App() {
   }, [activeMenu])
 
   // 使用抽离的 hooks
-  const { startAutoRefreshTimer } = useAutoRefresh(appSettings, settingsLoading)
+  const { startAutoRefreshTimer } = useAutoRefresh() // 后端自动刷新，无需传参
   const { startAutoSwitchTimer } = useAutoSwitch(appSettings, settingsLoading)
   const { checkAndRestoreLockedModel } = useModelLock(appSettings, settingsLoading)
 

@@ -8,6 +8,7 @@ mod state;
 
 // 功能模块
 mod auth;
+mod auto_refresh;
 mod clients;
 mod commands;
 mod gateway;
@@ -217,12 +218,17 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         handle_deep_link_event(&app_handle, event.payload());
     });
 
+    // 自动启动网关（如果配置了）
     let app_handle = app.handle().clone();
     tauri::async_runtime::spawn(async move {
         if let Err(err) = gateway::auto_start_if_enabled(&app_handle).await {
             log::error!("自动启动反代失败: {err}");
         }
     });
+
+    // 启动自动刷新后台任务
+    let app_handle = app.handle().clone();
+    auto_refresh::start_auto_refresh_task(app_handle);
 
     // 不创建托盘图标，关闭窗口直接退出应用
 
