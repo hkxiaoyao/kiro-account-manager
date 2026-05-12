@@ -1,12 +1,11 @@
 import { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
-import { Activity, Play, RotateCcw, Square, Plug, Activity as ActivityIcon, Settings } from 'lucide-react'
+import { Activity, Play, RotateCcw, Square, Activity as ActivityIcon, Settings } from 'lucide-react'
 import { Alert as AlertPrimitive, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useApp } from '../../../hooks/useApp'
 import { Stack, Group, Badge, Card, Text } from '@/components/shared/layout'
 import GatewayConfigComponent from './GatewayConfig'
-import GatewayIntegration from './GatewayIntegration'
 import { GatewayObservability } from './GatewayObservability'
 import { getThemeAccent } from '../KiroConfig/themeAccent'
 import { GatewayConfig, GatewayStatus } from './gatewayPageState'
@@ -718,29 +717,11 @@ function GatewayPage() {
               <Settings size={16} />
               {t('gateway.config')}
             </TabsTrigger>
-            <TabsTrigger value="integration" className="flex items-center gap-2">
-              <Plug size={16} />
-              {t('gateway.integration')}
-            </TabsTrigger>
             <TabsTrigger value="observability" className="flex items-center gap-2">
               <ActivityIcon size={16} />
               {t('gateway.observability')}
             </TabsTrigger>
           </TabsList>
-
-          <TabsContent value="integration">
-            <GatewayIntegration
-              colors={colors}
-              integrationGuidance={integrationGuidance}
-              integrationSummary={integrationSummary}
-              effectiveConnectHost={effectiveConnectHost}
-              clientSamples={clientSamples}
-              copyText={copyText}
-              copySuccess={copySuccess}
-              effectiveConfig={effectiveConfig}
-              status={status}
-            />
-          </TabsContent>
 
           <TabsContent value="observability">
             <GatewayObservability

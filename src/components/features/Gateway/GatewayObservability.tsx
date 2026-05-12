@@ -1,10 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   Activity,
   CheckCircle2,
@@ -31,6 +30,9 @@ interface ProcessedRequestLog {
   outputTokens?: number
   cacheReadTokens?: number
   cacheCreationTokens?: number
+  upstream?: string
+  retryCount?: number
+  errorType?: string
 }
 
 interface RequestLogSummary {
@@ -62,24 +64,63 @@ export function GatewayObservability({
   const [requestMetrics, setRequestMetrics] = useState<RequestLogSummary | null>(null)
   const [isRequestDetailExpanded, setIsRequestDetailExpanded] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [activeTab, setActiveTab] = useState<'all' | 'success' | 'error'>('all')
+  const [expandedLogId, setExpandedLogId] = useState<string | null>(null)
 
   const isRunning = status?.running === true
 
-  const parentRef = useRef<HTMLDivElement>(null)
-
-  const rowVirtualizer = useVirtualizer({
-    count: requestLogs.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 60,
-    overscan: 5
+  // 根据activeTab过滤日志
+  const filteredLogs = requestLogs.filter(log => {
+    if (activeTab === 'success') return log.status < 400
+    if (activeTab === 'error') return log.status >= 400
+    return true
   })
 
   const fetchRequestLogs = async () => {
     if (!isRunning) return
     setIsRefreshing(true)
     try {
-      const logs = await invoke<ProcessedRequestLog[]>('get_gateway_request_logs')
-      setRequestLogs(logs)
+      // 限制返回50条最新日志，避免数据量过大导致API 400错误
+      const logs = await invoke<any[]>('get_gateway_request_logs', { limit: 50 })
+
+      // 调试：打印原始日志数据
+      console.log('[GatewayObservability] 原始日志数据:', logs)
+
+      // 映射后端字段到前端字段
+      const processedLogs: ProcessedRequestLog[] = logs.map(log => {
+        const processed = {
+          id: `${log.requestIndex}-${log.occurredAt}`,
+          timestamp: log.occurredAt,
+          method: log.endpoint.includes('/messages') ? 'POST' : 'GET',
+          path: log.endpoint,
+          status: log.statusCode,
+          duration: log.durationMs,
+          model: log.model,
+          error: log.error && log.error.length > 500
+            ? log.error.substring(0, 500) + '...'
+            : log.error,
+          streaming: log.stream,
+          inputTokens: log.inputTokens,
+          outputTokens: log.outputTokens,
+          cacheReadTokens: log.cacheReadInputTokens,
+          cacheCreationTokens: log.cacheCreationInputTokens,
+          upstream: log.upstreamSource,
+          retryCount: undefined,
+          errorType: log.errorType
+        }
+
+        // 调试：打印处理后的数据
+        if (log.inputTokens || log.outputTokens) {
+          console.log('[GatewayObservability] Token 数据:', {
+            原始: { inputTokens: log.inputTokens, outputTokens: log.outputTokens, cacheRead: log.cacheReadInputTokens, cacheCreation: log.cacheCreationInputTokens },
+            处理后: { inputTokens: processed.inputTokens, outputTokens: processed.outputTokens, cacheRead: processed.cacheReadTokens, cacheCreation: processed.cacheCreationTokens }
+          })
+        }
+
+        return processed
+      })
+
+      setRequestLogs(processedLogs)
     } catch (error) {
       console.error('Failed to fetch request logs:', error)
     } finally {
@@ -144,6 +185,8 @@ export function GatewayObservability({
     })
   }, [requestLogs])
 
+  
+
   if (!isRunning) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -165,38 +208,81 @@ export function GatewayObservability({
             <Activity size={16} />
             <h3 className="font-semibold">请求概览</h3>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              fetchRequestLogs()
-              handleRefresh()
-            }}
-            disabled={isRefreshing}
-          >
-            <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
-            刷新
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                try {
+                  await invoke('clear_gateway_request_logs')
+                  setRequestLogs([])
+                } catch (error) {
+                  console.error('Failed to clear logs:', error)
+                }
+              }}
+              disabled={requestLogs.length === 0}
+            >
+              清空日志
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                fetchRequestLogs()
+                handleRefresh()
+              }}
+              disabled={isRefreshing}
+            >
+              <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+              刷新
+            </Button>
+          </div>
         </div>
 
         {requestMetrics ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <GatewaySubCard>
-              <p className="text-xs text-muted-foreground">总请求</p>
-              <p className="font-bold mt-1">{requestMetrics.total}</p>
-            </GatewaySubCard>
-            <GatewaySubCard>
-              <p className="text-xs text-muted-foreground">成功</p>
-              <p className="font-bold mt-1 text-green-600">{requestMetrics.success}</p>
-            </GatewaySubCard>
-            <GatewaySubCard>
-              <p className="text-xs text-muted-foreground">错误</p>
-              <p className="font-bold mt-1 text-red-600">{requestMetrics.errors}</p>
-            </GatewaySubCard>
-            <GatewaySubCard>
-              <p className="text-xs text-muted-foreground">流式</p>
-              <p className="font-bold mt-1">{requestMetrics.streaming}</p>
-            </GatewaySubCard>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <GatewaySubCard>
+                <p className="text-xs text-muted-foreground">总请求</p>
+                <p className="font-bold mt-1">{requestMetrics.total}</p>
+              </GatewaySubCard>
+              <GatewaySubCard>
+                <p className="text-xs text-muted-foreground">成功</p>
+                <p className="font-bold mt-1 text-green-600">{requestMetrics.success}</p>
+              </GatewaySubCard>
+              <GatewaySubCard>
+                <p className="text-xs text-muted-foreground">错误</p>
+                <p className="font-bold mt-1 text-red-600">{requestMetrics.errors}</p>
+              </GatewaySubCard>
+              <GatewaySubCard>
+                <p className="text-xs text-muted-foreground">流式</p>
+                <p className="font-bold mt-1">{requestMetrics.streaming}</p>
+              </GatewaySubCard>
+            </div>
+
+            {/* Token 统计卡片 */}
+            {(requestMetrics.totalInputTokens > 0 || requestMetrics.totalOutputTokens > 0) && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <GatewaySubCard>
+                  <p className="text-xs text-muted-foreground">输入 Tokens</p>
+                  <p className="font-bold mt-1">{requestMetrics.totalInputTokens.toLocaleString()}</p>
+                </GatewaySubCard>
+                <GatewaySubCard>
+                  <p className="text-xs text-muted-foreground">输出 Tokens</p>
+                  <p className="font-bold mt-1">{requestMetrics.totalOutputTokens.toLocaleString()}</p>
+                </GatewaySubCard>
+                <GatewaySubCard>
+                  <p className="text-xs text-muted-foreground">缓存读取</p>
+                  <p className="font-bold mt-1 text-green-600">{requestMetrics.totalCacheReadTokens.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground mt-1">节省 90% 成本</p>
+                </GatewaySubCard>
+                <GatewaySubCard>
+                  <p className="text-xs text-muted-foreground">缓存创建</p>
+                  <p className="font-bold mt-1 text-orange-600">{requestMetrics.totalCacheCreationTokens.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground mt-1">+25% 成本</p>
+                </GatewaySubCard>
+              </div>
+            )}
           </div>
         ) : (
           <Alert>
@@ -225,16 +311,36 @@ export function GatewayObservability({
             </Button>
           </div>
 
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <GatewaySubCard>
+              <p className="text-xs text-muted-foreground">最大延迟</p>
+              <p className="font-bold mt-1">{requestMetrics.maxDurationLabel}</p>
+            </GatewaySubCard>
+            <GatewaySubCard>
+              <p className="text-xs text-muted-foreground">缓存命中率</p>
+              <p className="font-bold mt-1 text-green-600">{requestMetrics.cacheHitRate}</p>
+              <p className="text-xs text-muted-foreground mt-1">{requestMetrics.requestsWithCache} 个请求使用缓存</p>
+            </GatewaySubCard>
+            <GatewaySubCard>
+              <p className="text-xs text-muted-foreground">成本节省</p>
+              <p className="font-bold mt-1 text-green-600">${requestMetrics.costSavings.toFixed(4)}</p>
+              <p className="text-xs text-muted-foreground mt-1">通过缓存节省</p>
+            </GatewaySubCard>
+          </div>
+
           {isRequestDetailExpanded && (
-            <div className="space-y-4">
-              {requestMetrics.totalInputTokens > 0 && (
-                <Alert>
-                  <AlertTitle>Token 统计</AlertTitle>
-                  <AlertDescription>
-                    输入: {requestMetrics.totalInputTokens.toLocaleString()} | 输出: {requestMetrics.totalOutputTokens.toLocaleString()}
-                  </AlertDescription>
-                </Alert>
-              )}
+            <div className="space-y-4 mt-4">
+              <Alert>
+                <AlertTitle>Token 详细统计</AlertTitle>
+                <AlertDescription>
+                  <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
+                    <div>输入 Tokens: {requestMetrics.totalInputTokens.toLocaleString()}</div>
+                    <div>输出 Tokens: {requestMetrics.totalOutputTokens.toLocaleString()}</div>
+                    <div className="text-green-600">缓存读取: {requestMetrics.totalCacheReadTokens.toLocaleString()}</div>
+                    <div className="text-orange-600">缓存创建: {requestMetrics.totalCacheCreationTokens.toLocaleString()}</div>
+                  </div>
+                </AlertDescription>
+              </Alert>
             </div>
           )}
         </GatewaySurfaceCard>
@@ -249,100 +355,110 @@ export function GatewayObservability({
           </div>
         </div>
 
-        <Tabs defaultValue="all" className="w-full">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'all' | 'success' | 'error')} className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="all">全部 ({requestMetrics?.total || 0})</TabsTrigger>
             <TabsTrigger value="success">成功 ({requestMetrics?.success || 0})</TabsTrigger>
             <TabsTrigger value="error">错误 ({requestMetrics?.errors || 0})</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="all" className="mt-4">
-            {requestLogs.length === 0 ? (
+          <TabsContent value={activeTab} className="mt-4">
+            {filteredLogs.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                暂无请求日志
+                {activeTab === 'all' && '暂无请求日志'}
+                {activeTab === 'success' && '暂无成功请求'}
+                {activeTab === 'error' && '暂无错误请求'}
               </div>
             ) : (
-              <div
-                ref={parentRef}
-                className="h-[400px] overflow-auto border rounded-md"
-              >
-                <div
-                  style={{
-                    height: `${rowVirtualizer.getTotalSize()}px`,
-                    width: '100%',
-                    position: 'relative'
-                  }}
-                >
-                  {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                    const log = requestLogs[virtualRow.index]
-                    return (
-                      <div
-                        key={virtualRow.key}
-                        style={{
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          width: '100%',
-                          height: `${virtualRow.size}px`,
-                          transform: `translateY(${virtualRow.start}px)`
-                        }}
-                        className="px-4 py-2 border-b hover:bg-muted/50 transition-colors"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            {log.status >= 400 ? (
-                              <XCircle size={16} className="text-red-500" />
-                            ) : (
-                              <CheckCircle2 size={16} className="text-green-500" />
-                            )}
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-mono text-xs">{log.method}</span>
-                                <span className="text-xs text-muted-foreground">{log.path}</span>
-                                {log.streaming && (
-                                  <Badge variant="outline" className="text-xs">流式</Badge>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2 mt-1">
-                                <span className="text-xs text-muted-foreground">{log.timestamp}</span>
-                                <span className="text-xs">·</span>
-                                <span className="text-xs">{log.duration}ms</span>
-                                {log.model && (
-                                  <>
-                                    <span className="text-xs">·</span>
-                                    <span className="text-xs text-muted-foreground">{log.model}</span>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <Badge variant={log.status >= 400 ? 'destructive' : 'default'}>
-                            {log.status}
-                          </Badge>
-                        </div>
-                        {log.error && (
-                          <div className="mt-2 text-xs text-red-600 font-mono">
-                            {log.error}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
+              <div className="h-[500px] overflow-auto border rounded-md">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-muted/50 backdrop-blur">
+                    <tr className="border-b">
+                      <th className="px-3 py-2 text-left font-medium">状态</th>
+                      <th className="px-3 py-2 text-left font-medium">时间</th>
+                      <th className="px-3 py-2 text-left font-medium">方法</th>
+                      <th className="px-3 py-2 text-left font-medium">路径</th>
+                      <th className="px-3 py-2 text-left font-medium">模型</th>
+                      <th className="px-3 py-2 text-right font-medium">耗时</th>
+                      <th className="px-3 py-2 text-right font-medium">输入</th>
+                      <th className="px-3 py-2 text-right font-medium">输出</th>
+                      <th className="px-3 py-2 text-right font-medium">缓存读</th>
+                      <th className="px-3 py-2 text-right font-medium">缓存写</th>
+                      <th className="px-3 py-2 text-left font-medium">上游</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredLogs.map((log) => {
+                      const isExpanded = expandedLogId === log.id
+                      return (
+                        <>
+                          <tr
+                            key={log.id}
+                            className="border-b hover:bg-muted/50 transition-colors cursor-pointer"
+                            onClick={() => setExpandedLogId(isExpanded ? null : log.id)}
+                          >
+                            <td className="px-3 py-2">
+                              <Badge variant={log.status >= 400 ? 'destructive' : 'default'} className="text-xs">
+                                {log.status}
+                              </Badge>
+                            </td>
+                            <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
+                              {log.timestamp}
+                            </td>
+                            <td className="px-3 py-2">
+                              <span className="font-mono text-xs font-semibold">{log.method}</span>
+                            </td>
+                            <td className="px-3 py-2 text-xs text-muted-foreground max-w-[200px] truncate">
+                              {log.path}
+                            </td>
+                            <td className="px-3 py-2 text-xs font-medium">
+                              {log.model || '-'}
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              <span className={`text-xs ${log.duration > 3000 ? 'text-orange-600 font-medium' : 'text-muted-foreground'}`}>
+                                {log.duration}ms
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-right text-xs">
+                              {log.inputTokens ? log.inputTokens.toLocaleString() : '-'}
+                            </td>
+                            <td className="px-3 py-2 text-right text-xs">
+                              {log.outputTokens ? log.outputTokens.toLocaleString() : '-'}
+                            </td>
+                            <td className="px-3 py-2 text-right text-xs text-green-600 font-medium">
+                              {log.cacheReadTokens ? log.cacheReadTokens.toLocaleString() : '-'}
+                            </td>
+                            <td className="px-3 py-2 text-right text-xs text-orange-600 font-medium">
+                              {log.cacheCreationTokens ? log.cacheCreationTokens.toLocaleString() : '-'}
+                            </td>
+                            <td className="px-3 py-2 text-xs text-blue-600">
+                              {log.upstream || '-'}
+                            </td>
+                          </tr>
+                          {isExpanded && (log.error || log.errorType) && (
+                            <tr className="border-b bg-muted/30">
+                              <td colSpan={11} className="px-3 py-3">
+                                <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded p-3">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <XCircle size={14} className="text-red-600" />
+                                    <span className="text-xs font-semibold text-red-600">
+                                      {log.errorType || '错误详情'}
+                                    </span>
+                                  </div>
+                                  <pre className="text-xs text-red-700 dark:text-red-400 whitespace-pre-wrap break-words font-mono">
+                                    {log.error}
+                                  </pre>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      )
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
-          </TabsContent>
-
-          <TabsContent value="success" className="mt-4">
-            <div className="text-center py-8 text-muted-foreground">
-              成功请求列表
-            </div>
-          </TabsContent>
-
-          <TabsContent value="error" className="mt-4">
-            <div className="text-center py-8 text-muted-foreground">
-              错误请求列表
-            </div>
           </TabsContent>
         </Tabs>
       </GatewaySurfaceCard>

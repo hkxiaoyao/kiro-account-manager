@@ -41,7 +41,7 @@ const MAX_FAILURES_PER_ACCOUNT: u32 = 3;
 const MAX_KIRO_PAYLOAD_SIZE: usize = 615 * 1024; // 615KB - Kiro API 的 HTTP 请求大小限制
 
 // Token 限制的默认值（当无法从 API 获取时使用）
-const SUMMARIZATION_THRESHOLD_PERCENT: f64 = 0.8; // 80% 触发总结（Kiro IDE 的阈值）
+const SUMMARIZATION_THRESHOLD_PERCENT: f64 = 0.95; // 95% 触发总结（给用户更多空间）
 
 use super::{
     append_gateway_request_log,
@@ -249,6 +249,7 @@ struct WebSearchSource {
 
 type UpstreamRequestError = (StatusCode, &'static str, String, Option<String>);
 
+#[allow(dead_code)]
 const STREAMING_RESPONSE_PLACEHOLDER: &str = "[streaming response omitted from request log]";
 const MAX_SERVER_WEB_SEARCH_ITERATIONS: usize = 8;
 
@@ -396,10 +397,128 @@ fn estimate_request_tokens(messages: &[NormalizedMessage], model_id: &str) -> us
                     tokens += estimate_text_tokens(&tool_call.function.arguments, tokenizer_type);
                 }
             }
-
             tokens
-        })
-        .sum()
+})
+.sum()
+}
+
+/// 智能裁剪消息列表到目标 token 数
+///
+/// 策略：
+/// 1. 保留最后一条用户消息（当前请求）
+/// 2. 保留系统消息（system）
+/// 3. 从最旧的消息开始删除，直到满足目标 token 数
+/// 4. 至少保留 2 条消息（system + 最后一条用户消息）
+///
+/// 返回：是否成功裁剪
+fn trim_messages_by_tokens(
+            messages: &mut Vec<NormalizedMessage>,
+            target_tokens: usize,
+            model_id: &str,
+) -> bool {
+            if messages.len() <= 2 {
+                // 消息太少，无法继续裁剪
+                return false;
+            }
+
+            let current_tokens = estimate_request_tokens(messages, model_id);
+            if current_tokens <= target_tokens {
+                // 已经满足目标，无需裁剪
+                return true;
+            }
+
+            // 找到最后一条用户消息的索引
+            let last_user_idx = messages
+                .iter()
+                .enumerate()
+                .rev()
+                .find(|(_, msg)| msg.role == "user")
+                .map(|(idx, _)| idx);
+
+            if last_user_idx.is_none() {
+                // 没有用户消息，无法裁剪
+                return false;
+            }
+
+            let last_user_idx = last_user_idx.unwrap();
+
+            // 收集需要保留的索引：系统消息 + 最后一条用户消息
+            let mut keep_indices: Vec<usize> = messages
+                .iter()
+                .enumerate()
+                .filter(|(idx, msg)| msg.role == "system" || *idx == last_user_idx)
+                .map(|(idx, _)| idx)
+                .collect();
+
+            // 从最新到最旧，逐步添加消息，直到接近目标 token 数
+            for idx in (0..messages.len()).rev() {
+                if keep_indices.contains(&idx) {
+                    continue;
+                }
+
+                // 尝试添加这条消息
+                let mut test_messages: Vec<NormalizedMessage> = keep_indices
+                    .iter()
+                    .chain(std::iter::once(&idx))
+                    .map(|&i| messages[i].clone())
+                    .collect();
+
+                // 按原始顺序排序
+                test_messages.sort_by_key(|msg| {
+                    messages.iter().position(|m| {
+                        m.role == msg.role && m.content == msg.content
+                    }).unwrap_or(0)
+                });
+
+                let test_tokens = estimate_request_tokens(&test_messages, model_id);
+                if test_tokens <= target_tokens {
+                    keep_indices.push(idx);
+                } else {
+                    // 超过目标，停止添加
+                    break;
+                }
+            }
+
+            // 按原始顺序重建消息列表
+            keep_indices.sort_unstable();
+            let trimmed_messages: Vec<NormalizedMessage> = keep_indices
+                .iter()
+                .map(|&idx| messages[idx].clone())
+                .collect();
+
+            if trimmed_messages.len() < 2 {
+                // 裁剪后消息太少
+                return false;
+            }
+            *messages = trimmed_messages;
+            true
+}
+
+fn extract_plain_text(value: Option<&Value>) -> String {
+    match value {
+        Some(Value::String(text)) => text.clone(),
+        Some(Value::Array(items)) => items
+            .iter()
+            .filter_map(|item| {
+                item.get("text")
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+                    .or_else(|| {
+                        item.get("content")
+                            .and_then(Value::as_str)
+                            .map(str::to_string)
+                    })
+            })
+            .collect::<Vec<_>>()
+            .join("\n"),
+        Some(Value::Object(map)) => map
+            .get("text")
+            .and_then(Value::as_str)
+            .or_else(|| map.get("content").and_then(Value::as_str))
+            .unwrap_or_default()
+            .to_string(),
+        _ => String::new(),
+    }
 }
 
 /// 估算单个文本的 token 数量（支持多种模型）
@@ -696,6 +815,7 @@ async fn guarded_local_response(
         StatusCode::OK,
         "success",
         None,
+        None, // error_type
         Some(serialized.as_str()),
         None, // input_tokens
         None, // output_tokens
@@ -781,6 +901,7 @@ fn write_request_log(
     status: StatusCode,
     outcome: &str,
     error: Option<&str>,
+    error_type: Option<&str>,
     _response_body: Option<&str>,
     input_tokens: Option<i32>,
     output_tokens: Option<i32>,
@@ -788,12 +909,38 @@ fn write_request_log(
     cache_creation_input_tokens: Option<i32>,
 ) {
 
-    
+
     let duration_ms = context
         .started_at
         .elapsed()
         .as_millis()
         .min(u128::from(u64::MAX)) as u64;
+
+    // 添加日志：记录 token 信息
+    if input_tokens.is_some() || output_tokens.is_some() {
+        log::info!(
+            "[Gateway Log] Request #{} | endpoint={} | model={:?} | stream={} | status={} | duration={}ms | input_tokens={:?} | output_tokens={:?} | cache_read={:?} | cache_creation={:?}",
+            context.request_index,
+            context.endpoint,
+            context.request.map(|r| r.model.as_str()).or(context.model_hint.as_deref()),
+            context.request.map(|r| r.stream).unwrap_or(false),
+            status.as_u16(),
+            duration_ms,
+            input_tokens,
+            output_tokens,
+            cache_read_input_tokens,
+            cache_creation_input_tokens
+        );
+    } else {
+        log::debug!(
+            "[Gateway Log] Request #{} | endpoint={} | status={} | duration={}ms | NO TOKENS",
+            context.request_index,
+            context.endpoint,
+            status.as_u16(),
+            duration_ms
+        );
+    }
+
     let entry = GatewayRequestLogEntry {
         occurred_at: Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
         request_index: context.request_index,
@@ -816,6 +963,7 @@ fn write_request_log(
         output_tokens,
         cache_read_input_tokens,
         cache_creation_input_tokens,
+        error_type: error_type.map(str::to_string),
     };
     let _ = append_gateway_request_log(&entry);
 }
@@ -858,6 +1006,21 @@ async fn gateway_error_with_log(
     error: GatewayErrorDetails<'_>,
 ) -> Response {
     *state.last_error.lock().await = Some(error.message.to_string());
+
+    // 尝试从错误响应体中提取token信息
+    let (input_tokens, output_tokens, cache_read, cache_creation) = error.response_body
+        .and_then(|body| serde_json::from_str::<serde_json::Value>(body).ok())
+        .and_then(|json| {
+            let usage = json.get("usage")?;
+            Some((
+                usage.get("input_tokens").and_then(|v| v.as_i64()).map(|v| v as i32),
+                usage.get("output_tokens").and_then(|v| v.as_i64()).map(|v| v as i32),
+                usage.get("cache_read_input_tokens").and_then(|v| v.as_i64()).map(|v| v as i32),
+                usage.get("cache_creation_input_tokens").and_then(|v| v.as_i64()).map(|v| v as i32),
+            ))
+        })
+        .unwrap_or((None, None, None, None));
+
     let logged_response_body = error.response_body.map(str::to_string).or_else(|| {
         Some(serialize_logged_value(&build_gateway_error_body(
             format,
@@ -871,11 +1034,12 @@ async fn gateway_error_with_log(
         error.status,
         "error",
         Some(error.message),
+        Some(error.error_type),
         logged_response_body.as_deref(),
-        None, // input_tokens
-        None, // output_tokens
-        None, // cache_read_input_tokens
-        None, // cache_creation_input_tokens
+        input_tokens,
+        output_tokens,
+        cache_read,
+        cache_creation,
     );
     gateway_error_response(format, error.status, error.error_type, error.message)
 }
@@ -973,7 +1137,7 @@ pub async fn proxy_handler(
             .await;
         }
     };
-    let request = if matches!(format, ResponseFormat::Responses) {
+    let mut request = if matches!(format, ResponseFormat::Responses) {
         let mut resumed = request.clone();
         resumed.messages = restore_responses_session_messages(&state, &request).await;
         // 如果当前请求没有 tools/tool_choice，从历史 session 继承
@@ -992,6 +1156,107 @@ pub async fn proxy_handler(
         request
     };
 
+    // Token 估算和裁剪（在创建 log context 之前）
+    let cache_key = format!("{:?}", request.messages);
+    let estimated_tokens = {
+        let mut cache = state.token_cache.lock().await;
+        if let Some(tokens) = cache.get(&cache_key) {
+            tokens
+        } else {
+            drop(cache);
+            let tokens = estimate_request_tokens(&request.messages, &request.model);
+            let mut cache = state.token_cache.lock().await;
+            cache.insert(cache_key, tokens);
+            tokens
+        }
+    };
+
+    // 从可用模型列表中获取该模型的 maxInputTokens
+    let max_input_tokens = get_model_max_input_tokens(&request.model).await;
+    let threshold_tokens = (max_input_tokens as f64 * SUMMARIZATION_THRESHOLD_PERCENT) as usize;
+
+    if estimated_tokens > threshold_tokens {
+        log::warn!(
+            "[Gateway] Token count {} exceeds threshold {} (95% of {}). Checking if current message is too large...",
+            estimated_tokens,
+            threshold_tokens,
+            max_input_tokens
+        );
+
+        // 检查最后一条用户消息本身是否就超过阈值
+        if let Some(last_user_msg) = request.messages.iter().rev().find(|msg| msg.role == "user") {
+            let last_msg_tokens = estimate_request_tokens(&[last_user_msg.clone()], &request.model);
+            if last_msg_tokens > threshold_tokens {
+                // 当前消息本身就太大，无法裁剪
+                let error_message = format!(
+                    "Your current message is too long ({} tokens, exceeds {} tokens threshold). Please shorten your message and try again. Maximum input: {} tokens.",
+                    last_msg_tokens,
+                    threshold_tokens,
+                    max_input_tokens
+                );
+                let temp_log_context = RequestLogContext {
+                    request: Some(&request),
+                    ..base_log_context.clone()
+                };
+                return gateway_error_with_log(
+                    &state,
+                    format,
+                    &temp_log_context,
+                    GatewayErrorDetails {
+                        status: StatusCode::BAD_REQUEST,
+                        error_type: "invalid_request_error",
+                        message: &error_message,
+                        response_body: None,
+                    },
+                )
+                .await;
+            }
+        }
+
+        // 尝试裁剪历史消息到 70% 的安全水平
+        let target_tokens = (max_input_tokens as f64 * 0.70) as usize;
+        let trimmed = trim_messages_by_tokens(
+            &mut request.messages,
+            target_tokens,
+            &request.model
+        );
+
+        if trimmed {
+            let new_token_count = estimate_request_tokens(&request.messages, &request.model);
+            log::info!(
+                "[Gateway] Successfully trimmed messages from {} to {} tokens",
+                estimated_tokens,
+                new_token_count
+            );
+        } else {
+            // 裁剪失败（消息太少或无法继续裁剪），返回错误
+            let error_message = format!(
+                "Input is too long. Estimated {} tokens exceeds the threshold of {} tokens (95% of {}). Unable to trim further (minimum message count reached).",
+                estimated_tokens,
+                threshold_tokens,
+                max_input_tokens
+            );
+            // 临时创建 log context 用于错误记录
+            let temp_log_context = RequestLogContext {
+                request: Some(&request),
+                ..base_log_context.clone()
+            };
+            return gateway_error_with_log(
+                &state,
+                format,
+                &temp_log_context,
+                GatewayErrorDetails {
+                    status: StatusCode::BAD_REQUEST,
+                    error_type: "invalid_request_error",
+                    message: &error_message,
+                    response_body: None,
+                },
+            )
+            .await;
+        }
+    }
+
+    // 裁剪完成后，创建 log context
     let request_log_context = RequestLogContext {
         request: Some(&request),
         ..base_log_context.clone()
@@ -1059,6 +1324,7 @@ pub async fn proxy_handler(
                 StatusCode::OK,
                 "success",
                 None,
+                None, // error_type
                 Some(response_body.as_str()),
                 Some(outcome.aggregated.input_tokens),
                 Some(outcome.aggregated.output_tokens),
@@ -1119,6 +1385,7 @@ pub async fn proxy_handler(
             StatusCode::OK,
             "success",
             None,
+            None, // error_type
             Some(response_body.as_str()),
             Some(outcome.aggregated.input_tokens),
             Some(outcome.aggregated.output_tokens),
@@ -1126,57 +1393,6 @@ pub async fn proxy_handler(
             outcome.aggregated.cache_creation_input_tokens,
         );
         return Json(response).into_response();
-    }
-
-    // 【第一层防护】Token 预估（硬限制，带缓存）
-    // 基于 Kiro IDE 的 80% 总结阈值
-    // Kiro IDE 在 80% 时触发 Truncation Summarization，网关无法实现，所以直接拒绝
-
-    // 生成缓存 key：messages 的 JSON 序列化 + model_id
-    let cache_key = format!("{}:{}",
-        serde_json::to_string(&request.messages).unwrap_or_default(),
-        request.model
-    );
-
-    // 尝试从缓存获取
-    let estimated_tokens = {
-        let mut cache = state.token_cache.lock().await;
-        cache.get(&cache_key)
-    };
-
-    // 如果缓存未命中，计算并存入缓存
-    let estimated_tokens = if let Some(tokens) = estimated_tokens {
-        tokens
-    } else {
-        let tokens = estimate_request_tokens(&request.messages, &request.model);
-        let mut cache = state.token_cache.lock().await;
-        cache.insert(cache_key, tokens);
-        tokens
-    };
-    
-    // 从可用模型列表中获取该模型的 maxInputTokens
-    let max_input_tokens = get_model_max_input_tokens(&request.model).await;
-    let threshold_tokens = (max_input_tokens as f64 * SUMMARIZATION_THRESHOLD_PERCENT) as usize;
-    
-    if estimated_tokens > threshold_tokens {
-        let error_message = format!(
-            "Input is too long. Estimated {} tokens exceeds the summarization threshold of {} tokens (80% of {}). Please reduce the size of your messages or start a new conversation.",
-            estimated_tokens,
-            threshold_tokens,
-            max_input_tokens
-        );
-        return gateway_error_with_log(
-            &state,
-            format,
-            &upstream_log_context,
-            GatewayErrorDetails {
-                status: StatusCode::BAD_REQUEST,
-                error_type: "invalid_request_error",
-                message: &error_message,
-                response_body: None,
-            },
-        )
-        .await;
     }
 
     // 获取账号可用模型列表（用于模型降级）
@@ -1434,7 +1650,21 @@ pub async fn proxy_handler(
         .await;
     }
 
+    // 添加调试日志：记录原始响应体
+    log::debug!("[Non-Stream Response] Body preview: {}",
+        body.chars().take(500).collect::<String>());
+
     let aggregated = aggregate_kiro_response(&body);
+
+    // 添加调试日志：记录解析后的 tokens
+    log::info!(
+        "[Non-Stream Response] Aggregated tokens: input={}, output={}, cache_read={:?}, cache_creation={:?}",
+        aggregated.input_tokens,
+        aggregated.output_tokens,
+        aggregated.cache_read_input_tokens,
+        aggregated.cache_creation_input_tokens
+    );
+
     let response = match format {
         ResponseFormat::Anthropic => build_anthropic_response(&request.model, &aggregated, &[]),
         ResponseFormat::Responses => build_responses_response_with_ids(
@@ -1468,6 +1698,7 @@ pub async fn proxy_handler(
         StatusCode::OK,
         "success",
         None,
+        None, // error_type
         Some(body.as_str()),
         Some(aggregated.input_tokens),
         Some(aggregated.output_tokens),
@@ -1689,14 +1920,14 @@ pub async fn mcp_proxy_handler(
     }
     
     log::info!("[MCP Proxy] ========================================");
-    
     write_request_log(
         &upstream_log_context,
         status,
         "success",
         None,
+        None, // error_type
         Some(logged_response_body.as_str()),
-        None, // input_tokens - MCP 代理无 tokens
+        None, // input_tokens
         None, // output_tokens
         None, // cache_read_input_tokens
         None, // cache_creation_input_tokens
@@ -1886,16 +2117,23 @@ async fn send_generate_request<T: serde::Serialize + ?Sized>(
         }
 
         let body = upstream_resp.text().await.unwrap_or_default();
-        
-        // 429 错误不重试，直接返回（让外层切换账号）
+
+        // 429 限流错误不重试，直接返回
         if status == StatusCode::TOO_MANY_REQUESTS {
             let (mapped_status, error_type, message) = map_upstream_error(status, &body);
             return Err((mapped_status, error_type, message, Some(body)));
         }
-        
-        // 其他错误（403、5xx）才重试
-        let should_retry = attempt < MAX_RETRIES
-            && (status == StatusCode::FORBIDDEN || status.is_server_error());
+
+        // 403 认证错误：直接返回，不在这里重试
+        // 外层会通过LoadBalancer切换账号或刷新token
+        if status == StatusCode::FORBIDDEN {
+            log::warn!("[Gateway] 上游认证失败 (403)，返回错误");
+            let (mapped_status, error_type, message) = map_upstream_error(status, &body);
+            return Err((mapped_status, error_type, message, Some(body)));
+        }
+
+        // 5xx 服务器错误才重试
+        let should_retry = attempt < MAX_RETRIES && status.is_server_error();
 
         if should_retry {
             let backoff_ms = 1000 * 2u64.pow(attempt - 1);
@@ -2017,17 +2255,19 @@ async fn call_mcp_tool(
     let value: Value = serde_json::from_str(&body)
         .unwrap_or_else(|_| json!({ "result": { "content": [{ "type": "text", "text": body }] } }));
     if let Some(error) = value.get("error") {
-        let message = error
-            .get("message")
-            .and_then(Value::as_str)
-            .unwrap_or("MCP 工具调用失败")
-            .to_string();
-        log::error!("[Gateway] MCP 工具调用返回错误: {}", message);
-        return Err((
-            StatusCode::BAD_GATEWAY,
-            "api_error",
-            sanitize_error(&message),
-        ));
+        if !error.is_null() {
+            let message = error
+                .get("message")
+                .and_then(Value::as_str)
+                .unwrap_or("MCP 工具调用失败")
+                .to_string();
+            log::error!("[Gateway] MCP 工具调用返回错误: {}", message);
+            return Err((
+                StatusCode::BAD_GATEWAY,
+                "api_error",
+                sanitize_error(&message),
+            ));
+        }
     }
 
     Ok(value.get("result").cloned().unwrap_or(value))
@@ -2396,6 +2636,8 @@ async fn resolve_managed_account_credentials(
 
             if let Some(usage_data) = &usage_data {
                 if usage_exceeds_threshold(usage_data, config.threshold) {
+                    // 记录失败，让 LoadBalancer 选择其他账号
+                    state.load_balancer.record_failure(&account.id).await;
                     return Err(format!(
                         "账号 {} 已达到阈值 {}%",
                         account.label, config.threshold
@@ -2444,11 +2686,9 @@ async fn resolve_managed_account_credentials(
         }
     }
 }
-
 fn format_managed_upstream_source(config: &GatewayConfig, account: &Account) -> String {
-    let account_label = if !account.label.trim().is_empty() {
-        account.label.trim().to_string()
-    } else if let Some(email) = account
+    // 只使用 email 或 user_id，都没有则返回 "unknown"
+    let account_label = if let Some(email) = account
         .email
         .as_ref()
         .filter(|value| !value.trim().is_empty())
@@ -2461,7 +2701,7 @@ fn format_managed_upstream_source(config: &GatewayConfig, account: &Account) -> 
     {
         user_id.trim().to_string()
     } else {
-        account.id.clone()
+        "unknown".to_string()
     };
 
     match config.account_mode.as_str() {
@@ -2561,32 +2801,7 @@ fn extract_usage_totals(usage_data: &Value) -> Option<(i64, i64)> {
     Some((current, limit))
 }
 
-fn extract_plain_text(value: Option<&Value>) -> String {
-    match value {
-        Some(Value::String(text)) => text.clone(),
-        Some(Value::Array(items)) => items
-            .iter()
-            .filter_map(|item| {
-                item.get("text")
-                    .and_then(Value::as_str)
-                    .map(str::to_string)
-                    .or_else(|| {
-                        item.get("content")
-                            .and_then(Value::as_str)
-                            .map(str::to_string)
-                    })
-            })
-            .collect::<Vec<_>>()
-            .join("\n"),
-        Some(Value::Object(map)) => map
-            .get("text")
-            .and_then(Value::as_str)
-            .or_else(|| map.get("content").and_then(Value::as_str))
-            .unwrap_or_default()
-            .to_string(),
-        _ => String::new(),
-    }
-}
+
 
 fn slice_text_by_char_range(text: &str, start: usize, end: usize) -> Option<String> {
     if end < start {
@@ -2777,6 +2992,9 @@ fn build_anthropic_response(
         usage: AnthropicUsage {
             input_tokens: aggregated.input_tokens,
             output_tokens: aggregated.output_tokens,
+            cache_creation_input_tokens: None,
+            cache_read_input_tokens: None,
+            server_tool_use: None,
         },
     })
     .unwrap_or_else(|_| json!({}))
@@ -3106,6 +3324,17 @@ fn map_upstream_error(status: StatusCode, body: &str) -> (StatusCode, &'static s
     let sanitized = sanitize_error(&extract_error_message(body));
     let explicit_error_type = extract_error_type(body);
     let text = body.to_lowercase();
+
+    // 检测封禁错误（403 + AccessDeniedException + TemporarilySuspended）
+    let is_banned = status == StatusCode::FORBIDDEN
+        && body.contains("AccessDeniedException")
+        && body.contains("TemporarilySuspended");
+
+    // 检测token失效错误（403 + bearer token invalid/expired）
+    let is_token_invalid = status == StatusCode::FORBIDDEN
+        && (text.contains("bearer token") || text.contains("bearer_token"))
+        && (text.contains("invalid") || text.contains("expired"));
+
     let mapped_status = if status == StatusCode::BAD_GATEWAY || status == StatusCode::OK {
         if explicit_error_type == Some("authentication_error") {
             StatusCode::UNAUTHORIZED
@@ -3132,15 +3361,22 @@ fn map_upstream_error(status: StatusCode, body: &str) -> (StatusCode, &'static s
         status
     };
 
-    let error_type = explicit_error_type.unwrap_or(match mapped_status {
-        StatusCode::UNAUTHORIZED => "authentication_error",
-        StatusCode::FORBIDDEN => "permission_error",
-        StatusCode::TOO_MANY_REQUESTS => "rate_limit_error",
-        StatusCode::BAD_REQUEST | StatusCode::NOT_FOUND | StatusCode::CONFLICT => {
-            "invalid_request_error"
-        }
-        _ => "api_error",
-    });
+    // 根据检测结果返回特殊的error_type
+    let error_type = if is_banned {
+        "account_banned_error"
+    } else if is_token_invalid {
+        "token_expired_error"
+    } else {
+        explicit_error_type.unwrap_or(match mapped_status {
+            StatusCode::UNAUTHORIZED => "authentication_error",
+            StatusCode::FORBIDDEN => "permission_error",
+            StatusCode::TOO_MANY_REQUESTS => "rate_limit_error",
+            StatusCode::BAD_REQUEST | StatusCode::NOT_FOUND | StatusCode::CONFLICT => {
+                "invalid_request_error"
+            }
+            _ => "api_error",
+        })
+    };
 
     (mapped_status, error_type, sanitized)
 }
@@ -3955,7 +4191,8 @@ fn stream_proxy_response(
             StatusCode::OK,
             "stream",
             None,
-            Some(STREAMING_RESPONSE_PLACEHOLDER),
+            None, // error_type
+            None,
             Some(aggregated.input_tokens),
             Some(aggregated.output_tokens),
             aggregated.cache_read_input_tokens,

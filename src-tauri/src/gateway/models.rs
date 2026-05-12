@@ -201,6 +201,9 @@ pub enum DocumentSource {
     Bytes {
         bytes: String,  // Base64 编码的字节数据
     },
+    FileId {
+        file_id: String,  // Files API 上传后的文件ID
+    },
     Other {
         #[serde(flatten)]
         data: serde_json::Value,
@@ -489,12 +492,26 @@ pub struct AnthropicMessagesRequest {
     pub stream: bool,
     pub temperature: Option<f32>,
     pub top_p: Option<f32>,
+    #[allow(dead_code)]
+    pub top_k: Option<i32>,
     pub stop_sequences: Option<Vec<String>>,
     pub tools: Option<Vec<AnthropicTool>>,
     pub tool_choice: Option<serde_json::Value>,
     pub thinking: Option<Thinking>,
     #[allow(dead_code)]
     pub metadata: Option<serde_json::Value>,
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub context_editing: Option<serde_json::Value>,
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub mcp_servers: Option<serde_json::Value>,
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub betas: Option<Vec<String>>,
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub cache_control: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -626,7 +643,7 @@ pub struct AnthropicMessage {
     pub content: serde_json::Value,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AnthropicTool {
     #[serde(default)]
     pub r#type: Option<String>,
@@ -642,7 +659,10 @@ pub struct AnthropicTool {
     pub blocked_domains: Option<Vec<String>>,
     #[serde(default)]
     pub user_location: Option<serde_json::Value>,
+    #[serde(default)]
+    pub cache_control: Option<serde_json::Value>,
 }
+
 
 #[derive(Debug, Clone, Serialize)]
 pub struct AnthropicMessagesResponse {
@@ -683,4 +703,10 @@ pub struct AnthropicContentBlock {
 pub struct AnthropicUsage {
     pub input_tokens: i32,
     pub output_tokens: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_creation_input_tokens: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_read_input_tokens: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub server_tool_use: Option<serde_json::Value>,
 }

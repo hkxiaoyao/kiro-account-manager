@@ -130,6 +130,9 @@ pub struct GatewayRequestLogEntry {
     /// Prompt Caching: 缓存写入 tokens（首次写入成本 +25%）
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cache_creation_input_tokens: Option<i32>,
+    /// 错误类型（如 invalid_request_error, authentication_error 等）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error_type: Option<String>,
 }
 
 #[derive(Debug)]

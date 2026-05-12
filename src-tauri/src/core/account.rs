@@ -416,9 +416,7 @@ fn normalize_accounts(accounts: Vec<Account>) -> (Vec<Account>, bool) {
 fn is_unavailable_status(status: &str) -> bool {
     matches!(
         status,
-        "capped"
-            | "封顶"
-            | "banned"
+        "banned"
             | "封禁"
             | "已封禁"
             | "invalid"

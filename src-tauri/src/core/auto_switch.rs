@@ -145,9 +145,7 @@ impl AccountSwitcher {
 fn is_unavailable_status(status: &str) -> bool {
     matches!(
         status,
-        "capped"
-            | "封顶"
-            | "banned"
+        "banned"
             | "封禁"
             | "已封禁"
             | "invalid"
@@ -260,9 +258,9 @@ mod tests {
     use crate::core::account::Account;
 
     #[test]
-    fn capped_status_is_treated_as_unavailable() {
-        assert!(is_unavailable_status("capped"));
-        assert!(is_unavailable_status("封顶"));
+    fn capped_status_allows_switching() {
+        assert!(!is_unavailable_status("capped"));
+        assert!(!is_unavailable_status("封顶"));
     }
 
     #[test]

@@ -126,6 +126,19 @@ pub fn parse_kiro_event_full(json_str: &str) -> Option<KiroEvent> {
             .and_then(|item| item.as_i64())
             .map(|v| v as i32);
 
+        // 添加调试日志：记录原始 usage JSON
+        log::debug!(
+            "[Token Parse] Raw usage JSON: {}",
+            serde_json::to_string(usage).unwrap_or_else(|_| "invalid".to_string())
+        );
+        log::debug!(
+            "[Token Parse] Parsed: input={}, output={}, cache_read={:?}, cache_creation={:?}",
+            input_tokens,
+            output_tokens,
+            cache_read_input_tokens,
+            cache_creation_input_tokens
+        );
+
         if input_tokens > 0 || output_tokens > 0 || cache_read_input_tokens.is_some() || cache_creation_input_tokens.is_some() {
             return Some(KiroEvent::Usage {
                 input_tokens,
@@ -133,6 +146,8 @@ pub fn parse_kiro_event_full(json_str: &str) -> Option<KiroEvent> {
                 cache_read_input_tokens,
                 cache_creation_input_tokens,
             });
+        } else {
+            log::warn!("[Token Parse] Usage event found but all tokens are 0 or None");
         }
     }
 
