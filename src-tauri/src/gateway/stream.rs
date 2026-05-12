@@ -112,13 +112,16 @@ pub fn parse_kiro_event_full(json_str: &str) -> Option<KiroEvent> {
             .unwrap_or(0) as i32;
 
         // 解析 Prompt Caching 相关的 token 使用情况
+        // Kiro IDE 使用的字段名：cachedReadTokens, cachedWriteTokens
         let cache_read_input_tokens = usage
-            .get("cacheReadInputTokens")
+            .get("cachedReadTokens")
+            .or_else(|| usage.get("cacheReadInputTokens"))
             .or_else(|| usage.get("cache_read_input_tokens"))
             .and_then(|item| item.as_i64())
             .map(|v| v as i32);
         let cache_creation_input_tokens = usage
-            .get("cacheCreationInputTokens")
+            .get("cachedWriteTokens")
+            .or_else(|| usage.get("cacheCreationInputTokens"))
             .or_else(|| usage.get("cache_creation_input_tokens"))
             .and_then(|item| item.as_i64())
             .map(|v| v as i32);

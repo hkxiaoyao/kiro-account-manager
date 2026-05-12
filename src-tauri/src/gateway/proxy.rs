@@ -638,6 +638,7 @@ async fn guarded_local_response(
         upstream: None,
         started_at,
         request_body,
+        model_hint: None,
     };
 
     if state.config.local_only && !client_addr.ip().is_loopback() {
@@ -1382,6 +1383,7 @@ pub async fn proxy_handler(
             upstream: None, // 不持有引用
             started_at: upstream_payload_log_context.started_at,
             request_body: None,
+            model_hint: upstream_payload_log_context.model_hint.clone(),
         };
 
         return stream_proxy_response(
@@ -1486,6 +1488,7 @@ pub async fn mcp_proxy_handler(
         .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let started_at = Instant::now();
     let raw_request_body = payload.to_string();
+    let model_hint = extract_model_from_payload(&raw_request_body);
     let base_log_context = RequestLogContext {
         request_index,
         endpoint: "mcp",
@@ -1494,6 +1497,7 @@ pub async fn mcp_proxy_handler(
         upstream: None,
         started_at,
         request_body: Some(raw_request_body.as_str()),
+        model_hint,
     };
 
     if state.config.local_only && !client_addr.ip().is_loopback() {

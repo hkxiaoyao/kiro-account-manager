@@ -54,9 +54,9 @@ impl TokenRefreshService {
                 continue;
             }
 
-            // 检查是否需要刷新
+            // 检查是否需要刷新（即将过期或已过期）
             if let Some(ref expires_at) = account.expires_at {
-                if is_token_expiring_soon(expires_at) {
+                if is_token_expiring_soon(expires_at) || is_token_expired(expires_at) {
                     let email_display = account
                         .email
                         .as_deref()

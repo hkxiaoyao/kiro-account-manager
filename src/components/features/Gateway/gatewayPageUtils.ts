@@ -508,9 +508,13 @@ export const buildGatewayRequestLogSummary = (entries: any) => {
     }
   })
 
+  const total = logs.length
+  const successRateLabel = total > 0 ? `${((success / total) * 100).toFixed(1)}%` : '0%'
+  const errorRateLabel = total > 0 ? `${((errors / total) * 100).toFixed(1)}%` : '0%'
+
   // 计算缓存命中率
-  const cacheHitRate = logs.length > 0 
-    ? Math.round((requestsWithCache / logs.length) * 100) 
+  const cacheHitRate = total > 0
+    ? Math.round((requestsWithCache / total) * 100)
     : 0
 
   // 计算节省成本百分比（缓存读取成本是输入成本的 10%）
@@ -520,10 +524,12 @@ export const buildGatewayRequestLogSummary = (entries: any) => {
     : 0
 
   return {
-    total: logs.length,
+    total,
     errors,
     streaming,
     success,
+    successRateLabel,
+    errorRateLabel,
     maxDurationLabel: formatGatewayRequestDuration(maxDuration),
     latestOccurredAt,
     // Prompt Caching 统计
@@ -675,3 +681,4 @@ export const filterGatewayRequestLogs = (entries: any[], options: FilterOptions 
     return stringifyGatewayRequestLog(entry).includes(normalizedQuery)
   })
 }
+

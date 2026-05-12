@@ -7,7 +7,7 @@ import { useApp } from '../../../hooks/useApp'
 import { Stack, Group, Badge, Card, Text } from '@/components/shared/layout'
 import GatewayConfigComponent from './GatewayConfig'
 import GatewayIntegration from './GatewayIntegration'
-import GatewayObservability from './GatewayObservability'
+import { GatewayObservability } from './GatewayObservability'
 import { getThemeAccent } from '../KiroConfig/themeAccent'
 import { GatewayConfig, GatewayStatus } from './gatewayPageState'
 import {
@@ -171,10 +171,7 @@ function GatewayPage() {
     () => buildGatewayRequestLogSummary(filteredRequestLogs),
     [filteredRequestLogs]
   )
-  const requestMetrics = useMemo(
-    () => buildGatewayMetricsSummary(filteredRequestLogs),
-    [filteredRequestLogs]
-  )
+
   const routingSummary = useMemo(
     () => buildGatewayRoutingSummary({
       config,
@@ -220,7 +217,7 @@ function GatewayPage() {
     {
       label: '观测样本',
       value: `${requestLogSummary.total} 条请求`,
-      detail: `成功率 ${requestMetrics.successRateLabel} · 错误率 ${requestMetrics.errorRateLabel}`},
+      detail: `成功率 ${requestLogSummary.successRateLabel} · 错误率 ${requestLogSummary.errorRateLabel}`},
     {
       label: '运行差异',
       value: hasRuntimeChanges ? '需重启生效' : '运行态已对齐',
@@ -237,8 +234,8 @@ function GatewayPage() {
     latestErrorEntry,
     lastStatusSyncAt,
     requestLogSummary.total,
-    requestMetrics.successRateLabel,
-    requestMetrics.errorRateLabel,
+    filteredRequestLogSummary.success,
+    filteredRequestLogSummary.errors,
     hasRuntimeChanges,
     hasUnsavedChanges,
   ])
@@ -747,31 +744,8 @@ function GatewayPage() {
 
           <TabsContent value="observability">
             <GatewayObservability
-              colors={colors}
-              effectiveConfig={effectiveConfig}
               status={status}
-              loading={loading}
               handleRefresh={handleRefresh}
-              handleClearErrors={handleClearErrors}
-              errorHistory={errorHistory}
-              statusSummary={statusSummary}
-              hasUnsavedChanges={hasUnsavedChanges}
-              filteredRequestLogSummary={filteredRequestLogSummary}
-              integrationSummary={integrationSummary}
-              logDir={logDir}
-              handleOpenLogDir={handleOpenLogDir}
-              loadRequestLogs={loadRequestLogs}
-              requestLogsLoading={requestLogsLoading}
-              handleClearRequestLogs={handleClearRequestLogs}
-              requestLogs={requestLogs}
-              lastRequestLogsSyncAt={lastRequestLogsSyncAt}
-              requestLogOutcome={requestLogOutcome}
-              setRequestLogOutcome={setRequestLogOutcome}
-              requestLogQuery={requestLogQuery}
-              setRequestLogQuery={setRequestLogQuery}
-              requestLogSummary={requestLogSummary}
-              requestMetrics={requestMetrics}
-              filteredRequestLogs={filteredRequestLogs}
             />
           </TabsContent>
 
