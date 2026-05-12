@@ -43,15 +43,15 @@ pub fn start_auto_switch_task(app_handle: AppHandle) {
                         return;
                     }
 
-                    tokio::time::sleep(Duration::from_secs(60)).await;
+                    tokio::time::sleep(Duration::from_secs(300)).await;
                     continue;
                 }
             };
 
             // 检查是否启用自动换号
             if settings.auto_switch_enabled != Some(true) {
-                log::debug!("[AutoSwitch] 自动换号已禁用，等待 60 秒后重新检查");
-                tokio::time::sleep(Duration::from_secs(60)).await;
+                log::debug!("[AutoSwitch] 自动换号已禁用，等待 30 分钟后重新检查");
+                tokio::time::sleep(Duration::from_secs(1800)).await;
                 continue;
             }
 
@@ -145,9 +145,11 @@ async fn check_and_auto_switch(app_handle: &AppHandle, threshold: f64) {
                 s.reload();
                 s.get_all()
             }
-            Err(e) => {
-                log::error!("[AutoSwitch] 获取账号列表失败: {}", e);
-                return;
+            Err(poisoned) => {
+                log::warn!("[AutoSwitch] 锁被污染，尝试恢复");
+                let mut s = poisoned.into_inner();
+                s.reload();
+                s.get_all()
             }
         }
     };
@@ -254,7 +256,7 @@ fn calculate_remaining(account: &Account) -> f64 {
     if let Some(breakdown) = breakdown {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
+            .unwrap_or_default()
             .as_millis() as i64;
 
         // 主配额
