@@ -1197,6 +1197,34 @@ fn convert_responses_tool(item: &Value) -> Option<Tool> {
         return Some(tool);
     }
 
+    // 修复：MCP 工具缺少 type 字段导致之前被跳过
+    // MCP 格式：{ "name": "...", "description": "...", "inputSchema": {...} }
+    // 转换为 OpenAI 格式：{ "type": "function", "function": { "name": "...", "parameters": {...} } }
+    if item_type.is_empty() && item.get("name").is_some() {
+        let name = item.get("name").and_then(Value::as_str)?.to_string();
+        let description = item
+            .get("description")
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        
+        // 从 inputSchema 或 parameters 中提取参数定义
+        // MCP 工具的 inputSchema 本身就是 JSON Schema，不需要访问 .json 字段
+        let parameters = item
+            .get("inputSchema")
+            .cloned()
+            .or_else(|| item.get("parameters").cloned());
+
+        return Some(Tool {
+            tool_type: "function".to_string(),
+            function: ToolFunction {
+                name,
+                description,
+                parameters,
+            },
+            web_search: None,
+        });
+    }
+
     if item_type != "function" {
         return None;
     }

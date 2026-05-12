@@ -5,6 +5,69 @@ use crate::auth::providers::{
     AuthProvider, IdcProvider, RefreshMetadata, SocialProvider,
 };
 
+// ===== 时间常量（参考 Kiro IDE 源码）=====
+
+/// Token 提前刷新时间（10分钟）
+/// 在 token 过期前 10 分钟开始尝试刷新，避免真正过期
+/// 参考 Kiro IDE: REFRESH_BEFORE_EXPIRY_SECONDS = 10 * 60
+pub const AUTH_TOKEN_REFRESH_BEFORE_EXPIRY_SECONDS: i64 = 10 * 60;
+
+/// Token 过期判断的容错时间（3分钟）
+/// 判断 token 是否过期时，提前 3 分钟视为过期，防止时钟偏差
+/// 参考 Kiro IDE: AUTH_TOKEN_INVALIDATION_OFFSET_SECONDS = 3 * 60
+pub const AUTH_TOKEN_INVALIDATION_OFFSET_SECONDS: i64 = 3 * 60;
+
+/// Client Registration 过期容错时间（15分钟）
+/// IdC 账号的 clientSecret 过期检查，提前 15 分钟视为过期
+/// 参考 Kiro IDE: CLIENT_REG_INVALIDATION_OFFSET_SECONDS = 15 * 60
+#[allow(dead_code)] // 预留给 IdC 账号的 client registration 过期检查
+pub const CLIENT_REG_INVALIDATION_OFFSET_SECONDS: i64 = 15 * 60;
+
+/// 后台刷新检查间隔（60秒）
+/// 参考 Kiro IDE: REFRESH_LOOP_INTERVAL_SECONDS = 60
+pub const REFRESH_LOOP_INTERVAL_SECONDS: u64 = 60;
+
+// ===== Token 过期检查函数 =====
+
+/// 检查 token 是否即将过期（需要刷新）
+/// 
+/// 在 token 过期前 10 分钟返回 true，用于触发提前刷新
+pub fn is_token_expiring_soon(expires_at: &str) -> bool {
+    is_token_expired_within_seconds(expires_at, AUTH_TOKEN_REFRESH_BEFORE_EXPIRY_SECONDS)
+}
+
+/// 检查 token 是否已过期（带容错时间）
+/// 
+/// 在 token 过期前 3 分钟返回 true，用于判断 token 是否真正不可用
+pub fn is_token_expired(expires_at: &str) -> bool {
+    is_token_expired_within_seconds(expires_at, AUTH_TOKEN_INVALIDATION_OFFSET_SECONDS)
+}
+
+/// 检查 token 是否在指定秒数内过期
+fn is_token_expired_within_seconds(expires_at: &str, seconds: i64) -> bool {
+    match chrono::NaiveDateTime::parse_from_str(expires_at, "%Y/%m/%d %H:%M:%S") {
+        Ok(expires) => {
+            let now = chrono::Local::now().naive_local();
+            let threshold = now + chrono::Duration::seconds(seconds);
+            expires < threshold
+        }
+        Err(_) => true, // 解析失败视为已过期
+    }
+}
+
+/// 检查 client registration 是否即将过期
+#[allow(dead_code)] // 预留给 IdC 账号的 client registration 过期检查
+pub fn is_client_registration_expiring(expires_at: &str) -> bool {
+    match chrono::NaiveDateTime::parse_from_str(expires_at, "%Y/%m/%d %H:%M:%S") {
+        Ok(expires) => {
+            let now = chrono::Local::now().naive_local();
+            let threshold = now + chrono::Duration::seconds(CLIENT_REG_INVALIDATION_OFFSET_SECONDS);
+            expires < threshold
+        }
+        Err(_) => true,
+    }
+}
+
 pub async fn run_blocking_task<T, F>(task: F) -> Result<T, String>
 where
     T: Send + 'static,
@@ -16,6 +79,7 @@ where
 }
 
 /// Token 刷新结果
+#[derive(Debug)]
 pub struct RefreshResult {
     pub access_token: String,
     pub refresh_token: Option<String>,
@@ -238,10 +302,9 @@ pub fn is_auth_error_message(error: &str) -> bool {
         || lower.contains("expired")
         || lower.contains("invalid")
 }
-
-/// 计算过期时间字符串
 pub fn calc_expires_at(expires_in: i64) -> String {
-    let expires_at = chrono::Local::now() + chrono::Duration::seconds(expires_in);
+    let now = chrono::Local::now();
+    let expires_at = now + chrono::Duration::seconds(expires_in);
     expires_at.format("%Y/%m/%d %H:%M:%S").to_string()
 }
 
@@ -313,6 +376,7 @@ pub fn find_existing_account_idx(
 #[cfg(test)]
 mod tests {
     use super::{extract_user_info, find_existing_account_idx, parse_usage_result};
+    use super::{is_token_expiring_soon, is_token_expired, is_client_registration_expiring};
     use crate::core::account::Account;
 
     #[test]
@@ -326,6 +390,75 @@ mod tests {
         assert!(!auth_error.is_banned);
         assert!(auth_error.is_auth_error);
         assert_eq!(auth_error.usage_data, serde_json::Value::Null);
+    }
+
+    #[test]
+    fn test_is_token_expiring_soon() {
+        // 测试即将过期的 token（9分钟后）
+        let expires_at = (chrono::Local::now() + chrono::Duration::minutes(9))
+            .format("%Y/%m/%d %H:%M:%S")
+            .to_string();
+        assert!(is_token_expiring_soon(&expires_at), "Token expiring in 9 minutes should return true");
+
+        // 测试还有效的 token（11分钟后）
+        let expires_at = (chrono::Local::now() + chrono::Duration::minutes(11))
+            .format("%Y/%m/%d %H:%M:%S")
+            .to_string();
+        assert!(!is_token_expiring_soon(&expires_at), "Token expiring in 11 minutes should return false");
+
+        // 测试已过期的 token
+        let expires_at = (chrono::Local::now() - chrono::Duration::minutes(5))
+            .format("%Y/%m/%d %H:%M:%S")
+            .to_string();
+        assert!(is_token_expiring_soon(&expires_at), "Expired token should return true");
+
+        // 测试无效的时间格式
+        assert!(is_token_expiring_soon("invalid-date"), "Invalid date should return true");
+    }
+
+    #[test]
+    fn test_is_token_expired() {
+        // 测试已过期的 token（2分钟前）
+        let expires_at = (chrono::Local::now() - chrono::Duration::minutes(2))
+            .format("%Y/%m/%d %H:%M:%S")
+            .to_string();
+        assert!(is_token_expired(&expires_at), "Token expired 2 minutes ago should return true");
+
+        // 测试即将过期的 token（2分钟后，在3分钟容错范围内）
+        let expires_at = (chrono::Local::now() + chrono::Duration::minutes(2))
+            .format("%Y/%m/%d %H:%M:%S")
+            .to_string();
+        assert!(is_token_expired(&expires_at), "Token expiring in 2 minutes should return true (within 3min threshold)");
+
+        // 测试还有效的 token（5分钟后）
+        let expires_at = (chrono::Local::now() + chrono::Duration::minutes(5))
+            .format("%Y/%m/%d %H:%M:%S")
+            .to_string();
+        assert!(!is_token_expired(&expires_at), "Token expiring in 5 minutes should return false");
+
+        // 测试无效的时间格式
+        assert!(is_token_expired("invalid-date"), "Invalid date should return true");
+    }
+
+    #[test]
+    fn test_is_client_registration_expiring() {
+        // 测试即将过期的 client registration（10分钟后，在15分钟容错范围内）
+        let expires_at = (chrono::Local::now() + chrono::Duration::minutes(10))
+            .format("%Y/%m/%d %H:%M:%S")
+            .to_string();
+        assert!(is_client_registration_expiring(&expires_at), "Client reg expiring in 10 minutes should return true");
+
+        // 测试还有效的 client registration（20分钟后）
+        let expires_at = (chrono::Local::now() + chrono::Duration::minutes(20))
+            .format("%Y/%m/%d %H:%M:%S")
+            .to_string();
+        assert!(!is_client_registration_expiring(&expires_at), "Client reg expiring in 20 minutes should return false");
+
+        // 测试已过期的 client registration
+        let expires_at = (chrono::Local::now() - chrono::Duration::days(1))
+            .format("%Y/%m/%d %H:%M:%S")
+            .to_string();
+        assert!(is_client_registration_expiring(&expires_at), "Expired client reg should return true");
     }
 
     #[test]

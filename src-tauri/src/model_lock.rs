@@ -7,7 +7,7 @@ use tokio::time::{interval, Duration};
 
 /// 启动模型锁定后台任务
 pub fn start_model_lock_task(app_handle: AppHandle) {
-    tokio::spawn(async move {
+    tauri::async_runtime::spawn(async move {
         log::info!("[ModelLock] 后台任务已启动");
 
         let mut retry_count = 0;

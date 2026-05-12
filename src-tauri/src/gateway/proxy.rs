@@ -775,13 +775,7 @@ fn write_request_log(
     cache_read_input_tokens: Option<i32>,
     cache_creation_input_tokens: Option<i32>,
 ) {
-    // 调试日志：记录 tokens 信息
-    if input_tokens.is_none() && output_tokens.is_none() {
-        eprintln!("⚠️  [write_request_log] No tokens info for request #{}", context.request_index);
-    } else {
-        eprintln!("📊 [write_request_log] Request #{}: input={:?}, output={:?}, cache_read={:?}, cache_creation={:?}",
-            context.request_index, input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens);
-    }
+
     
     let duration_ms = context
         .started_at
@@ -1638,6 +1632,44 @@ pub async fn mcp_proxy_handler(
     }
 
     let logged_response_body = String::from_utf8_lossy(&body).to_string();
+    
+    // 🔍 详细日志：记录完整的 MCP 响应（用于调试 SENSITIVE_STRING 问题）
+    log::info!("[MCP Proxy] ========== MCP 响应详情 ==========");
+    log::info!("[MCP Proxy] 请求方法: {}", payload.get("method").and_then(|v| v.as_str()).unwrap_or("unknown"));
+    log::info!("[MCP Proxy] 响应状态: {}", status);
+    log::info!("[MCP Proxy] 响应大小: {} bytes", body.len());
+    
+    // 尝试解析 JSON 并美化输出
+    if let Ok(json_value) = serde_json::from_str::<Value>(&logged_response_body) {
+        // 检查是否是 tools/list 响应
+        if let Some(result) = json_value.get("result") {
+            if let Some(tools) = result.get("tools").and_then(|v| v.as_array()) {
+                log::info!("[MCP Proxy] ✅ 成功解析 tools/list 响应");
+                log::info!("[MCP Proxy] 工具数量: {}", tools.len());
+                log::info!("[MCP Proxy] 工具列表:");
+                for (idx, tool) in tools.iter().enumerate().take(5) {
+                    if let Some(name) = tool.get("name").and_then(|v| v.as_str()) {
+                        log::info!("[MCP Proxy]   {}. {}", idx + 1, name);
+                    }
+                }
+                if tools.len() > 5 {
+                    log::info!("[MCP Proxy]   ... 还有 {} 个工具", tools.len() - 5);
+                }
+            } else {
+                log::info!("[MCP Proxy] 响应 result 字段: {}", serde_json::to_string_pretty(result).unwrap_or_else(|_| "无法序列化".to_string()));
+            }
+        }
+        
+        // 输出完整响应（美化格式）
+        log::debug!("[MCP Proxy] 完整响应 JSON:\n{}", serde_json::to_string_pretty(&json_value).unwrap_or_else(|_| logged_response_body.clone()));
+    } else {
+        // 非 JSON 响应，输出原始内容
+        log::warn!("[MCP Proxy] ⚠️  响应不是有效的 JSON");
+        log::debug!("[MCP Proxy] 原始响应: {}", logged_response_body.chars().take(1000).collect::<String>());
+    }
+    
+    log::info!("[MCP Proxy] ========================================");
+    
     write_request_log(
         &upstream_log_context,
         status,
@@ -2258,7 +2290,6 @@ async fn resolve_managed_account_credentials(
     };
 
     if all_disabled_by_failures {
-        eprintln!("[Gateway] 所有账号均已被自动禁用，执行自愈机制重置失败计数");
         for account in store.accounts.iter_mut() {
             if account.disabled_reason.as_deref() == Some("TooManyFailures") {
                 account.failure_count = 0;
@@ -2460,7 +2491,7 @@ fn persist_account_refresh(
             if target.failure_count >= MAX_FAILURES_PER_ACCOUNT {
                 target.status = "disabled".to_string();
                 target.disabled_reason = Some("TooManyFailures".to_string());
-                eprintln!(
+                log::warn!(
                     "[Gateway] 账号 {} 失败次数达到 {}，自动禁用",
                     target.label, MAX_FAILURES_PER_ACCOUNT
                 );

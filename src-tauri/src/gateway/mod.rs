@@ -669,7 +669,7 @@ async fn spawn_runtime(config: GatewayConfig) -> Result<GatewayRuntime, String> 
 
     let server_task = tokio::spawn(async move {
         if let Err(e) = server.await {
-            eprintln!("gateway server error: {e}");
+            log::error!("gateway server error: {e}");
         }
     });
 

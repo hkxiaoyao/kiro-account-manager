@@ -133,13 +133,13 @@ pub fn parse_kiro_event_full(json_str: &str) -> Option<KiroEvent> {
         }
     }
 
-    if let Some(percentage) = value
-        .get("contextUsagePercentage")
-        .and_then(|item| item.as_f64())
-    {
-        return Some(KiroEvent::ContextUsage {
-            percentage: percentage as f32,
-        });
+    // 解析 contextUsageEvent
+    if let Some(context_event) = value.get("contextUsageEvent").and_then(|item| item.as_object()) {
+        if let Some(percentage) = context_event.get("contextUsagePercentage").and_then(|item| item.as_f64()) {
+            return Some(KiroEvent::ContextUsage {
+                percentage: percentage as f32,
+            });
+        }
     }
 
     if let Some(metering) = value.get("meteringEvent").and_then(|item| item.as_object()) {
@@ -166,10 +166,31 @@ pub fn parse_kiro_event_full(json_str: &str) -> Option<KiroEvent> {
             });
         }
     }
-
     if let Some(text) = parse_reasoning_text(&value) {
         if !text.is_empty() {
             return Some(KiroEvent::Thinking(text));
+        }
+    }
+
+    // 解析 codeReferenceEvent
+    if let Some(code_ref) = value.get("codeReferenceEvent") {
+        if let Some(citation) = parse_code_reference_event(code_ref) {
+            return Some(KiroEvent::Citation {
+                text: citation.text,
+                link: citation.link,
+                target: citation.target,
+            });
+        }
+    }
+
+    // 解析 supplementaryWebLinksEvent
+    if let Some(web_links) = value.get("supplementaryWebLinksEvent") {
+        if let Some(citation) = parse_supplementary_web_links_event(web_links) {
+            return Some(KiroEvent::Citation {
+                text: citation.text,
+                link: citation.link,
+                target: citation.target,
+            });
         }
     }
 
@@ -274,7 +295,6 @@ pub fn aggregate_kiro_response(raw: &str) -> AggregatedKiroResponse {
     let mut tool_accumulators: std::collections::HashMap<String, (String, String)> =
         std::collections::HashMap::new();
     let mut found_usage = false;
-
     while let Some(start) = remaining.find('{') {
         remaining = &remaining[start..];
         let Some(json_str) = extract_json(remaining) else {
@@ -308,12 +328,11 @@ pub fn aggregate_kiro_response(raw: &str) -> AggregatedKiroResponse {
                     cache_creation_input_tokens,
                 } => {
                     found_usage = true;
-                    eprintln!("📊 [aggregate_kiro_response] Found usage event: input={}, output={}, cache_read={:?}, cache_creation={:?}",
-                        input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens);
                     aggregated.input_tokens = input_tokens;
                     aggregated.output_tokens = output_tokens;
                     aggregated.cache_read_input_tokens = cache_read_input_tokens;
                     aggregated.cache_creation_input_tokens = cache_creation_input_tokens;
+                    log::debug!("Found usage info: input={}, output={}", input_tokens, output_tokens);
                 }
                 KiroEvent::ContextUsage { percentage } => {
                     aggregated.context_usage_percentage = Some(percentage);
@@ -331,12 +350,13 @@ pub fn aggregate_kiro_response(raw: &str) -> AggregatedKiroResponse {
 
         remaining = &remaining[json_len..];
     }
+    aggregated.tool_calls = deduplicate_tool_calls(aggregated.tool_calls);
 
+    // 记录是否找到了 usage 信息（用于调试）
     if !found_usage {
-        eprintln!("⚠️  [aggregate_kiro_response] No usage event found in response");
+        log::debug!("No usage information found in Kiro response");
     }
 
-    aggregated.tool_calls = deduplicate_tool_calls(aggregated.tool_calls);
     aggregated
 }
 
@@ -408,6 +428,80 @@ fn parse_reasoning_text(value: &serde_json::Value) -> Option<String> {
     }
 
     None
+}
+
+/// 解析 codeReferenceEvent
+fn parse_code_reference_event(value: &serde_json::Value) -> Option<AggregatedCitation> {
+    let references = value.get("references")?.as_array()?;
+    let first_ref = references.first()?;
+
+    let repository = first_ref
+        .get("repository")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let license_name = first_ref
+        .get("licenseName")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    // 构造 link（使用 repository 作为链接）
+    let link = if !repository.is_empty() {
+        repository.to_string()
+    } else {
+        return None;
+    };
+
+    // 构造 text（显示许可证信息）
+    let text = if !license_name.is_empty() {
+        Some(format!("Code reference ({})", license_name))
+    } else {
+        Some("Code reference".to_string())
+    };
+
+    // 构造 target（保留原始的 recommendationContentSpan）
+    let target = first_ref
+        .get("recommendationContentSpan")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!({}));
+
+    Some(AggregatedCitation { text, link, target })
+}
+
+/// 解析 supplementaryWebLinksEvent
+fn parse_supplementary_web_links_event(value: &serde_json::Value) -> Option<AggregatedCitation> {
+    let links = value.get("supplementaryWebLinks")?.as_array()?;
+    let first_link = links.first()?;
+
+    let url = first_link
+        .get("url")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())?
+        .to_string();
+
+    let title = first_link
+        .get("title")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
+
+    let snippet = first_link
+        .get("snippet")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
+
+    // 使用 title 或 snippet 作为显示文本
+    let text = title.or(snippet);
+
+    // 构造 target（保留原始的 url 和 snippet）
+    let target = serde_json::json!({
+        "url": url,
+        "snippet": first_link.get("snippet").cloned().unwrap_or(serde_json::Value::Null)
+    });
+
+    Some(AggregatedCitation {
+        text,
+        link: url,
+        target,
+    })
 }
 
 fn parse_citation_event(value: &serde_json::Value) -> Option<AggregatedCitation> {

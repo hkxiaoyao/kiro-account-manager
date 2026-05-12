@@ -22,7 +22,7 @@ impl TokenRefreshService {
 
     /// 启动后台刷新循环
     pub fn start(self) {
-        tokio::spawn(async move {
+        tauri::async_runtime::spawn(async move {
             let mut interval_timer = interval(Duration::from_secs(REFRESH_LOOP_INTERVAL_SECONDS));
 
             loop {

@@ -17,6 +17,7 @@ mod gateway;
 mod kiro;
 mod models;
 mod services;
+mod tasks;  // 后台任务模块
 mod utils;
 
 use core::account::{AccountStore, GroupTagStore};
@@ -35,6 +36,7 @@ use commands::account_cmd::{
     delete_account_remote, delete_accounts, export_accounts, get_account_usage, get_accounts,
     get_accounts_by_group, get_accounts_by_tag, get_available_accounts, import_accounts,
     list_available_models, refresh_account_token, sync_account, update_account, verify_account,
+    check_token_status, check_all_tokens_status, refresh_all_expiring_tokens,
 };
 //应用设置
 use commands::app_settings_cmd::{
@@ -240,6 +242,9 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let app_handle = app.handle().clone();
     auto_switch::start_auto_switch_task(app_handle);
 
+    // 启动 Token 自动刷新后台任务（参考 Kiro IDE）
+    tasks::token_refresh::start_token_refresh_loop(app.handle().clone());
+
     // 创建托盘图标
     setup_system_tray(app)?;
 
@@ -368,6 +373,10 @@ fn main() {
             get_accounts_by_group,
             get_accounts_by_tag,
             get_account_usage,
+            // Token 状态检查命令
+            check_token_status,
+            check_all_tokens_status,
+            refresh_all_expiring_tokens,
             // Kiro CLI 导入命令
             get_kiro_cli_default_path,
             import_from_kiro_cli,

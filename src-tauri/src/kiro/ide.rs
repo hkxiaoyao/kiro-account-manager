@@ -13,6 +13,37 @@ fn calculate_client_id_hash(start_url: &str) -> String {
     hex::encode(hasher.finalize())
 }
 
+/// 检查文件是否为符号链接（安全性检查，参考 Kiro IDE）
+fn assert_not_symlink(path: &std::path::Path) -> Result<(), String> {
+    if path.exists() {
+        let metadata = std::fs::symlink_metadata(path)
+            .map_err(|e| format!("Failed to read metadata: {}", e))?;
+        if metadata.file_type().is_symlink() {
+            return Err("Token file is a symbolic link".to_string());
+        }
+    }
+    Ok(())
+}
+
+/// 设置文件权限为 0600（仅所有者可读写，仅 Unix 系统）
+#[cfg(unix)]
+fn set_file_permissions(path: &std::path::Path) -> Result<(), String> {
+    use std::os::unix::fs::PermissionsExt;
+    let mut perms = std::fs::metadata(path)
+        .map_err(|e| format!("Failed to read file metadata: {}", e))?
+        .permissions();
+    perms.set_mode(0o600);
+    std::fs::set_permissions(path, perms)
+        .map_err(|e| format!("Failed to set file permissions: {}", e))?;
+    Ok(())
+}
+
+/// Windows 系统不需要设置权限
+#[cfg(not(unix))]
+fn set_file_permissions(_path: &std::path::Path) -> Result<(), String> {
+    Ok(())
+}
+
 // ===== Kiro IDE 本地 Token =====
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -285,12 +316,18 @@ pub async fn switch_kiro_account(
         let content = serde_json::to_string_pretty(&token_data)
             .map_err(|e| format!("Failed to serialize: {e}"))?;
 
+        // 安全检查：确保不是符号链接
+        assert_not_symlink(&file_path)?;
+
         // 原子写入：先写临时文件，再 rename
         let temp_file_path = dir_path.join("kiro-auth-token.json.tmp");
         std::fs::write(&temp_file_path, &content)
             .map_err(|e| format!("Failed to write temp file: {e}"))?;
         std::fs::rename(&temp_file_path, &file_path)
             .map_err(|e| format!("Failed to rename file: {e}"))?;
+
+        // 设置文件权限为 0600（仅 Unix 系统）
+        set_file_permissions(&file_path).ok();
 
         // IdC 账号还需要写入 Client Registration 文件
         if auth_method == "IdC" {
@@ -317,10 +354,17 @@ pub async fn switch_kiro_account(
                 });
                 let client_reg_content = serde_json::to_string_pretty(&client_reg_data)
                     .map_err(|e| format!("Failed to serialize client registration: {e}"))?;
+
+                // 安全检查：确保不是符号链接
+                assert_not_symlink(&client_reg_path)?;
+
                 std::fs::write(&client_reg_temp_path, client_reg_content)
                     .map_err(|e| format!("Failed to write client registration temp: {e}"))?;
                 std::fs::rename(&client_reg_temp_path, &client_reg_path)
                     .map_err(|e| format!("Failed to rename client registration: {e}"))?;
+
+                // 设置文件权限为 0600（仅 Unix 系统）
+                set_file_permissions(&client_reg_path).ok();
             } else {
                 return Err("IdC 账号必须提供 client_id 和 client_secret".to_string());
             }

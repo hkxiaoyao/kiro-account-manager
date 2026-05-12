@@ -13,7 +13,7 @@ const DEFAULT_INTERVAL: i32 = 5; // 检查间隔（分钟）
 
 /// 启动自动换号后台任务
 pub fn start_auto_switch_task(app_handle: AppHandle) {
-    tokio::spawn(async move {
+    tauri::async_runtime::spawn(async move {
         log::info!("[AutoSwitch] 后台任务已启动");
 
         let mut retry_count = 0;

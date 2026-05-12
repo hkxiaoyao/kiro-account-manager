@@ -9,7 +9,7 @@ use tokio::time::{interval, Duration};
 
 /// 启动自动刷新后台任务
 pub fn start_auto_refresh_task(app_handle: AppHandle) {
-    tokio::spawn(async move {
+    tauri::async_runtime::spawn(async move {
         log::info!("[AutoRefresh] 后台任务已启动");
 
         let mut retry_count = 0;
