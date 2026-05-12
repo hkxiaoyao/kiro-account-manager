@@ -332,7 +332,6 @@ export const buildGatewayStatusSummary = ({ config, status, errorHistory, lastSt
   const listenPort = (status?.running ? status?.port : null) || config?.port || status?.port || 8765
   const errorCount = Array.isArray(errorHistory) ? errorHistory.length : 0
   const errorHits = Array.isArray(errorHistory) ? errorHistory.reduce((sum, item) => sum + Number(item.count || 0), 0) : 0
-
   return {
     listen: `http://${listenHost}:${listenPort}`,
     requests: String(status?.requestCount || 0),
@@ -341,9 +340,9 @@ export const buildGatewayStatusSummary = ({ config, status, errorHistory, lastSt
     sync: lastStatusSyncAt || '-',
     routing: `${mode} / ${strategy}`,
     exposure: config?.localOnly ? '仅本机' : '允许远程',
-    errorCount: `${errorCount} 条 / ${errorHits} 次`}
+    errorCount: errorCount
+  }
 }
-
 export const buildGatewayRoutingSummary = ({ config, counts, selectedLabels = {} }: any) => {
   const mode = config?.accountMode || 'single'
   const inventorySummary = `账号 ${counts?.accounts || 0} 个 / 分组 ${counts?.groups || 0} 个`
@@ -533,11 +532,10 @@ export const buildGatewayRequestLogSummary = (entries: any) => {
     totalCacheReadTokens,
     totalCacheCreationTokens,
     requestsWithCache,
-    cacheHitRate,
-    costSavings,
+    cacheHitRate: `${cacheHitRate.toFixed(1)}%`,
+    costSavings
   }
 }
-
 interface MetricEntry {
   label: string
   count: number

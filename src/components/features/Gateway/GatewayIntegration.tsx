@@ -26,12 +26,16 @@ function GatewayIntegration({
   copySuccess,
   effectiveConfig,
   status}: GatewayIntegrationProps) {
-  
+
   // 构建完整的 baseUrl
   const port = (status?.running ? status?.port : null) || effectiveConfig?.port || status?.port || 8765
   const needsBrackets = effectiveConnectHost.includes(':') && !effectiveConnectHost.startsWith('[')
   const normalizedHost = needsBrackets ? `[${effectiveConnectHost}]` : effectiveConnectHost
   const fullBaseUrl = `http://${normalizedHost}:${port}`
+
+  // 获取完整的 API Key（用于复制，不遮挡）
+  const fullApiKey = effectiveConfig?.clientApiKeysText || effectiveConfig?.apiKey || ''
+  const firstApiKey = fullApiKey.split('\n')[0]?.trim() || ''
   return (
     <div className="grid grid-cols-1 gap-4">
       <GatewaySurfaceCard colors={colors}>
@@ -87,7 +91,7 @@ function GatewayIntegration({
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => copyText(clientSamples.anthropic.env, 'Claude / Anthropic 配置已复制')}
+                onClick={() => copyText(`${fullBaseUrl}\n${firstApiKey}`, 'Claude / Anthropic 配置已复制')}
                 className="gap-1"
               >
                 <Copy size={14} />
@@ -104,7 +108,7 @@ function GatewayIntegration({
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => copyText(clientSamples.openai.env, 'OpenAI 兼容配置已复制')}
+                  onClick={() => copyText(`${fullBaseUrl}\n${firstApiKey}`, 'OpenAI 兼容配置已复制')}
                   className="gap-1"
                 >
                   <Copy size={14} />
@@ -144,7 +148,7 @@ function GatewayIntegration({
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => copyText(clientSamples.openaiChat.env, 'Chat Completions 配置已复制')}
+                  onClick={() => copyText(`${fullBaseUrl}\n${firstApiKey}`, 'Chat Completions 配置已复制')}
                   className="gap-1"
                 >
                   <Copy size={14} />
@@ -184,7 +188,7 @@ function GatewayIntegration({
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => copyText(clientSamples.claudeCode.config, 'Claude Code 配置已复制')}
+                  onClick={() => copyText(`${fullBaseUrl}\n${firstApiKey}`, 'Claude Code 配置已复制')}
                   className="gap-1"
                 >
                   <Copy size={14} />
@@ -201,10 +205,10 @@ function GatewayIntegration({
                         await copyText('未检测到 Claude Code CLI，请先安装：https://docs.anthropic.com/en/docs/claude-code', '未安装 Claude Code')
                         return
                       }
-                      
+
                       const result = await invoke('write_claude_code_config', {
                         baseUrl: fullBaseUrl,
-                        apiKey: clientSamples.claudeCode.apiKey
+                        apiKey: firstApiKey
                       })
                       await copyText(result as string, '配置成功')
                     } catch (e) {
@@ -231,7 +235,7 @@ function GatewayIntegration({
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => copyText(clientSamples.codex.config, 'Codex CLI 配置已复制')}
+                  onClick={() => copyText(`${fullBaseUrl}\n${firstApiKey}`, 'Codex CLI 配置已复制')}
                   className="gap-1"
                 >
                   <Copy size={14} />
@@ -248,10 +252,10 @@ function GatewayIntegration({
                         await copyText('未检测到 Codex CLI，请先安装：https://openai.com/index/introducing-codex-cli/', '未安装 Codex CLI')
                         return
                       }
-                      
+
                       const result = await invoke('write_codex_cli_config', {
                         baseUrl: fullBaseUrl,
-                        apiKey: clientSamples.codex.apiKey,
+                        apiKey: firstApiKey,
                         model: 'claude-sonnet-4-5-20250929'
                       })
                       await copyText(result as string, '配置成功')
