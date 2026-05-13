@@ -1636,15 +1636,50 @@ pub async fn proxy_handler(
         }
     };
 
+    // 添加调试日志：记录原始响应体大小和前几个字节
+    log::info!(
+        "[Non-Stream Response] Raw bytes size: {} bytes, first 100 bytes: {:?}",
+        raw_bytes.len(),
+        &raw_bytes[..raw_bytes.len().min(100)]
+    );
+
+    // 调试：将原始响应体写入文件
+    #[cfg(debug_assertions)]
+    {
+        use std::fs;
+        use std::path::PathBuf;
+        let debug_dir = PathBuf::from("debug_responses");
+        if !debug_dir.exists() {
+            let _ = fs::create_dir_all(&debug_dir);
+        }
+        let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
+        let debug_file = debug_dir.join(format!("response_{}.bin", timestamp));
+        if let Err(e) = fs::write(&debug_file, &raw_bytes) {
+            log::error!("Failed to write debug response file: {}", e);
+        } else {
+            log::info!("Debug response written to: {:?}", debug_file);
+        }
+    }
+
     // 解码 EventStream 消息并提取所有 JSON payload
     let mut buffer = raw_bytes.to_vec();
     let mut json_payloads = Vec::new();
+    let mut message_count = 0;
 
     loop {
         match decode_message(&buffer) {
             Ok(Some((msg, consumed_bytes))) => {
+                message_count += 1;
                 let message_type = msg.headers.get(":message-type").map(String::as_str);
                 let event_type = msg.headers.get(":event-type").map(String::as_str);
+
+                log::info!(
+                    "[Non-Stream Response] Message #{}: type={:?}, event={:?}, payload_size={} bytes",
+                    message_count,
+                    message_type,
+                    event_type,
+                    msg.payload.len()
+                );
 
                 // 检查错误消息
                 if matches!(message_type, Some("error") | Some("exception")) {
@@ -1675,6 +1710,10 @@ pub async fn proxy_handler(
                 // 只处理事件类型的消息
                 if matches!(message_type, Some("event")) {
                     let json_text = String::from_utf8_lossy(&msg.payload);
+                    log::info!(
+                        "[Non-Stream Response] Event payload: {}",
+                        json_text.chars().take(500).collect::<String>()
+                    );
                     json_payloads.push(json_text.to_string());
                 }
 
@@ -1682,10 +1721,11 @@ pub async fn proxy_handler(
             }
             Ok(None) => {
                 // 缓冲区数据不足，已处理完所有消息
+                log::info!("[Non-Stream Response] EventStream decoding complete, remaining buffer: {} bytes", buffer.len());
                 break;
             }
             Err(e) => {
-                log::error!("EventStream 解码失败: {}", e);
+                log::error!("EventStream 解码失败: {}, remaining buffer: {} bytes", e, buffer.len());
                 break;
             }
         }
@@ -1694,10 +1734,26 @@ pub async fn proxy_handler(
     // 将所有 JSON payload 拼接成一个字符串用于聚合解析
     let body = json_payloads.join("");
 
+    // 调试：将解析出的 JSON 写入文件
+    #[cfg(debug_assertions)]
+    {
+        use std::fs;
+        use std::path::PathBuf;
+        let debug_dir = PathBuf::from("debug_responses");
+        let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
+        let json_file = debug_dir.join(format!("parsed_{}.json", timestamp));
+        if let Err(e) = fs::write(&json_file, &body) {
+            log::error!("Failed to write parsed JSON file: {}", e);
+        } else {
+            log::info!("Parsed JSON written to: {:?}", json_file);
+        }
+    }
+
     // 添加调试日志：记录解码后的 JSON 数量和预览
     log::info!(
-        "[Non-Stream Response] Decoded {} EventStream messages, body preview: {}",
+        "[Non-Stream Response] Decoded {} EventStream messages, total body length: {} chars, body preview: {}",
         json_payloads.len(),
+        body.len(),
         body.chars().take(1000).collect::<String>()
     );
 
@@ -1710,6 +1766,15 @@ pub async fn proxy_handler(
         aggregated.output_tokens,
         aggregated.cache_read_input_tokens,
         aggregated.cache_creation_input_tokens
+    );
+
+    // 调试：记录 aggregated 的详细信息
+    log::info!(
+        "[Non-Stream Response] Aggregated details: text_len={}, thinking_len={}, tool_calls={}, citations={}",
+        aggregated.text.len(),
+        aggregated.thinking.len(),
+        aggregated.tool_calls.len(),
+        aggregated.citations.len()
     );
 
     let response = match format {
@@ -2059,13 +2124,27 @@ async fn execute_request_with_server_tools(
             )
         })?;
 
+        log::info!(
+            "[Web Search Response] Raw bytes size: {} bytes",
+            raw_bytes.len()
+        );
+
         let mut buffer = raw_bytes.to_vec();
         let mut json_payloads = Vec::new();
+        let mut message_count = 0;
 
         loop {
             match decode_message(&buffer) {
                 Ok(Some((msg, consumed_bytes))) => {
+                    message_count += 1;
                     let message_type = msg.headers.get(":message-type").map(String::as_str);
+
+                    log::info!(
+                        "[Web Search Response] Message #{}: type={:?}, payload_size={} bytes",
+                        message_count,
+                        message_type,
+                        msg.payload.len()
+                    );
 
                     if matches!(message_type, Some("error") | Some("exception")) {
                         let error_text = String::from_utf8_lossy(&msg.payload);
@@ -2079,12 +2158,19 @@ async fn execute_request_with_server_tools(
 
                     if matches!(message_type, Some("event")) {
                         let json_text = String::from_utf8_lossy(&msg.payload);
+                        log::info!(
+                            "[Web Search Response] Event payload preview: {}",
+                            json_text.chars().take(200).collect::<String>()
+                        );
                         json_payloads.push(json_text.to_string());
                     }
 
                     buffer.drain(..consumed_bytes);
                 }
-                Ok(None) => break,
+                Ok(None) => {
+                    log::info!("[Web Search Response] EventStream decoding complete");
+                    break;
+                }
                 Err(e) => {
                     log::error!("EventStream 解码失败 (web_search): {}", e);
                     break;
@@ -2093,7 +2179,21 @@ async fn execute_request_with_server_tools(
         }
 
         let body = json_payloads.join("");
+        log::info!(
+            "[Web Search Response] Decoded {} messages, body length: {} chars",
+            json_payloads.len(),
+            body.len()
+        );
+
         let aggregated = aggregate_kiro_response(&body);
+
+        log::info!(
+            "[Web Search Response] Aggregated tokens: input={}, output={}, cache_read={:?}, cache_creation={:?}",
+            aggregated.input_tokens,
+            aggregated.output_tokens,
+            aggregated.cache_read_input_tokens,
+            aggregated.cache_creation_input_tokens
+        );
         let web_search_calls: Vec<(String, String, String)> = aggregated
             .tool_calls
             .iter()

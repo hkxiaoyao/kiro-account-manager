@@ -313,21 +313,51 @@ pub fn aggregate_kiro_response(raw: &str) -> AggregatedKiroResponse {
     let mut tool_accumulators: std::collections::HashMap<String, (String, String)> =
         std::collections::HashMap::new();
     let mut found_usage = false;
+    let mut json_count = 0;
+    let mut event_counts = std::collections::HashMap::new();
+
+    log::info!("[Aggregate] Starting aggregation, raw length: {} chars", raw.len());
+
     while let Some(start) = remaining.find('{') {
         remaining = &remaining[start..];
         let Some(json_str) = extract_json(remaining) else {
+            log::warn!("[Aggregate] Failed to extract JSON at position, remaining: {} chars", remaining.len());
             break;
         };
         let json_len = json_str.len();
+        json_count += 1;
+
+        log::debug!("[Aggregate] JSON #{}: {}", json_count, json_str.chars().take(200).collect::<String>());
 
         if let Some(event) = parse_kiro_event_full(&json_str) {
+            let event_type = match &event {
+                KiroEvent::Text(_) => "Text",
+                KiroEvent::Thinking(_) => "Thinking",
+                KiroEvent::ToolUseStart { .. } => "ToolUseStart",
+                KiroEvent::ToolUseInputDelta { .. } => "ToolUseInputDelta",
+                KiroEvent::ToolUseStop { .. } => "ToolUseStop",
+                KiroEvent::Usage { .. } => "Usage",
+                KiroEvent::ContextUsage { .. } => "ContextUsage",
+                KiroEvent::Metering { .. } => "Metering",
+                KiroEvent::Citation { .. } => "Citation",
+            };
+            *event_counts.entry(event_type).or_insert(0) += 1;
+
             match event {
-                KiroEvent::Text(text) => aggregated.text.push_str(&text),
-                KiroEvent::Thinking(text) => aggregated.thinking.push_str(&text),
+                KiroEvent::Text(text) => {
+                    log::debug!("[Aggregate] Text event: {} chars", text.len());
+                    aggregated.text.push_str(&text);
+                }
+                KiroEvent::Thinking(text) => {
+                    log::debug!("[Aggregate] Thinking event: {} chars", text.len());
+                    aggregated.thinking.push_str(&text);
+                }
                 KiroEvent::ToolUseStart { id, name } => {
+                    log::debug!("[Aggregate] ToolUseStart: id={}, name={}", id, name);
                     tool_accumulators.entry(id).or_insert((name, String::new()));
                 }
                 KiroEvent::ToolUseInputDelta { id, input_delta } => {
+                    log::debug!("[Aggregate] ToolUseInputDelta: id={}, delta_len={}", id, input_delta.len());
                     if let Some((_, current_input)) = tool_accumulators.get_mut(&id) {
                         current_input.push_str(&input_delta);
                     } else {
@@ -335,6 +365,7 @@ pub fn aggregate_kiro_response(raw: &str) -> AggregatedKiroResponse {
                     }
                 }
                 KiroEvent::ToolUseStop { id } => {
+                    log::debug!("[Aggregate] ToolUseStop: id={}", id);
                     if let Some((name, input)) = tool_accumulators.remove(&id) {
                         aggregated.tool_calls.push((id, name, input));
                     }
@@ -350,29 +381,51 @@ pub fn aggregate_kiro_response(raw: &str) -> AggregatedKiroResponse {
                     aggregated.output_tokens = output_tokens;
                     aggregated.cache_read_input_tokens = cache_read_input_tokens;
                     aggregated.cache_creation_input_tokens = cache_creation_input_tokens;
-                    log::debug!("Found usage info: input={}, output={}", input_tokens, output_tokens);
+                    log::info!(
+                        "[Aggregate] ✅ Found usage info: input={}, output={}, cache_read={:?}, cache_creation={:?}",
+                        input_tokens,
+                        output_tokens,
+                        cache_read_input_tokens,
+                        cache_creation_input_tokens
+                    );
                 }
                 KiroEvent::ContextUsage { percentage } => {
+                    log::debug!("[Aggregate] ContextUsage: {}%", percentage);
                     aggregated.context_usage_percentage = Some(percentage);
                 }
                 KiroEvent::Metering { usage, .. } => {
+                    log::debug!("[Aggregate] Metering: {}", usage);
                     aggregated.metering_usage = Some(usage);
                 }
                 KiroEvent::Citation { text, link, target } => {
+                    log::debug!("[Aggregate] Citation: link={}", link);
                     aggregated
                         .citations
                         .push(AggregatedCitation { text, link, target });
                 }
             }
+        } else {
+            log::warn!("[Aggregate] Failed to parse event from JSON: {}", json_str.chars().take(200).collect::<String>());
         }
 
         remaining = &remaining[json_len..];
     }
     aggregated.tool_calls = deduplicate_tool_calls(aggregated.tool_calls);
 
+    // 记录统计信息
+    log::info!("[Aggregate] Completed: processed {} JSON objects", json_count);
+    log::info!("[Aggregate] Event counts: {:?}", event_counts);
+    log::info!(
+        "[Aggregate] Result: text={} chars, thinking={} chars, tool_calls={}, citations={}",
+        aggregated.text.len(),
+        aggregated.thinking.len(),
+        aggregated.tool_calls.len(),
+        aggregated.citations.len()
+    );
+
     // 记录是否找到了 usage 信息（用于调试）
     if !found_usage {
-        log::debug!("No usage information found in Kiro response");
+        log::warn!("[Aggregate] ⚠️ No usage information found in Kiro response!");
     }
 
     aggregated
