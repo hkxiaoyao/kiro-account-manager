@@ -4,10 +4,6 @@
 /// 1. 内存中保存最近的请求日志（用于 UI 实时显示）
 /// 2. 支持日志监听器（实时推送到前端）
 /// 3. 自动限制日志数量（避免内存溢出）
-///
-/// 注意：当前项目使用 JSONL 文件存储方案，此模块保留用于未来扩展
-
-#![allow(dead_code)]
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -65,6 +61,7 @@ impl LogStore {
     }
 
     /// 获取所有日志
+    #[allow(dead_code)]
     pub async fn get_all(&self) -> Vec<GatewayRequestLogEntry> {
         let inner = self.inner.read().await;
         inner.logs.clone()
@@ -78,6 +75,7 @@ impl LogStore {
     }
 
     /// 获取日志总数
+    #[allow(dead_code)]
     pub async fn count(&self) -> usize {
         let inner = self.inner.read().await;
         inner.logs.len()
@@ -92,6 +90,7 @@ impl LogStore {
     /// 添加日志监听器（用于实时推送到前端）
     ///
     /// 返回一个接收器，可以用来接收新的日志条目
+    #[allow(dead_code)]
     pub async fn subscribe(&self) -> tokio::sync::mpsc::UnboundedReceiver<GatewayRequestLogEntry> {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
         let mut inner = self.inner.write().await;

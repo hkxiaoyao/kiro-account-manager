@@ -8,10 +8,13 @@ use crate::gateway::{
     get_gateway_log_dir as get_gateway_log_dir_inner,
     get_gateway_request_logs as get_gateway_request_logs_inner,
     get_gateway_request_stats as get_gateway_request_stats_inner,
+    get_gateway_model_stats as get_gateway_model_stats_inner,
+    get_gateway_endpoint_stats as get_gateway_endpoint_stats_inner,
     get_gateway_status as get_gateway_status_inner,
     open_gateway_log_dir as open_gateway_log_dir_inner,
     save_gateway_config as save_gateway_config_inner, start_gateway as start_gateway_inner,
     stop_gateway as stop_gateway_inner, GatewayConfig, GatewayRequestLogEntry, GatewayRequestStats, GatewayStatus,
+    log_store,
 };
 use crate::state::AppState;
 
@@ -59,14 +62,31 @@ pub async fn get_gateway_log_dir(app: AppHandle) -> Result<String, String> {
 
 #[tauri::command]
 pub async fn get_gateway_request_logs(
+    state: State<'_, AppState>,
     limit: Option<usize>,
 ) -> Result<Vec<GatewayRequestLogEntry>, String> {
-    get_gateway_request_logs_inner(limit)
+    get_gateway_request_logs_inner(&state, limit).await
 }
 
 #[tauri::command]
-pub async fn get_gateway_request_stats() -> Result<GatewayRequestStats, String> {
-    get_gateway_request_stats_inner()
+pub async fn get_gateway_request_stats(
+    state: State<'_, AppState>,
+) -> Result<GatewayRequestStats, String> {
+    get_gateway_request_stats_inner(&state).await
+}
+
+#[tauri::command]
+pub async fn get_gateway_model_stats(
+    state: State<'_, AppState>,
+) -> Result<Vec<log_store::ModelStat>, String> {
+    get_gateway_model_stats_inner(&state).await
+}
+
+#[tauri::command]
+pub async fn get_gateway_endpoint_stats(
+    state: State<'_, AppState>,
+) -> Result<Vec<log_store::EndpointStat>, String> {
+    get_gateway_endpoint_stats_inner(&state).await
 }
 
 #[tauri::command]
@@ -75,8 +95,10 @@ pub async fn open_gateway_log_dir(app: AppHandle) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub async fn clear_gateway_request_logs() -> Result<(), String> {
-    clear_gateway_request_logs_inner()
+pub async fn clear_gateway_request_logs(
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    clear_gateway_request_logs_inner(&state).await
 }
 
 #[cfg(test)]
