@@ -126,12 +126,12 @@ pub fn parse_kiro_event_full(json_str: &str) -> Option<KiroEvent> {
             .and_then(|item| item.as_i64())
             .map(|v| v as i32);
 
-        // 添加调试日志：记录原始 usage JSON
-        log::debug!(
+        // 添加调试日志：记录原始 usage JSON（改为 INFO 级别）
+        log::info!(
             "[Token Parse] Raw usage JSON: {}",
             serde_json::to_string(usage).unwrap_or_else(|_| "invalid".to_string())
         );
-        log::debug!(
+        log::info!(
             "[Token Parse] Parsed: input={}, output={}, cache_read={:?}, cache_creation={:?}",
             input_tokens,
             output_tokens,

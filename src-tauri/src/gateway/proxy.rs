@@ -1616,8 +1616,9 @@ pub async fn proxy_handler(
         );
     }
 
-    let body = match upstream_resp.text().await {
-        Ok(body) => body,
+    // 非流式响应也是 EventStream 格式，需要解码
+    let raw_bytes = match upstream_resp.bytes().await {
+        Ok(bytes) => bytes,
         Err(error) => {
             let message = sanitize_error(&format!("读取上游响应失败: {error}"));
             return gateway_error_with_log(
@@ -1635,24 +1636,70 @@ pub async fn proxy_handler(
         }
     };
 
-    if let Some((status, error_type, message)) = detect_upstream_error_body(&body) {
-        return gateway_error_with_log(
-            &state,
-            format,
-            &upstream_payload_log_context,
-            GatewayErrorDetails {
-                status,
-                error_type,
-                message: &message,
-                response_body: Some(body.as_str()),
-            },
-        )
-        .await;
+    // 解码 EventStream 消息并提取所有 JSON payload
+    let mut buffer = raw_bytes.to_vec();
+    let mut json_payloads = Vec::new();
+
+    loop {
+        match decode_message(&buffer) {
+            Ok(Some((msg, consumed_bytes))) => {
+                let message_type = msg.headers.get(":message-type").map(String::as_str);
+                let event_type = msg.headers.get(":event-type").map(String::as_str);
+
+                // 检查错误消息
+                if matches!(message_type, Some("error") | Some("exception")) {
+                    let error_text = String::from_utf8_lossy(&msg.payload);
+                    log::error!(
+                        "EventStream 上游错误: message_type={:?}, event_type={:?}, payload={}",
+                        message_type,
+                        event_type,
+                        error_text
+                    );
+
+                    if let Some((status, error_type, message)) = detect_upstream_error_body(&error_text) {
+                        return gateway_error_with_log(
+                            &state,
+                            format,
+                            &upstream_payload_log_context,
+                            GatewayErrorDetails {
+                                status,
+                                error_type,
+                                message: &message,
+                                response_body: Some(&error_text),
+                            },
+                        )
+                        .await;
+                    }
+                }
+
+                // 只处理事件类型的消息
+                if matches!(message_type, Some("event")) {
+                    let json_text = String::from_utf8_lossy(&msg.payload);
+                    json_payloads.push(json_text.to_string());
+                }
+
+                buffer.drain(..consumed_bytes);
+            }
+            Ok(None) => {
+                // 缓冲区数据不足，已处理完所有消息
+                break;
+            }
+            Err(e) => {
+                log::error!("EventStream 解码失败: {}", e);
+                break;
+            }
+        }
     }
 
-    // 添加调试日志：记录原始响应体
-    log::debug!("[Non-Stream Response] Body preview: {}",
-        body.chars().take(500).collect::<String>());
+    // 将所有 JSON payload 拼接成一个字符串用于聚合解析
+    let body = json_payloads.join("");
+
+    // 添加调试日志：记录解码后的 JSON 数量和预览
+    log::info!(
+        "[Non-Stream Response] Decoded {} EventStream messages, body preview: {}",
+        json_payloads.len(),
+        body.chars().take(1000).collect::<String>()
+    );
 
     let aggregated = aggregate_kiro_response(&body);
 
@@ -2002,13 +2049,50 @@ async fn execute_request_with_server_tools(
         let upstream_resp = send_generate_request(&state.http, upstream, &upstream_payload)
             .await
             .map_err(|(status, error_type, message, _)| (status, error_type, message))?;
-        let body = upstream_resp.text().await.map_err(|error| {
+
+        // 解码 EventStream 响应
+        let raw_bytes = upstream_resp.bytes().await.map_err(|error| {
             (
                 StatusCode::BAD_GATEWAY,
                 "api_error",
                 sanitize_error(&format!("读取上游响应失败: {error}")),
             )
         })?;
+
+        let mut buffer = raw_bytes.to_vec();
+        let mut json_payloads = Vec::new();
+
+        loop {
+            match decode_message(&buffer) {
+                Ok(Some((msg, consumed_bytes))) => {
+                    let message_type = msg.headers.get(":message-type").map(String::as_str);
+
+                    if matches!(message_type, Some("error") | Some("exception")) {
+                        let error_text = String::from_utf8_lossy(&msg.payload);
+                        log::error!("EventStream 上游错误 (web_search): {}", error_text);
+                        return Err((
+                            StatusCode::BAD_GATEWAY,
+                            "api_error",
+                            sanitize_error(&error_text),
+                        ));
+                    }
+
+                    if matches!(message_type, Some("event")) {
+                        let json_text = String::from_utf8_lossy(&msg.payload);
+                        json_payloads.push(json_text.to_string());
+                    }
+
+                    buffer.drain(..consumed_bytes);
+                }
+                Ok(None) => break,
+                Err(e) => {
+                    log::error!("EventStream 解码失败 (web_search): {}", e);
+                    break;
+                }
+            }
+        }
+
+        let body = json_payloads.join("");
         let aggregated = aggregate_kiro_response(&body);
         let web_search_calls: Vec<(String, String, String)> = aggregated
             .tool_calls
@@ -2992,8 +3076,8 @@ fn build_anthropic_response(
         usage: AnthropicUsage {
             input_tokens: aggregated.input_tokens,
             output_tokens: aggregated.output_tokens,
-            cache_creation_input_tokens: None,
-            cache_read_input_tokens: None,
+            cache_creation_input_tokens: aggregated.cache_creation_input_tokens,
+            cache_read_input_tokens: aggregated.cache_read_input_tokens,
             server_tool_use: None,
         },
     })
@@ -3247,7 +3331,9 @@ fn build_responses_response_with_ids(
         "usage": {
             "input_tokens": aggregated.input_tokens,
             "output_tokens": aggregated.output_tokens,
-            "total_tokens": aggregated.input_tokens + aggregated.output_tokens
+            "total_tokens": aggregated.input_tokens + aggregated.output_tokens,
+            "cache_creation_input_tokens": aggregated.cache_creation_input_tokens,
+            "cache_read_input_tokens": aggregated.cache_read_input_tokens
         }
     })
 }
@@ -3493,6 +3579,8 @@ fn stream_proxy_response(
         let mut parser = ThinkingParser::new();
         let mut aggregated = stream::AggregatedKiroResponse::default();
         let mut tool_accumulators: HashMap<String, (String, String)> = HashMap::new();
+        let mut input_tokens = 0i32;
+        let mut output_tokens = 0i32;
         let mut message_started = false;
         let mut next_block_index = 0usize;
         let mut text_block_index: Option<usize> = None;
@@ -3501,8 +3589,6 @@ fn stream_proxy_response(
         let mut openai_tool_call_indexes: HashMap<String, i32> = HashMap::new();
         let mut openai_next_tool_index = 0i32;
         let mut saw_tool_calls = false;
-        let mut input_tokens = 0i32;
-        let mut output_tokens = 0i32;
         let anthropic_id = format!("msg_{}", short_uuid());
         let response_id = format!("resp_{}", short_uuid());
         let message_id = format!("msg_{}", short_uuid());
@@ -3673,6 +3759,8 @@ fn stream_proxy_response(
                                                 &mut thinking_block_index,
                                                 input_tokens,
                                                 output_tokens,
+                                                aggregated.cache_read_input_tokens,
+                                                aggregated.cache_creation_input_tokens,
                                             )
                                             .await;
                                         }
@@ -3695,6 +3783,8 @@ fn stream_proxy_response(
                                                     &mut thinking_block_index,
                                                     input_tokens,
                                                     output_tokens,
+                                                    aggregated.cache_read_input_tokens,
+                                                    aggregated.cache_creation_input_tokens,
                                                 )
                                                 .await;
                                             }
@@ -3711,8 +3801,10 @@ fn stream_proxy_response(
                                                         &mut message_started,
                                                         &anthropic_id,
                                                         &model,
-                                                        input_tokens,
-                                                        output_tokens,
+                                                        aggregated.input_tokens,
+                                                        aggregated.output_tokens,
+                                                        aggregated.cache_read_input_tokens,
+                                                        aggregated.cache_creation_input_tokens,
                                                     )
                                                     .await;
                                                     close_content_block(&tx, &mut text_block_index)
@@ -3951,8 +4043,10 @@ fn stream_proxy_response(
                                                         &mut message_started,
                                                         &anthropic_id,
                                                         &model,
-                                                        input_tokens,
-                                                        output_tokens,
+                                                        aggregated.input_tokens,
+                                                        aggregated.output_tokens,
+                                                        aggregated.cache_read_input_tokens,
+                                                        aggregated.cache_creation_input_tokens,
                                                     )
                                                     .await;
                                                     close_content_block(
@@ -4084,6 +4178,8 @@ fn stream_proxy_response(
                 &mut thinking_block_index,
                 input_tokens,
                 output_tokens,
+                aggregated.cache_read_input_tokens,
+                aggregated.cache_creation_input_tokens,
             )
             .await;
         }
@@ -4093,15 +4189,26 @@ fn stream_proxy_response(
             ResponseFormat::Anthropic => {
                 close_content_block(&tx, &mut text_block_index).await;
                 close_content_block(&tx, &mut thinking_block_index).await;
+                let mut usage = json!({
+                    "input_tokens": aggregated.input_tokens,
+                    "output_tokens": aggregated.output_tokens
+                });
+
+                // 添加 cache token 信息（如果存在）
+                if let Some(cache_read) = aggregated.cache_read_input_tokens {
+                    usage["cache_read_input_tokens"] = json!(cache_read);
+                }
+                if let Some(cache_creation) = aggregated.cache_creation_input_tokens {
+                    usage["cache_creation_input_tokens"] = json!(cache_creation);
+                }
+
                 let finish = json!({
                     "type": "message_delta",
                     "delta": {
                         "stop_reason": if saw_tool_calls { "tool_use" } else { "end_turn" },
                         "stop_sequence": Value::Null
                     },
-                    "usage": {
-                        "output_tokens": output_tokens
-                    }
+                    "usage": usage
                 });
                 send_event(&tx, Some("message_delta"), &finish.to_string()).await;
                 send_event(&tx, Some("message_stop"), "{\"type\":\"message_stop\"}").await;
@@ -4174,9 +4281,9 @@ fn stream_proxy_response(
                     },
                     Some(finish_reason.to_string()),
                     Some(crate::gateway::models::OpenAIChatUsage {
-                        prompt_tokens: input_tokens,
-                        completion_tokens: output_tokens,
-                        total_tokens: input_tokens + output_tokens,
+                        prompt_tokens: aggregated.input_tokens,
+                        completion_tokens: aggregated.output_tokens,
+                        total_tokens: aggregated.input_tokens + aggregated.output_tokens,
                     }),
                 );
                 let final_json = serde_json::to_string(&final_chunk).unwrap_or_default();
@@ -4229,6 +4336,8 @@ async fn handle_stream_text(
     thinking_block_index: &mut Option<usize>,
     input_tokens: i32,
     output_tokens: i32,
+    cache_read_input_tokens: Option<i32>,
+    cache_creation_input_tokens: Option<i32>,
 ) {
     if text.is_empty() {
         return;
@@ -4243,6 +4352,8 @@ async fn handle_stream_text(
                 model,
                 input_tokens,
                 output_tokens,
+                cache_read_input_tokens,
+                cache_creation_input_tokens,
             )
             .await;
 
@@ -4342,10 +4453,26 @@ async fn ensure_anthropic_message_start(
     model: &str,
     input_tokens: i32,
     output_tokens: i32,
+    cache_read_input_tokens: Option<i32>,
+    cache_creation_input_tokens: Option<i32>,
 ) {
     if *message_started {
         return;
     }
+
+    let mut usage = json!({
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens
+    });
+
+    // 添加 cache token 信息（如果存在）
+    if let Some(cache_read) = cache_read_input_tokens {
+        usage["cache_read_input_tokens"] = json!(cache_read);
+    }
+    if let Some(cache_creation) = cache_creation_input_tokens {
+        usage["cache_creation_input_tokens"] = json!(cache_creation);
+    }
+
     let data = json!({
         "type": "message_start",
         "message": {
@@ -4356,10 +4483,7 @@ async fn ensure_anthropic_message_start(
             "model": model,
             "stop_reason": Value::Null,
             "stop_sequence": Value::Null,
-            "usage": {
-                "input_tokens": input_tokens,
-                "output_tokens": output_tokens
-            }
+            "usage": usage
         }
     });
     send_event(tx, Some("message_start"), &data.to_string()).await;
