@@ -35,12 +35,16 @@ where
     Ok(value.min(MAX_BUDGET_TOKENS))
 }
 
+fn default_stream() -> bool {
+    true
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct NormalizedRequest {
     pub model: String,
     pub messages: Vec<NormalizedMessage>,
-    #[serde(default)]
+    #[serde(default = "default_stream")]
     pub stream: bool,
     pub max_tokens: Option<i32>,
     pub temperature: Option<f32>,

@@ -266,7 +266,7 @@ fn build_normalized_request_from_payload(
         stream: payload
             .get("stream")
             .and_then(Value::as_bool)
-            .unwrap_or(false),
+            .unwrap_or(true),  // 默认使用流式响应
         max_tokens: payload
             .get("max_output_tokens")
             .or_else(|| payload.get("max_tokens"))
