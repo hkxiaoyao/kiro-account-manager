@@ -57,7 +57,12 @@ use commands::cli_config_cmd::{
 //网关反代
 use commands::gateway_cmd::{
     clear_gateway_request_logs, get_gateway_config, get_gateway_log_dir, get_gateway_request_logs,
-    get_gateway_request_stats, get_gateway_status, open_gateway_log_dir, save_gateway_config, start_gateway, stop_gateway,
+    get_gateway_request_stats, get_gateway_model_stats, get_gateway_endpoint_stats,
+    get_gateway_status, open_gateway_log_dir, save_gateway_config, start_gateway, stop_gateway,
+};
+//缓存管理
+use commands::cache_cmd::{
+    get_cache_config, get_cache_stats, clear_all_cache, clear_session_cache, cleanup_expired_cache,
 };
 //分组
 use commands::group_tag_cmd::{
@@ -468,8 +473,16 @@ fn main() {
             get_gateway_log_dir,
             get_gateway_request_logs,
             get_gateway_request_stats,
+            get_gateway_model_stats,
+            get_gateway_endpoint_stats,
             open_gateway_log_dir,
             clear_gateway_request_logs,
+            // 缓存管理命令
+            get_cache_config,
+            get_cache_stats,
+            clear_all_cache,
+            clear_session_cache,
+            cleanup_expired_cache,
             // 代理检测命令
             detect_system_proxy,
             // 更新检查命令

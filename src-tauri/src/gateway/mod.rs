@@ -1,9 +1,10 @@
 mod converter;
 mod eventstream;
 pub(crate) mod load_balancer;
-mod log_store;
+pub mod log_store;
 mod models;
 mod proxy;
+mod response_cache;
 mod stream;
 mod thinking_parser;
 mod token_cache;
@@ -158,6 +159,8 @@ pub struct GatewayRuntime {
     pub config: GatewayConfig,
     pub request_count: Arc<AtomicU64>,
     pub last_error: Arc<AsyncMutex<Option<String>>>,
+    pub log_store: Arc<log_store::LogStore>,
+    pub response_cache: Arc<AsyncMutex<response_cache::ResponseCache>>,
     shutdown_tx: Option<oneshot::Sender<()>>,
     server_task: Option<JoinHandle<()>>,
 }
@@ -187,6 +190,7 @@ struct RouterState {
     token_cache: Arc<AsyncMutex<TokenCache>>,
     load_balancer: Arc<load_balancer::LoadBalancer>,
     log_store: Arc<log_store::LogStore>,
+    response_cache: Arc<AsyncMutex<response_cache::ResponseCache>>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -533,16 +537,111 @@ pub fn append_gateway_request_log(entry: &GatewayRequestLogEntry) -> Result<(), 
     append_gateway_request_log_to_path(&path, entry)
 }
 
-pub fn get_gateway_request_logs(
+pub async fn get_gateway_request_logs(
+    state: &tauri::State<'_, crate::state::AppState>,
     limit: Option<usize>,
 ) -> Result<Vec<GatewayRequestLogEntry>, String> {
+    // 尝试从运行中的 gateway 的内存存储获取
+    let log_store_opt = {
+        let guard = state
+            .gateway
+            .lock()
+            .map_err(|_| "获取 gateway 状态失败".to_string())?;
+
+        guard.as_ref().map(|rt| rt.log_store.clone())
+    };
+
+    if let Some(log_store) = log_store_opt {
+        // 从内存存储获取
+        let logs = log_store.get_last(limit.unwrap_or(50)).await;
+        return Ok(logs);
+    }
+
+    // 如果 gateway 未运行，从文件读取
     let path = request_log_path()?;
     get_gateway_request_logs_from_path(&path, limit)
 }
 
-pub fn get_gateway_request_stats() -> Result<GatewayRequestStats, String> {
+pub async fn get_gateway_request_stats(
+    state: &tauri::State<'_, crate::state::AppState>,
+) -> Result<GatewayRequestStats, String> {
+    // 尝试从运行中的 gateway 的内存存储获取
+    let log_store_opt = {
+        let guard = state
+            .gateway
+            .lock()
+            .map_err(|_| "获取 gateway 状态失败".to_string())?;
+
+        guard.as_ref().map(|rt| rt.log_store.clone())
+    };
+
+    if let Some(log_store) = log_store_opt {
+        // 从内存存储获取统计
+        let stats = log_store.get_stats().await;
+        let all_logs = log_store.get_all().await;
+
+        // 计算最大延迟
+        let max_duration_ms = all_logs.iter()
+            .map(|log| log.duration_ms)
+            .max()
+            .unwrap_or(0);
+
+        return Ok(GatewayRequestStats {
+            total: stats.total,
+            success: stats.success,
+            error: stats.error,
+            streaming: stats.streaming,
+            total_input_tokens: stats.total_input_tokens as i64,
+            total_output_tokens: stats.total_output_tokens as i64,
+            total_cache_read_tokens: stats.total_cache_read_tokens as i64,
+            total_cache_creation_tokens: stats.total_cache_creation_tokens as i64,
+            requests_with_cache: stats.requests_with_cache,
+            max_duration_ms,
+            avg_duration_ms: stats.avg_duration_ms,
+        });
+    }
+
+    // 如果 gateway 未运行，从文件读取
     let path = request_log_path()?;
     get_gateway_request_stats_from_path(&path)
+}
+
+pub async fn get_gateway_model_stats(
+    state: &tauri::State<'_, crate::state::AppState>,
+) -> Result<Vec<log_store::ModelStat>, String> {
+    let log_store_opt = {
+        let guard = state
+            .gateway
+            .lock()
+            .map_err(|_| "获取 gateway 状态失败".to_string())?;
+
+        guard.as_ref().map(|rt| rt.log_store.clone())
+    };
+
+    if let Some(log_store) = log_store_opt {
+        return Ok(log_store.get_model_stats().await);
+    }
+
+    Ok(Vec::new())
+}
+
+pub async fn get_gateway_endpoint_stats(
+    state: &tauri::State<'_, crate::state::AppState>,
+) -> Result<Vec<log_store::EndpointStat>, String> {
+    let log_store_opt = {
+        let guard = state
+            .gateway
+            .lock()
+            .map_err(|_| "获取 gateway 状态失败".to_string())?;
+
+        guard.as_ref().map(|rt| rt.log_store.clone())
+    };
+
+    if let Some(log_store) = log_store_opt {
+        return Ok(log_store.get_endpoint_stats().await);
+    }
+
+    Ok(Vec::new())
 }
 
 fn get_gateway_request_stats_from_path(path: &Path) -> Result<GatewayRequestStats, String> {
@@ -634,7 +733,24 @@ fn get_gateway_request_stats_from_path(path: &Path) -> Result<GatewayRequestStat
     })
 }
 
-pub fn clear_gateway_request_logs() -> Result<(), String> {
+pub async fn clear_gateway_request_logs(
+    state: &tauri::State<'_, crate::state::AppState>,
+) -> Result<(), String> {
+    // 清空内存存储
+    let log_store_opt = {
+        let guard = state
+            .gateway
+            .lock()
+            .map_err(|_| "获取 gateway 状态失败".to_string())?;
+
+        guard.as_ref().map(|rt| rt.log_store.clone())
+    };
+
+    if let Some(log_store) = log_store_opt {
+        log_store.clear().await;
+    }
+
+    // 清空文件
     let path = request_log_path()?;
     clear_gateway_request_logs_at_path(&path)
 }
@@ -759,6 +875,16 @@ async fn spawn_runtime(config: GatewayConfig) -> Result<GatewayRuntime, String> 
     // 初始化内存日志存储（保存最近 10000 条日志）
     let log_store = Arc::new(log_store::LogStore::new(10000));
 
+    // 初始化响应缓存
+    let cache_config = response_cache::CacheConfig::default();
+    let cache_dir = std::env::current_dir()
+        .ok()
+        .map(|p| p.join(".kiro-account-manager").join("cache"));
+    let response_cache = Arc::new(AsyncMutex::new(response_cache::ResponseCache::new(
+        cache_config,
+        cache_dir,
+    )));
+
     let state = RouterState {
         config: config.clone(),
         request_count: request_count.clone(),
@@ -767,7 +893,8 @@ async fn spawn_runtime(config: GatewayConfig) -> Result<GatewayRuntime, String> 
         responses_sessions,
         token_cache,
         load_balancer,
-        log_store,
+        log_store: log_store.clone(),
+        response_cache,
     };
 
     let app = router(state);
@@ -797,6 +924,8 @@ async fn spawn_runtime(config: GatewayConfig) -> Result<GatewayRuntime, String> 
         config,
         request_count,
         last_error,
+        log_store,
+        response_cache,
         shutdown_tx: Some(shutdown_tx),
         server_task: Some(server_task),
     })
