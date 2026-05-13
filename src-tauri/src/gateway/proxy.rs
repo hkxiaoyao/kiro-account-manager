@@ -821,6 +821,7 @@ async fn guarded_local_response(
         None, // output_tokens
         None, // cache_read_input_tokens
         None, // cache_creation_input_tokens
+        &state,
     );
     Json(response_body).into_response()
 }
@@ -907,6 +908,7 @@ fn write_request_log(
     output_tokens: Option<i32>,
     cache_read_input_tokens: Option<i32>,
     cache_creation_input_tokens: Option<i32>,
+    state: &RouterState,
 ) {
 
 
@@ -984,7 +986,16 @@ fn write_request_log(
         cache_creation_input_tokens,
         error_type: error_type.map(str::to_string),
     };
+
+    // 写入文件日志
     let _ = append_gateway_request_log(&entry);
+
+    // 保存到内存日志存储（异步）
+    let log_store = state.log_store.clone();
+    let entry_clone = entry.clone();
+    tokio::spawn(async move {
+        log_store.add(entry_clone).await;
+    });
 }
 
 fn build_gateway_error_body(
@@ -1059,6 +1070,7 @@ async fn gateway_error_with_log(
         output_tokens,
         cache_read,
         cache_creation,
+        state,
     );
     gateway_error_response(format, error.status, error.error_type, error.message)
 }
@@ -1157,12 +1169,24 @@ pub async fn proxy_handler(
         }
     };
 
-    // 添加日志：记录原始请求中的 stream 字段
+    // 添加详细的请求日志（参考 Kiro-account-manager 的日志设计）
+    let messages_count = request.messages.len();
+    let tools_count = request.tools.as_ref().map(|t| t.len()).unwrap_or(0);
+    let has_tool_choice = request.tool_choice.is_some();
+    let content_length: usize = request.messages.iter()
+        .filter_map(|m| m.content.as_ref())
+        .map(|c| c.to_string().len())
+        .sum();
+
     log::info!(
-        "[请求解析] 请求 #{} | 原始 payload 中的 stream={:?} | 解析后的 request.stream={}",
+        "[请求详情] 请求 #{} | 模型={} | 流式={} | 消息数={} | 工具数={} | 工具选择={} | 内容长度={}",
         request_index,
-        payload.get("stream"),
-        request.stream
+        request.model,
+        request.stream,
+        messages_count,
+        tools_count,
+        has_tool_choice,
+        content_length
     );
     let mut request = if matches!(format, ResponseFormat::Responses) {
         let mut resumed = request.clone();
@@ -1357,6 +1381,7 @@ pub async fn proxy_handler(
                 Some(outcome.aggregated.output_tokens),
                 outcome.aggregated.cache_read_input_tokens,
                 outcome.aggregated.cache_creation_input_tokens,
+                &state,
             );
             let body = format!("data: {}\n\ndata: [DONE]\n\n", response);
             return Response::builder()
@@ -1418,6 +1443,7 @@ pub async fn proxy_handler(
             Some(outcome.aggregated.output_tokens),
             outcome.aggregated.cache_read_input_tokens,
             outcome.aggregated.cache_creation_input_tokens,
+            &state,
         );
         return Json(response).into_response();
     }
@@ -1851,6 +1877,7 @@ pub async fn proxy_handler(
         Some(aggregated.output_tokens),
         aggregated.cache_read_input_tokens,
         aggregated.cache_creation_input_tokens,
+        &state,
     );
     Json(response).into_response()
 }
@@ -2078,6 +2105,7 @@ pub async fn mcp_proxy_handler(
         None, // output_tokens
         None, // cache_read_input_tokens
         None, // cache_creation_input_tokens
+        &state,
     );
     builder.body(Body::from(body)).unwrap_or_else(|error| {
         gateway_error_response(
@@ -4474,6 +4502,7 @@ fn stream_proxy_response(
             Some(aggregated.output_tokens),
             aggregated.cache_read_input_tokens,
             aggregated.cache_creation_input_tokens,
+            &state,
         );
     }); // tokio::spawn 闭合
 

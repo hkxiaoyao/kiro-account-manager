@@ -1,11 +1,13 @@
 mod converter;
 mod eventstream;
 pub(crate) mod load_balancer;
+mod log_store;
 mod models;
 mod proxy;
 mod stream;
 mod thinking_parser;
 mod token_cache;
+mod token_estimator;
 
 use axum::{
     extract::{ConnectInfo, State},
@@ -135,6 +137,22 @@ pub struct GatewayRequestLogEntry {
     pub error_type: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GatewayRequestStats {
+    pub total: usize,
+    pub success: usize,
+    pub error: usize,
+    pub streaming: usize,
+    pub total_input_tokens: i64,
+    pub total_output_tokens: i64,
+    pub total_cache_read_tokens: i64,
+    pub total_cache_creation_tokens: i64,
+    pub requests_with_cache: usize,
+    pub max_duration_ms: u64,
+    pub avg_duration_ms: u64,
+}
+
 #[derive(Debug)]
 pub struct GatewayRuntime {
     pub config: GatewayConfig,
@@ -168,6 +186,7 @@ struct RouterState {
     responses_sessions: ResponsesSessionStore,
     token_cache: Arc<AsyncMutex<TokenCache>>,
     load_balancer: Arc<load_balancer::LoadBalancer>,
+    log_store: Arc<log_store::LogStore>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -521,6 +540,100 @@ pub fn get_gateway_request_logs(
     get_gateway_request_logs_from_path(&path, limit)
 }
 
+pub fn get_gateway_request_stats() -> Result<GatewayRequestStats, String> {
+    let path = request_log_path()?;
+    get_gateway_request_stats_from_path(&path)
+}
+
+fn get_gateway_request_stats_from_path(path: &Path) -> Result<GatewayRequestStats, String> {
+    if !path.exists() {
+        return Ok(GatewayRequestStats {
+            total: 0,
+            success: 0,
+            error: 0,
+            streaming: 0,
+            total_input_tokens: 0,
+            total_output_tokens: 0,
+            total_cache_read_tokens: 0,
+            total_cache_creation_tokens: 0,
+            requests_with_cache: 0,
+            max_duration_ms: 0,
+            avg_duration_ms: 0,
+        });
+    }
+
+    let file = fs::File::open(path).map_err(|e| format!("读取请求日志失败: {e}"))?;
+    let reader = BufReader::new(file);
+
+    let mut total = 0;
+    let mut success = 0;
+    let mut error = 0;
+    let mut streaming = 0;
+    let mut total_input_tokens: i64 = 0;
+    let mut total_output_tokens: i64 = 0;
+    let mut total_cache_read_tokens: i64 = 0;
+    let mut total_cache_creation_tokens: i64 = 0;
+    let mut requests_with_cache = 0;
+    let mut max_duration_ms = 0u64;
+    let mut total_duration_ms = 0u64;
+
+    for line in reader.lines() {
+        let Ok(line) = line else {
+            continue;
+        };
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if let Ok(entry) = serde_json::from_str::<GatewayRequestLogEntry>(trimmed) {
+            total += 1;
+
+            if entry.status_code < 400 {
+                success += 1;
+            } else {
+                error += 1;
+            }
+
+            if entry.stream {
+                streaming += 1;
+            }
+
+            total_input_tokens += entry.input_tokens.unwrap_or(0) as i64;
+            total_output_tokens += entry.output_tokens.unwrap_or(0) as i64;
+            total_cache_read_tokens += entry.cache_read_input_tokens.unwrap_or(0) as i64;
+            total_cache_creation_tokens += entry.cache_creation_input_tokens.unwrap_or(0) as i64;
+
+            if entry.cache_read_input_tokens.unwrap_or(0) > 0
+                || entry.cache_creation_input_tokens.unwrap_or(0) > 0 {
+                requests_with_cache += 1;
+            }
+
+            max_duration_ms = max_duration_ms.max(entry.duration_ms);
+            total_duration_ms += entry.duration_ms;
+        }
+    }
+
+    let avg_duration_ms = if total > 0 {
+        total_duration_ms / total as u64
+    } else {
+        0
+    };
+
+    Ok(GatewayRequestStats {
+        total,
+        success,
+        error,
+        streaming,
+        total_input_tokens,
+        total_output_tokens,
+        total_cache_read_tokens,
+        total_cache_creation_tokens,
+        requests_with_cache,
+        max_duration_ms,
+        avg_duration_ms,
+    })
+}
+
 pub fn clear_gateway_request_logs() -> Result<(), String> {
     let path = request_log_path()?;
     clear_gateway_request_logs_at_path(&path)
@@ -643,6 +756,9 @@ async fn spawn_runtime(config: GatewayConfig) -> Result<GatewayRuntime, String> 
     let strategy = load_balancer::LoadBalancerStrategy::from_str(&config.strategy);
     let load_balancer = Arc::new(load_balancer::LoadBalancer::new(strategy));
 
+    // 初始化内存日志存储（保存最近 10000 条日志）
+    let log_store = Arc::new(log_store::LogStore::new(10000));
+
     let state = RouterState {
         config: config.clone(),
         request_count: request_count.clone(),
@@ -651,6 +767,7 @@ async fn spawn_runtime(config: GatewayConfig) -> Result<GatewayRuntime, String> 
         responses_sessions,
         token_cache,
         load_balancer,
+        log_store,
     };
 
     let app = router(state);
@@ -672,7 +789,7 @@ async fn spawn_runtime(config: GatewayConfig) -> Result<GatewayRuntime, String> 
 
     let server_task = tokio::spawn(async move {
         if let Err(e) = server.await {
-            log::error!("gateway server error: {e}");
+            log::error!("网关服务器错误: {e}");
         }
     });
 
