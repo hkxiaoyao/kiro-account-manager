@@ -7,10 +7,11 @@ use crate::gateway::{
     get_gateway_config as get_gateway_config_inner,
     get_gateway_log_dir as get_gateway_log_dir_inner,
     get_gateway_request_logs as get_gateway_request_logs_inner,
+    get_gateway_request_stats as get_gateway_request_stats_inner,
     get_gateway_status as get_gateway_status_inner,
     open_gateway_log_dir as open_gateway_log_dir_inner,
     save_gateway_config as save_gateway_config_inner, start_gateway as start_gateway_inner,
-    stop_gateway as stop_gateway_inner, GatewayConfig, GatewayRequestLogEntry, GatewayStatus,
+    stop_gateway as stop_gateway_inner, GatewayConfig, GatewayRequestLogEntry, GatewayRequestStats, GatewayStatus,
 };
 use crate::state::AppState;
 
@@ -61,6 +62,11 @@ pub async fn get_gateway_request_logs(
     limit: Option<usize>,
 ) -> Result<Vec<GatewayRequestLogEntry>, String> {
     get_gateway_request_logs_inner(limit)
+}
+
+#[tauri::command]
+pub async fn get_gateway_request_stats() -> Result<GatewayRequestStats, String> {
+    get_gateway_request_stats_inner()
 }
 
 #[tauri::command]
