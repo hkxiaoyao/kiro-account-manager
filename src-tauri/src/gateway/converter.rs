@@ -2072,15 +2072,25 @@ fn normalize_tool_choice(
 fn convert_tools(tools: &Option<Vec<Tool>>) -> Option<Vec<KiroTool>> {
     tools.as_ref().map(|items| {
         let mut result = Vec::new();
-        for tool in items {
-            // 如果工具有 cache_control，先插入 CachePoint
-            if let Some(cache_control) = &tool.cache_control {
-                result.push(KiroTool::CachePoint {
-                    cache_point: convert_cache_control_to_cache_point(cache_control),
-                });
-            }
 
-            // 然后插入工具定义
+        // 检查最后一个 tool 是否有 cache_control
+        let has_cache_control = items.last()
+            .and_then(|tool| tool.cache_control.as_ref())
+            .is_some();
+
+        // 如果最后一个 tool 有 cache_control，在所有 tool 之前插入 CachePoint
+        if has_cache_control {
+            if let Some(last_tool) = items.last() {
+                if let Some(cache_control) = &last_tool.cache_control {
+                    result.push(KiroTool::CachePoint {
+                        cache_point: convert_cache_control_to_cache_point(cache_control),
+                    });
+                }
+            }
+        }
+
+        // 插入所有工具定义
+        for tool in items {
             result.push(KiroTool::ToolSpecification {
                 tool_specification: KiroToolSpec {
                     name: tool.function.name.clone(),
@@ -2091,6 +2101,7 @@ fn convert_tools(tools: &Option<Vec<Tool>>) -> Option<Vec<KiroTool>> {
                 },
             });
         }
+
         result
     })
 }

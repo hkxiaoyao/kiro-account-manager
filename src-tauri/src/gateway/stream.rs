@@ -56,45 +56,6 @@ pub struct AggregatedKiroResponse {
     pub citations: Vec<AggregatedCitation>,
 }
 
-pub fn extract_json(source: &str) -> Option<String> {
-    if !source.starts_with('{') {
-        return None;
-    }
-
-    let mut brace_count = 0;
-    let mut in_string = false;
-    let mut escape_next = false;
-
-    for (index, ch) in source.char_indices() {
-        if escape_next {
-            escape_next = false;
-            continue;
-        }
-
-        if ch == '\\' && in_string {
-            escape_next = true;
-            continue;
-        }
-
-        if ch == '"' {
-            in_string = !in_string;
-            continue;
-        }
-
-        if !in_string {
-            if ch == '{' {
-                brace_count += 1;
-            } else if ch == '}' {
-                brace_count -= 1;
-                if brace_count == 0 {
-                    return Some(source[..=index].to_string());
-                }
-            }
-        }
-    }
-
-    None
-}
 
 pub fn parse_kiro_event_full(json_str: &str) -> Option<KiroEvent> {
     let value: serde_json::Value = serde_json::from_str(json_str).ok()?;
@@ -382,29 +343,27 @@ pub fn deduplicate_tool_calls(
         .collect()
 }
 
-pub fn aggregate_kiro_response(raw: &str) -> AggregatedKiroResponse {
+/// 从已切分好的 JSON payload 数组直接聚合（每帧直接解析，无需 extract_json 重新切分）
+pub fn aggregate_kiro_response_from_payloads(payloads: &[String]) -> AggregatedKiroResponse {
     let mut aggregated = AggregatedKiroResponse::default();
-    let mut remaining = raw;
     let mut tool_accumulators: std::collections::HashMap<String, (String, String)> =
         std::collections::HashMap::new();
     let mut found_usage = false;
     let mut json_count = 0;
     let mut event_counts = std::collections::HashMap::new();
 
-    log::info!("[聚合] 开始聚合，原始长度: {} 字符", raw.len());
+    log::info!("[聚合] 开始聚合，共 {} 个 payload", payloads.len());
 
-    while let Some(start) = remaining.find('{') {
-        remaining = &remaining[start..];
-        let Some(json_str) = extract_json(remaining) else {
-            log::warn!("[聚合] 提取 JSON 失败，剩余: {} 字符", remaining.len());
-            break;
-        };
-        let json_len = json_str.len();
+    for json_str in payloads {
+        let json_str = json_str.trim();
+        if json_str.is_empty() {
+            continue;
+        }
         json_count += 1;
 
         log::debug!("[聚合] JSON #{}: {}", json_count, json_str.chars().take(200).collect::<String>());
 
-        if let Some(event) = parse_kiro_event_full(&json_str) {
+        if let Some(event) = parse_kiro_event_full(json_str) {
             let event_type = match &event {
                 KiroEvent::Text(_) => "Text",
                 KiroEvent::Thinking(_) => "Thinking",
@@ -434,8 +393,6 @@ pub fn aggregate_kiro_response(raw: &str) -> AggregatedKiroResponse {
                 KiroEvent::ToolUseInputDelta { id, input_delta } => {
                     log::debug!("[聚合] 工具输入增量: id={}, delta_len={}", id, input_delta.len());
                     if let Some((_, current_input)) = tool_accumulators.get_mut(&id) {
-                        // 如果新的 input_delta 看起来是完整的 JSON（以 { 开头），则替换而不是追加
-                        // 这是因为 Kiro IDE 的非流式响应中，每个事件都包含完整的 input
                         if input_delta.trim_start().starts_with('{') && current_input.trim_start().starts_with('{') {
                             log::debug!("[聚合] 检测到完整 JSON input，替换而不是追加");
                             *current_input = input_delta;
@@ -450,7 +407,6 @@ pub fn aggregate_kiro_response(raw: &str) -> AggregatedKiroResponse {
                     log::debug!("[聚合] 工具使用结束: id={}", id);
                     if let Some((name, input)) = tool_accumulators.remove(&id) {
                         log::debug!("[聚合] 完整的工具调用: id={}, name={}, input_len={}", id, name, input.len());
-                        log::debug!("[聚合] 工具输入内容: {}", input.chars().take(200).collect::<String>());
                         aggregated.tool_calls.push((id, name, input));
                     } else {
                         log::warn!("[聚合] ⚠️  工具使用结束但未找到对应的累加器: id={}", id);
@@ -469,10 +425,7 @@ pub fn aggregate_kiro_response(raw: &str) -> AggregatedKiroResponse {
                     aggregated.cache_creation_input_tokens = cache_creation_input_tokens;
                     log::info!(
                         "[聚合] ✅ 发现 usage 信息: input={}, output={}, cache_read={:?}, cache_creation={:?}",
-                        input_tokens,
-                        output_tokens,
-                        cache_read_input_tokens,
-                        cache_creation_input_tokens
+                        input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens
                     );
                 }
                 KiroEvent::ContextUsage { percentage } => {
@@ -485,37 +438,40 @@ pub fn aggregate_kiro_response(raw: &str) -> AggregatedKiroResponse {
                 }
                 KiroEvent::Citation { text, link, target } => {
                     log::debug!("[聚合] 引用: link={}", link);
-                    aggregated
-                        .citations
-                        .push(AggregatedCitation { text, link, target });
+                    aggregated.citations.push(AggregatedCitation { text, link, target });
                 }
             }
         } else {
             log::warn!("[聚合] 解析事件失败: {}", json_str.chars().take(200).collect::<String>());
         }
-
-        remaining = &remaining[json_len..];
     }
+
+    // 收集未关闭的 tool_accumulators
+    for (id, (name, input)) in tool_accumulators {
+        if !name.is_empty() || !input.is_empty() {
+            log::warn!("[聚合] ⚠️ 未关闭的工具调用: id={}, name={}", id, name);
+            aggregated.tool_calls.push((id, name, input));
+        }
+    }
+
     aggregated.tool_calls = deduplicate_tool_calls(aggregated.tool_calls);
 
-    // 记录统计信息
     log::info!("[聚合] 完成: 处理了 {} 个 JSON 对象", json_count);
     log::info!("[聚合] 事件计数: {:?}", event_counts);
     log::info!(
         "[聚合] 结果: 文本={} 字符, 思考={} 字符, 工具调用={}, 引用={}",
-        aggregated.text.len(),
-        aggregated.thinking.len(),
-        aggregated.tool_calls.len(),
-        aggregated.citations.len()
+        aggregated.text.len(), aggregated.thinking.len(),
+        aggregated.tool_calls.len(), aggregated.citations.len()
     );
 
-    // 记录是否找到了 usage 信息（用于调试）
     if !found_usage {
         log::warn!("[聚合] ⚠️ Kiro 响应中未找到 usage 信息!");
     }
 
     aggregated
 }
+
+
 
 fn parse_text_content(value: &serde_json::Value) -> Option<String> {
     if let Some(text) = value.get("content").and_then(|item| item.as_str()) {
@@ -792,13 +748,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn extract_json_supports_nested_and_escaped_quotes() {
-        let raw = r#"{"content":"a { brace } and \"quoted\"","nested":{"k":"v"}}"#;
-        let parsed = extract_json(raw).expect("json should be extracted");
-        assert_eq!(parsed, raw);
-    }
-
-    #[test]
     fn parse_kiro_event_full_reads_text_tool_and_usage_events() {
         assert_eq!(
             parse_kiro_event_full(r#"{"assistantResponseEvent":{"content":"hello"}}"#),
@@ -888,13 +837,13 @@ mod tests {
     }
 
     #[test]
-    fn aggregate_kiro_response_collects_citations() {
-        let raw = concat!(
-            r#"{"assistantResponseEvent":{"content":"Hello Rust"}}"#,
-            r#"{"target":{"range":{"start":6,"end":10}},"citationText":"Rust","citationLink":"https://example.com/rust"}"#
-        );
+    fn aggregate_kiro_response_from_payloads_collects_citations() {
+        let payloads = vec![
+            r#"{"assistantResponseEvent":{"content":"Hello Rust"}}"#.to_string(),
+            r#"{"target":{"range":{"start":6,"end":10}},"citationText":"Rust","citationLink":"https://example.com/rust"}"#.to_string(),
+        ];
 
-        let aggregated = aggregate_kiro_response(raw);
+        let aggregated = aggregate_kiro_response_from_payloads(&payloads);
 
         assert_eq!(aggregated.text, "Hello Rust");
         assert_eq!(

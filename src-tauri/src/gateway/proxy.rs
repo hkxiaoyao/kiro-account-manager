@@ -57,7 +57,7 @@ use super::{
         ModelsResponse, NormalizedMessage, NormalizedRequest, OpenAIChatRequest, Tool, ToolCall,
         ToolCallFunction, WebSearchToolOptions,
     },
-    stream::{self, aggregate_kiro_response, parse_kiro_event_full, KiroEvent},
+    stream::{self, parse_kiro_event_full, KiroEvent},
     thinking_parser::{SegmentType, ThinkingParser},
     GatewayConfig, GatewayRequestLogEntry, ResponseFormat, ResponsesSessionEntry, RouterState,
     DEFAULT_AGENT_MODE,
@@ -1861,7 +1861,7 @@ pub async fn proxy_handler(
         }
     }
 
-    // 将所有 JSON payload 拼接成一个字符串用于聚合解析
+    // 用于调试日志的拼接字符串
     let body = json_payloads.join("");
 
     // 调试：将解析出的 JSON 写入文件（无论是否 Debug 模式）
@@ -1886,7 +1886,7 @@ pub async fn proxy_handler(
         body.chars().take(1000).collect::<String>()
     );
 
-    let mut aggregated = aggregate_kiro_response(&body);
+    let mut aggregated = stream::aggregate_kiro_response_from_payloads(&json_payloads);
 
     // 直接使用本地估算 token（不依赖响应中的 token 信息）
     log::info!("[非流式响应] 使用本地 token 估算");
@@ -2055,6 +2055,16 @@ pub async fn mcp_proxy_handler(
     };
 
     let upstream_url = format!("https://q.{}.amazonaws.com/mcp", upstream.region);
+
+    // 记录完整的 MCP 请求
+    if let Ok(payload_json) = serde_json::to_string_pretty(&payload) {
+        log::info!("=== MCP API 请求 (Responses 格式) ===");
+        log::info!("URL: {}", upstream_url);
+        log::info!("Method: {}", payload.get("method").and_then(|v| v.as_str()).unwrap_or("unknown"));
+        log::info!("Payload:\n{}", payload_json);
+        log::info!("======================================");
+    }
+
     let upstream_resp = match with_kiro_upstream_headers(
         state.http.post(upstream_url),
         &upstream,
@@ -2106,6 +2116,13 @@ pub async fn mcp_proxy_handler(
         }
     };
 
+    // 记录完整的 MCP 响应
+    let logged_response_body = String::from_utf8_lossy(&body).to_string();
+    log::info!("=== MCP API 响应 (Responses 格式) ===");
+    log::info!("Status: {}", status);
+    log::info!("Body:\n{}", logged_response_body);
+    log::info!("======================================");
+
     if !status.is_success() {
         let body_text = String::from_utf8_lossy(&body).to_string();
         let (mapped_status, error_type, message) = map_upstream_error(status, &body_text);
@@ -2133,44 +2150,9 @@ pub async fn mcp_proxy_handler(
         );
     }
 
-    let logged_response_body = String::from_utf8_lossy(&body).to_string();
-    
-    // 🔍 详细日志：记录完整的 MCP 响应（用于调试 SENSITIVE_STRING 问题）
-    log::info!("[MCP 代理] ========== MCP 响应详情 ==========");
-    log::info!("[MCP 代理] 请求方法: {}", payload.get("method").and_then(|v| v.as_str()).unwrap_or("unknown"));
-    log::info!("[MCP 代理] 响应状态: {}", status);
-    log::info!("[MCP 代理] 响应大小: {} 字节", body.len());
-    
-    // 尝试解析 JSON 并美化输出
-    if let Ok(json_value) = serde_json::from_str::<Value>(&logged_response_body) {
-        // 检查是否是 tools/list 响应
-        if let Some(result) = json_value.get("result") {
-            if let Some(tools) = result.get("tools").and_then(|v| v.as_array()) {
-                log::info!("[MCP 代理] ✅ 成功解析 tools/list 响应");
-                log::info!("[MCP 代理] 工具数量: {}", tools.len());
-                log::info!("[MCP 代理] 工具列表:");
-                for (idx, tool) in tools.iter().enumerate().take(5) {
-                    if let Some(name) = tool.get("name").and_then(|v| v.as_str()) {
-                        log::info!("[MCP 代理]   {}. {}", idx + 1, name);
-                    }
-                }
-                if tools.len() > 5 {
-                    log::info!("[MCP 代理]   ... 还有 {} 个工具", tools.len() - 5);
-                }
-            } else {
-                log::info!("[MCP 代理] 响应 result 字段: {}", serde_json::to_string_pretty(result).unwrap_or_else(|_| "无法序列化".to_string()));
-            }
-        }
-        
-        // 输出完整响应（美化格式）
-        log::debug!("[MCP 代理] 完整响应 JSON:\n{}", serde_json::to_string_pretty(&json_value).unwrap_or_else(|_| logged_response_body.clone()));
-    } else {
-        // 非 JSON 响应，输出原始内容
-        log::warn!("[MCP 代理] ⚠️  响应不是有效的 JSON");
-        log::debug!("[MCP 代理] 原始响应: {}", logged_response_body.chars().take(1000).collect::<String>());
-    }
+    // 移除重复的日志记录（已在前面记录过）
 
-    log::info!("[MCP 代理] ========================================");
+    let logged_response_body = String::from_utf8_lossy(&body).to_string();
     write_request_log(
         &upstream_log_context,
         status,
@@ -2325,7 +2307,7 @@ async fn execute_request_with_server_tools(
             body.len()
         );
 
-        let mut aggregated = aggregate_kiro_response(&body);
+        let mut aggregated = stream::aggregate_kiro_response_from_payloads(&json_payloads);
 
         // 直接使用本地估算 token（不依赖响应中的 token 信息）
         log::info!("[网络搜索响应] 使用本地 token 估算");
@@ -2418,6 +2400,14 @@ async fn send_generate_request<T: serde::Serialize + ?Sized>(
         "https://q.{}.amazonaws.com/generateAssistantResponse",
         upstream.region
     );
+
+    // 记录完整的请求信息
+    if let Ok(payload_json) = serde_json::to_string_pretty(upstream_payload) {
+        log::info!("=== Kiro API 请求 ===");
+        log::info!("URL: {}", upstream_url);
+        log::info!("Payload:\n{}", payload_json);
+        log::info!("=====================");
+    }
 
     const MAX_RETRIES: u32 = 3;
     let mut attempt = 0;
@@ -2547,7 +2537,14 @@ async fn call_mcp_tool(
         }
     });
 
-    log::debug!("[网关] MCP 工具调用请求: tool={}, arguments={}", tool_name, serde_json::to_string(&arguments).unwrap_or_default());
+    // 记录完整的 MCP 请求
+    if let Ok(payload_json) = serde_json::to_string_pretty(&payload) {
+        log::info!("=== MCP API 请求 ===");
+        log::info!("URL: {}", upstream_url);
+        log::info!("Tool: {}", tool_name);
+        log::info!("Payload:\n{}", payload_json);
+        log::info!("====================");
+    }
 
     let response = with_kiro_upstream_headers(
         http.post(upstream_url),
@@ -2561,7 +2558,7 @@ async fn call_mcp_tool(
     .send()
     .await
     .map_err(|error| {
-        log::error!("[网关] MCP 上游请求失败: {}", error);
+        log::error!("[MCP] 上游请求失败: {}", error);
         (
             StatusCode::BAD_GATEWAY,
             "api_error",
@@ -2571,19 +2568,23 @@ async fn call_mcp_tool(
 
     let status = response.status();
     let body = response.text().await.map_err(|error| {
-        log::error!("[网关] 读取 MCP 上游响应失败: {}", error);
+        log::error!("[MCP] 读取上游响应失败: {}", error);
         (
             StatusCode::BAD_GATEWAY,
             "api_error",
             sanitize_error(&format!("读取 MCP 上游响应失败: {error}")),
         )
     })?;
-    
-    log::debug!("[网关] MCP 工具调用响应: status={}, body={}", status, body);
-    
+
+    // 记录完整的 MCP 响应
+    log::info!("=== MCP API 响应 ===");
+    log::info!("Status: {}", status);
+    log::info!("Body:\n{}", body);
+    log::info!("====================");
+
     if !status.is_success() {
         let (mapped_status, error_type, message) = map_upstream_error(status, &body);
-        log::error!("[网关] MCP 工具调用失败: status={}, error_type={}, message={}", mapped_status, error_type, message);
+        log::error!("[MCP] 工具调用失败: status={}, error_type={}, message={}", mapped_status, error_type, message);
         return Err((mapped_status, error_type, message));
     }
 
@@ -2596,7 +2597,7 @@ async fn call_mcp_tool(
                 .and_then(Value::as_str)
                 .unwrap_or("MCP 工具调用失败")
                 .to_string();
-            log::error!("[网关] MCP 工具调用返回错误: {}", message);
+            log::error!("[MCP] 工具调用返回错误: {}", message);
             return Err((
                 StatusCode::BAD_GATEWAY,
                 "api_error",
@@ -3963,6 +3964,9 @@ fn stream_proxy_response(
                                 // 将 payload 转换为文本
                                 let json_text = String::from_utf8_lossy(&msg.payload);
 
+                                // 记录每个 Kiro API 事件
+                                log::debug!("[Kiro API 响应事件] {}", json_text);
+
                                 // 解析 JSON 事件
                                 if let Some(event) = parse_kiro_event_full(&json_text) {
                                     match event {
@@ -4147,6 +4151,8 @@ fn stream_proxy_response(
                                             }
                                         }
                                         KiroEvent::ToolUseInputDelta { id, input_delta } => {
+                                            // 只累积 input 片段，不立即转发
+                                            // 参考 Kiro-Go 的做法：等到 ToolUseStop 时再一次性发送完整的 input
                                             if let Some((_, current_input)) =
                                                 tool_accumulators.get_mut(&id)
                                             {
@@ -4157,74 +4163,35 @@ fn stream_proxy_response(
                                                     (String::new(), input_delta.clone()),
                                                 );
                                             }
-                                            match format {
-                                                ResponseFormat::Anthropic => {
-                                                    if let Some(index) =
-                                                        tool_block_indexes.get(&id).copied()
-                                                    {
-                                                        let data = json!({
-                                                            "type": "content_block_delta",
-                                                            "index": index,
-                                                            "delta": {
-                                                                "type": "input_json_delta",
-                                                                "partial_json": input_delta
-                                                            }
-                                                        });
-                                                        send_event(
-                                                            &tx,
-                                                            Some("content_block_delta"),
-                                                            &data.to_string(),
-                                                        )
-                                                        .await;
-                                                    }
-                                                }
-                                                ResponseFormat::Responses => {
-                                                    let data = json!({
-                                                        "type": "response.function_call_arguments.delta",
-                                                        "response_id": response_id,
-                                                        "call_id": id,
-                                                        "delta": input_delta
-                                                    });
-                                                    send_data(&tx, &data.to_string()).await;
-                                                }
-                                                ResponseFormat::OpenAI => {
-                                                    // OpenAI Chat Completions: 发送参数增量 chunk
-                                                    if let Some(&tool_index) = openai_tool_call_indexes.get(&id) {
-                                                        let chunk = stream::build_openai_chunk(
-                                                            &completion_id,
-                                                            created_at,
-                                                            &model,
-                                                            crate::gateway::models::OpenAIChatDelta {
-                                                                role: None,
-                                                                content: None,
-                                                                tool_calls: Some(vec![
-                                                                    crate::gateway::models::OpenAIDeltaToolCall {
-                                                                        index: tool_index,
-                                                                        id: "".to_string(),
-                                                                        call_type: "function".to_string(),
-                                                                        function: crate::gateway::models::OpenAIToolCallFunction {
-                                                                            name: "".to_string(),
-                                                                            arguments: input_delta.clone(),
-                                                                        },
-                                                                    }
-                                                                ]),
-                                                            },
-                                                            None,
-                                                            None,
-                                                        );
-                                                        if let Ok(chunk_json) = serde_json::to_string(&chunk) {
-                                                            send_data(&tx, &chunk_json).await;
-                                                        }
-                                                    }
-                                                }
-                                            }
+                                            // 不再立即转发片段，避免客户端收到不完整的 JSON
                                         }
                                         KiroEvent::ToolUseStop { id } => match format {
                                             ResponseFormat::Anthropic => {
+                                                // 在 ToolUseStop 时，一次性发送完整的 input（参考 Kiro-Go）
                                                 if let Some((name, input)) =
                                                     tool_accumulators.remove(&id)
                                                 {
-                                                    aggregated.tool_calls.push((id.clone(), name, input));
+                                                    aggregated.tool_calls.push((id.clone(), name, input.clone()));
+
+                                                    // 发送完整的 input_json_delta
+                                                    if let Some(index) = tool_block_indexes.get(&id).copied() {
+                                                        if !input.is_empty() {
+                                                            let data = json!({
+                                                                "type": "content_block_delta",
+                                                                "index": index,
+                                                                "delta": {
+                                                                    "type": "input_json_delta",
+                                                                    "partial_json": input
+                                                                }
+                                                            });
+                                                            send_event(
+                                                                &tx,
+                                                                Some("content_block_delta"),
+                                                                &data.to_string(),
+                                                            )
+                                                            .await;
+                                                        }
+                                                    }
                                                 }
                                                 if let Some(index) = tool_block_indexes.remove(&id) {
                                                     let data = json!({
@@ -4286,6 +4253,35 @@ fn stream_proxy_response(
                                                         name.clone(),
                                                         input.clone(),
                                                     ));
+
+                                                    // OpenAI 格式：在 ToolUseStop 时发送完整的 arguments
+                                                    if let Some(&tool_index) = openai_tool_call_indexes.get(&id) {
+                                                        let chunk = stream::build_openai_chunk(
+                                                            &completion_id,
+                                                            created_at,
+                                                            &model,
+                                                            crate::gateway::models::OpenAIChatDelta {
+                                                                role: None,
+                                                                content: None,
+                                                                tool_calls: Some(vec![
+                                                                    crate::gateway::models::OpenAIDeltaToolCall {
+                                                                        index: tool_index,
+                                                                        id: "".to_string(),
+                                                                        call_type: "function".to_string(),
+                                                                        function: crate::gateway::models::OpenAIToolCallFunction {
+                                                                            name: "".to_string(),
+                                                                            arguments: input,
+                                                                        },
+                                                                    }
+                                                                ]),
+                                                            },
+                                                            None,
+                                                            None,
+                                                        );
+                                                        if let Ok(chunk_json) = serde_json::to_string(&chunk) {
+                                                            send_data(&tx, &chunk_json).await;
+                                                        }
+                                                    }
                                                 }
                                             }
                                         },
@@ -4793,6 +4789,13 @@ async fn send_event(
     event: Option<&str>,
     payload: &str,
 ) -> bool {
+    // 记录发送给客户端的事件
+    if let Some(event_name) = event {
+        log::debug!("[发送给客户端] event: {}, data: {}", event_name, payload);
+    } else {
+        log::debug!("[发送给客户端] data: {}", payload);
+    }
+
     let chunk = if let Some(event) = event {
         format!("event: {event}\ndata: {payload}\n\n")
     } else {
