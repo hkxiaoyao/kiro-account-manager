@@ -1698,3 +1698,115 @@ pub async fn refresh_all_expiring_tokens(
         results,
     })
 }
+
+/// 设置超额开关状态
+#[tauri::command]
+pub async fn set_overage_status(
+    state: State<'_, AppState>,
+    id: String,
+    enabled: bool,
+) -> Result<(), String> {
+    use crate::clients::http_client::resolve_kiro_upstream_region;
+    use crate::clients::kiro_q_client::KiroQClient;
+    use crate::commands::machine_guid::get_machine_id;
+
+    // 1. 从 state 获取账号
+    let account = {
+        let store = lock_store(&state.store, "store")?;
+        store.accounts.iter().find(|a| a.id == id).cloned()
+    }
+    .ok_or("Account not found")?;
+
+    // 检查是否为 Pro 账号（OVERAGE_CAPABLE）
+    let is_overage_capable = account
+        .usage_data
+        .as_ref()
+        .and_then(|d| d.get("subscriptionInfo"))
+        .and_then(|s| s.get("overageCapability"))
+        .and_then(|v| v.as_str())
+        == Some("OVERAGE_CAPABLE");
+
+    if !is_overage_capable {
+        return Err("此账号不支持超额功能".to_string());
+    }
+
+    let access_token = account.access_token.as_ref().ok_or("No access token")?.clone();
+
+    // 2. 检查 token 是否过期，如果过期则刷新
+    let final_access_token = if let Some(expires_at) = &account.expires_at {
+        if is_token_expired(expires_at) || is_token_expiring_soon(expires_at) {
+            let refresh_result = refresh_token_by_provider(&account).await?;
+            // 更新 store 中的 token
+            let mut store = lock_store(&state.store, "store")?;
+            if let Some(a) = store.accounts.iter_mut().find(|a| a.id == id) {
+                apply_refreshed_account_tokens(a, &refresh_result);
+                save_store(&store)?;
+            }
+            refresh_result.access_token
+        } else {
+            access_token
+        }
+    } else {
+        access_token
+    };
+
+    // 3. 确定 region 和 profile_arn
+    let machine_id = account
+        .machine_id
+        .as_deref()
+        .map(|s| s.to_string())
+        .unwrap_or_else(get_machine_id);
+
+    let provider = account.provider.as_deref().unwrap_or("Google");
+
+    // 确定 profile_arn
+    let profile_arn = account.profile_arn.clone().unwrap_or_else(|| {
+        if provider == "BuilderId" || provider == "Enterprise" {
+            "arn:aws:codewhisperer:us-east-1:638616132270:profile/AAAACCCCXXXX".to_string()
+        } else {
+            "arn:aws:codewhisperer:us-east-1:699475941385:profile/EHGA3GRVQMUK".to_string()
+        }
+    });
+
+    // 确定 region
+    let region = resolve_kiro_upstream_region(
+        Some(&profile_arn),
+        account.region.as_deref(),
+        "us-east-1",
+    );
+
+    // 4. 调用 API
+    let overage_status = if enabled { "ENABLED" } else { "DISABLED" };
+    let client = KiroQClient::new()?;
+    client
+        .set_user_preference(&final_access_token, &machine_id, &region, &profile_arn, overage_status)
+        .await?;
+
+    // 5. 更新本地 usage_data 中的 overageConfiguration.overageStatus
+    let mut store = lock_store(&state.store, "store")?;
+    if let Some(a) = store.accounts.iter_mut().find(|a| a.id == id) {
+        if let Some(ref mut usage_data) = a.usage_data {
+            if let Some(overage_config) = usage_data.get_mut("overageConfiguration") {
+                if let Some(obj) = overage_config.as_object_mut() {
+                    obj.insert(
+                        "overageStatus".to_string(),
+                        serde_json::Value::String(overage_status.to_string()),
+                    );
+                }
+            } else {
+                // 如果 overageConfiguration 不存在，创建它
+                if let Some(obj) = usage_data.as_object_mut() {
+                    obj.insert(
+                        "overageConfiguration".to_string(),
+                        serde_json::json!({
+                            "overageStatus": overage_status
+                        }),
+                    );
+                }
+            }
+        }
+        save_store(&store)?;
+    }
+
+    Ok(())
+}

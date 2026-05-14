@@ -277,4 +277,63 @@ impl KiroQClient {
             .await
             .map_err(|e| format!("Failed to parse JSON: {}", e))
     }
+
+    /// setUserPreference 接口 - 设置用户偏好（超额开关）
+    pub async fn set_user_preference(
+        &self,
+        access_token: &str,
+        machine_id: &str,
+        region: &str,
+        profile_arn: &str,
+        overage_status: &str,
+    ) -> Result<(), String> {
+        let user_agent = build_kiro_custom_user_agent(machine_id);
+        let url = format!("{}/setUserPreference", build_q_service_url(region));
+
+        let invocation_id = Uuid::new_v4().to_string();
+
+        let body = serde_json::json!({
+            "overageConfiguration": {
+                "overageStatus": overage_status
+            },
+            "profileArn": profile_arn
+        });
+
+        let request = self.client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", access_token))
+            .header("content-type", "application/json")
+            .header("user-agent", &user_agent)
+            .header("x-amz-user-agent", &user_agent)
+            .header("amz-sdk-invocation-id", &invocation_id)
+            .header("amz-sdk-request", "attempt=1; max=1")
+            .json(&body);
+
+        let response = request
+            .send()
+            .await
+            .map_err(|e| format!("setUserPreference 请求失败: {} (URL: {})", e, url))?;
+
+        let status = response.status();
+        let status_code = status.as_u16();
+
+        if !status.is_success() {
+            let body = response.text().await.unwrap_or_default();
+
+            if status_code == 401 {
+                return Err("AUTH_ERROR: Token expired or invalid".to_string());
+            }
+
+            if status_code == 403 {
+                return Err(format!("AUTH_ERROR: setUserPreference 403: {}", body));
+            }
+
+            return Err(format!(
+                "setUserPreference failed - HTTP {}: {}",
+                status_code, body
+            ));
+        }
+
+        Ok(())
+    }
 }
