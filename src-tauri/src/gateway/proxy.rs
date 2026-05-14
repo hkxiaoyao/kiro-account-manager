@@ -38,10 +38,10 @@ use crate::{
 };
 
 const MAX_FAILURES_PER_ACCOUNT: u32 = 3;
-const MAX_KIRO_PAYLOAD_SIZE: usize = 615 * 1024; // 615KB - Kiro API 的 HTTP 请求大小限制
+const MAX_KIRO_PAYLOAD_SIZE: usize = 450 * 1024; // 450KB - Kiro API 的 HTTP 请求大小限制（更保守）
 
 // Token 限制的默认值（当无法从 API 获取时使用）
-const SUMMARIZATION_THRESHOLD_PERCENT: f64 = 0.70; // 70% 触发裁剪（预留更多安全空间，避免 Kiro IDE 上下文导致超限）
+const SUMMARIZATION_THRESHOLD_PERCENT: f64 = 0.55; // 55% 触发裁剪（预留更多安全空间，避免 Kiro IDE 上下文导致超限）
 
 use super::{
     append_gateway_request_log,
@@ -418,80 +418,125 @@ fn trim_messages_by_tokens(
             model_id: &str,
 ) -> bool {
             if messages.len() <= 2 {
-                // 消息太少，无法继续裁剪
                 return false;
             }
 
             let current_tokens = estimate_request_tokens(messages, model_id);
             if current_tokens <= target_tokens {
-                // 已经满足目标，无需裁剪
                 return true;
             }
 
-            // 找到最后一条用户消息的索引
-            let last_user_idx = messages
-                .iter()
-                .enumerate()
-                .rev()
-                .find(|(_, msg)| msg.role == "user")
-                .map(|(idx, _)| idx);
+            // 分离 system 消息和对话消息
+            let mut system_messages: Vec<NormalizedMessage> = Vec::new();
+            let mut conversation_messages: Vec<NormalizedMessage> = Vec::new();
 
-            if last_user_idx.is_none() {
-                // 没有用户消息，无法裁剪
+            for msg in messages.iter() {
+                if msg.role == "system" {
+                    system_messages.push(msg.clone());
+                } else {
+                    conversation_messages.push(msg.clone());
+                }
+            }
+
+            if conversation_messages.is_empty() {
                 return false;
             }
 
-            let last_user_idx = last_user_idx.unwrap();
+            // 验证对话消息是否是 user/assistant 交替
+            let mut expected_role = "user";
+            for msg in &conversation_messages {
+                if msg.role != expected_role {
+                    log::error!("[网关] 消息格式错误：期望 {}, 实际 {}", expected_role, msg.role);
+                    return false;
+                }
+                expected_role = if expected_role == "user" { "assistant" } else { "user" };
+            }
 
-            // 收集需要保留的索引：系统消息 + 最后一条用户消息
-            let mut keep_indices: Vec<usize> = messages
-                .iter()
-                .enumerate()
-                .filter(|(idx, msg)| msg.role == "system" || *idx == last_user_idx)
-                .map(|(idx, _)| idx)
-                .collect();
+            // 确保最后一条是 user
+            if conversation_messages.last().map(|m| m.role.as_str()) != Some("user") {
+                log::error!("[网关] 最后一条消息不是 user");
+                return false;
+            }
 
-            // 从最新到最旧，逐步添加消息，直到接近目标 token 数
-            for idx in (0..messages.len()).rev() {
-                if keep_indices.contains(&idx) {
-                    continue;
+            // 从后往前保留消息对（user + assistant），直到满足 token 限制
+            let mut kept_messages = Vec::new();
+
+            // 先保留最后一条 user 消息
+            if let Some(last_user) = conversation_messages.last() {
+                kept_messages.push(last_user.clone());
+            }
+
+            // 从倒数第二条开始，成对保留（assistant + user）
+            let mut idx = conversation_messages.len().saturating_sub(2);
+            while idx > 0 {
+                // 取一对消息：assistant (idx) + user (idx-1)
+                let assistant_msg = &conversation_messages[idx];
+                let user_msg = &conversation_messages[idx - 1];
+
+                if assistant_msg.role != "assistant" || user_msg.role != "user" {
+                    log::error!("[网关] 消息对格式错误");
+                    break;
                 }
 
-                // 尝试添加这条消息
-                let mut test_messages: Vec<NormalizedMessage> = keep_indices
-                    .iter()
-                    .chain(std::iter::once(&idx))
-                    .map(|&i| messages[i].clone())
-                    .collect();
-
-                // 按原始顺序排序
-                test_messages.sort_by_key(|msg| {
-                    messages.iter().position(|m| {
-                        m.role == msg.role && m.content == msg.content
-                    }).unwrap_or(0)
-                });
+                // 测试加入这一对后的 token 数
+                let mut test_messages = system_messages.clone();
+                test_messages.push(user_msg.clone());
+                test_messages.push(assistant_msg.clone());
+                test_messages.extend(kept_messages.iter().cloned());
 
                 let test_tokens = estimate_request_tokens(&test_messages, model_id);
                 if test_tokens <= target_tokens {
-                    keep_indices.push(idx);
+                    // 可以加入，插入到开头
+                    kept_messages.insert(0, assistant_msg.clone());
+                    kept_messages.insert(0, user_msg.clone());
+
+                    if idx >= 2 {
+                        idx -= 2;
+                    } else {
+                        break;
+                    }
                 } else {
-                    // 超过目标，停止添加
+                    // 超过限制，停止
                     break;
                 }
             }
 
-            // 按原始顺序重建消息列表
-            keep_indices.sort_unstable();
-            let trimmed_messages: Vec<NormalizedMessage> = keep_indices
-                .iter()
-                .map(|&idx| messages[idx].clone())
-                .collect();
+            // 重建消息列表：system + 保留的对话消息
+            let mut final_messages = system_messages;
+            final_messages.extend(kept_messages);
 
-            if trimmed_messages.len() < 2 {
-                // 裁剪后消息太少
+            if final_messages.len() < 2 {
                 return false;
             }
-            *messages = trimmed_messages;
+
+            // 最终验证：确保是 user/assistant 交替，且最后是 user
+            let conversation_part: Vec<_> = final_messages.iter().filter(|m| m.role != "system").collect();
+            if conversation_part.is_empty() {
+                return false;
+            }
+
+            let mut expected = "user";
+            for msg in &conversation_part {
+                if msg.role != expected {
+                    log::error!("[网关] 裁剪后消息格式错误：期望 {}, 实际 {}", expected, msg.role);
+                    return false;
+                }
+                expected = if expected == "user" { "assistant" } else { "user" };
+            }
+
+            if conversation_part.last().map(|m| m.role.as_str()) != Some("user") {
+                log::error!("[网关] 裁剪后最后一条消息不是 user");
+                return false;
+            }
+
+            log::info!(
+                "[网关] 裁剪成功：{} → {} 条消息，预估 {} tokens",
+                messages.len(),
+                final_messages.len(),
+                estimate_request_tokens(&final_messages, model_id)
+            );
+
+            *messages = final_messages;
             true
 }
 
@@ -911,55 +956,21 @@ fn write_request_log(
     cache_creation_input_tokens: Option<i32>,
     state: &RouterState,
 ) {
-
-
     let duration_ms = context
         .started_at
         .elapsed()
         .as_millis()
         .min(u128::from(u64::MAX)) as u64;
 
-    // 添加日志：记录 token 信息
-    let has_tokens = input_tokens.is_some() || output_tokens.is_some();
-    let has_valid_tokens = input_tokens.unwrap_or(0) > 0 || output_tokens.unwrap_or(0) > 0;
-
-    if has_tokens {
-        if has_valid_tokens {
-            log::info!(
-                "[网关日志] 请求 #{} | 端点={} | 模型={:?} | 流式={} | 状态={} | 耗时={}ms | 输入={} | 输出={} | 缓存读取={} | 缓存创建={}",
-                context.request_index,
-                context.endpoint,
-                context.request.map(|r| r.model.as_str()).or(context.model_hint.as_deref()),
-                context.request.map(|r| r.stream).unwrap_or(false),
-                status.as_u16(),
-                duration_ms,
-                input_tokens.unwrap_or(0),
-                output_tokens.unwrap_or(0),
-                cache_read_input_tokens.map(|v| v.to_string()).unwrap_or_else(|| "0".to_string()),
-                cache_creation_input_tokens.map(|v| v.to_string()).unwrap_or_else(|| "0".to_string())
-            );
-        } else {
-            log::warn!(
-                "[网关日志] ⚠️  请求 #{} | 端点={} | 模型={:?} | 流式={} | 状态={} | 耗时={}ms | 输入={} | 输出={} | 缓存读取={} | 缓存创建={} | 警告: 所有 token 都为 0!",
-                context.request_index,
-                context.endpoint,
-                context.request.map(|r| r.model.as_str()).or(context.model_hint.as_deref()),
-                context.request.map(|r| r.stream).unwrap_or(false),
-                status.as_u16(),
-                duration_ms,
-                input_tokens.unwrap_or(0),
-                output_tokens.unwrap_or(0),
-                cache_read_input_tokens.map(|v| v.to_string()).unwrap_or_else(|| "0".to_string()),
-                cache_creation_input_tokens.map(|v| v.to_string()).unwrap_or_else(|| "0".to_string())
-            );
-        }
-    } else {
-        log::debug!(
-            "[网关日志] 请求 #{} | 端点={} | 状态={} | 耗时={}ms | 无 token 信息",
+    // 只在出错时记录日志
+    if !status.is_success() {
+        log::error!(
+            "请求失败 #{} | {} | {} | {}ms | {}",
             context.request_index,
             context.endpoint,
             status.as_u16(),
-            duration_ms
+            duration_ms,
+            error.unwrap_or("未知错误")
         );
     }
 
@@ -1229,7 +1240,7 @@ pub async fn proxy_handler(
 
     if estimated_tokens > threshold_tokens {
         log::warn!(
-            "[网关] Token 数量 {} 超过阈值 {} ({}的70%)。检查当前消息是否过大...",
+            "[网关] Token 数量 {} 超过阈值 {} ({}的55%)。检查当前消息是否过大...",
             estimated_tokens,
             threshold_tokens,
             max_input_tokens
@@ -1307,7 +1318,7 @@ pub async fn proxy_handler(
                     );
                 } else {
                     log::warn!("[网关] 压缩未执行（消息数不足），尝试简单裁剪...");
-                    let target_tokens = (max_input_tokens as f64 * 0.50) as usize;
+                    let target_tokens = (max_input_tokens as f64 * 0.40) as usize;
                     let trimmed = trim_messages_by_tokens(
                         &mut request.messages,
                         target_tokens,
@@ -1323,7 +1334,7 @@ pub async fn proxy_handler(
                         );
                     } else {
                         let error_message = format!(
-                            "Input is too long. Estimated {} tokens exceeds the threshold of {} tokens (70% of {}). Unable to compress or trim further.",
+                            "Input is too long. Estimated {} tokens exceeds the threshold of {} tokens (55% of {}). Unable to compress or trim further.",
                             estimated_tokens,
                             threshold_tokens,
                             max_input_tokens
@@ -1350,7 +1361,7 @@ pub async fn proxy_handler(
             Err(e) => {
                 log::error!("[网关] 压缩失败: {}, 尝试简单裁剪", e);
                 // 压缩失败，尝试简单裁剪
-                let target_tokens = (max_input_tokens as f64 * 0.50) as usize;
+                let target_tokens = (max_input_tokens as f64 * 0.40) as usize;
                 let trimmed = trim_messages_by_tokens(
                     &mut request.messages,
                     target_tokens,
@@ -1608,7 +1619,7 @@ pub async fn proxy_handler(
 
         // 继续裁剪，直到满足大小限制
         let mut retry_count = 0;
-        const MAX_TRIM_RETRIES: u32 = 3;
+        const MAX_TRIM_RETRIES: u32 = 5;
 
         while payload_size > MAX_KIRO_PAYLOAD_SIZE && retry_count < MAX_TRIM_RETRIES {
             retry_count += 1;
@@ -2508,6 +2519,12 @@ async fn send_generate_request<T: serde::Serialize + ?Sized>(
         }
 
         let body = upstream_resp.text().await.unwrap_or_default();
+
+        // 记录错误响应的详细信息
+        log::error!("=== Kiro API 错误响应 ===");
+        log::error!("Status: {}", status);
+        log::error!("Body:\n{}", body);
+        log::error!("========================");
 
         // 429 限流错误不重试，直接返回
         if status == StatusCode::TOO_MANY_REQUESTS {
@@ -4030,8 +4047,8 @@ fn stream_proxy_response(
                                 // 将 payload 转换为文本
                                 let json_text = String::from_utf8_lossy(&msg.payload);
 
-                                // 记录每个 Kiro API 事件
-                                log::debug!("[Kiro API 响应事件] {}", json_text);
+                                // 记录每个 Kiro API 事件（trace 级别，避免刷屏）
+                                log::trace!("[Kiro API 响应事件] {}", json_text);
 
                                 // 解析 JSON 事件
                                 if let Some(event) = parse_kiro_event_full(&json_text) {
@@ -4505,6 +4522,18 @@ fn stream_proxy_response(
         }
         aggregated.tool_calls = stream::deduplicate_tool_calls(aggregated.tool_calls);
 
+        // 流结束后打印完整聚合响应
+        log::debug!(
+            "[流式响应完成] model={}, text_len={}, thinking_len={}, tool_calls={}, input_tokens={}, output_tokens={}, text_preview={:.200}",
+            model,
+            aggregated.text.len(),
+            aggregated.thinking.len(),
+            aggregated.tool_calls.len(),
+            aggregated.input_tokens,
+            aggregated.output_tokens,
+            aggregated.text
+        );
+
         // 流式结束后，使用本地估算 token（在发送响应之前）
         if aggregated.input_tokens == 0 || aggregated.output_tokens == 0 {
             log::info!("[流式] 响应中没有 token 信息，使用本地估算");
@@ -4855,11 +4884,11 @@ async fn send_event(
     event: Option<&str>,
     payload: &str,
 ) -> bool {
-    // 记录发送给客户端的事件
+    // 记录发送给客户端的事件（trace 级别，避免刷屏）
     if let Some(event_name) = event {
-        log::debug!("[发送给客户端] event: {}, data: {}", event_name, payload);
+        log::trace!("[发送给客户端] event: {}, data: {}", event_name, payload);
     } else {
-        log::debug!("[发送给客户端] data: {}", payload);
+        log::trace!("[发送给客户端] data: {}", payload);
     }
 
     let chunk = if let Some(event) = event {

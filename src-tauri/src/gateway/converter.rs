@@ -686,15 +686,80 @@ pub async fn build_kiro_payload(
 
     let mut request = request.clone();
     if request.messages.len() > MAX_HISTORY_MESSAGES {
-        let remove_count = request.messages.len() - KEEP_RECENT_MESSAGES;
-        log::info!(
-            "[网关] 消息数量 {} 超过限制 {}，裁剪前 {} 条消息，保留最近 {} 条",
+        log::warn!(
+            "[网关] 消息数量 {} 超过限制 {}，开始裁剪",
             request.messages.len(),
-            MAX_HISTORY_MESSAGES,
-            remove_count,
-            KEEP_RECENT_MESSAGES
+            MAX_HISTORY_MESSAGES
         );
-        request.messages.drain(0..remove_count);
+
+        // 保留最后一条 user 消息（当前请求）
+        let last_user = request.messages.last().cloned();
+        if last_user.is_none() || last_user.as_ref().map(|m| m.role.as_str()) != Some("user") {
+            log::error!("[网关] 最后一条消息不是 user，无法裁剪");
+            return Err("Invalid message format: last message must be user".into());
+        }
+
+        // 从倒数第二条开始，成对保留（user + assistant）
+        let mut kept_messages = vec![last_user.unwrap()];
+        let target_count = KEEP_RECENT_MESSAGES;
+
+        let mut idx = request.messages.len().saturating_sub(2);
+        while kept_messages.len() < target_count && idx > 0 {
+            // 取一对：assistant (idx) + user (idx-1)
+            if idx >= 1 {
+                let assistant_msg = &request.messages[idx];
+                let user_msg = &request.messages[idx - 1];
+
+                if assistant_msg.role == "assistant" && user_msg.role == "user" {
+                    kept_messages.insert(0, assistant_msg.clone());
+                    kept_messages.insert(0, user_msg.clone());
+
+                    if idx >= 2 {
+                        idx -= 2;
+                    } else {
+                        break;
+                    }
+                } else {
+                    log::error!(
+                        "[网关] 消息格式错误：idx={}, roles={}/{}",
+                        idx,
+                        user_msg.role,
+                        assistant_msg.role
+                    );
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+
+        // 验证裁剪后的消息格式
+        let mut expected_role = "user";
+        for (i, msg) in kept_messages.iter().enumerate() {
+            if msg.role != expected_role {
+                log::error!(
+                    "[网关] 裁剪后消息格式错误：位置 {}, 期望 {}, 实际 {}",
+                    i,
+                    expected_role,
+                    msg.role
+                );
+                return Err("Invalid message format after trimming".into());
+            }
+            expected_role = if expected_role == "user" { "assistant" } else { "user" };
+        }
+
+        if kept_messages.last().map(|m| m.role.as_str()) != Some("user") {
+            log::error!("[网关] 裁剪后最后一条消息不是 user");
+            return Err("Invalid message format: last message must be user after trimming".into());
+        }
+
+        log::info!(
+            "[网关] 裁剪完成：{} → {} 条消息",
+            request.messages.len(),
+            kept_messages.len()
+        );
+
+        request.messages = kept_messages;
     }
 
     let model_id = if let Some(models) = available_models {

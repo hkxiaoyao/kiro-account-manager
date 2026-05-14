@@ -149,6 +149,13 @@ fn setup_log_plugin() -> tauri_plugin_log::Builder {
             let target = metadata.target();
             target.starts_with("kiro_account_manager")
         })
+        // 写入日志文件而不是控制台
+        .target(tauri_plugin_log::Target::new(
+            tauri_plugin_log::TargetKind::LogDir { file_name: Some("gateway".to_string()) }
+        ))
+        // 日志轮转：每个文件最大 10MB，保留最近 5 个文件
+        .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepAll)
+        .max_file_size(10_000_000)
 }
 
 /// 配置单实例插件回调

@@ -27,6 +27,10 @@ fn default_budget_tokens() -> i32 {
     20000
 }
 
+fn default_max_tokens() -> i32 {
+    4096
+}
+
 fn deserialize_budget_tokens<'de, D>(deserializer: D) -> Result<i32, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -491,6 +495,7 @@ pub struct KiroToolUse {
 pub struct AnthropicMessagesRequest {
     pub model: String,
     pub messages: Vec<AnthropicMessage>,
+    #[serde(default = "default_max_tokens")]
     pub max_tokens: i32,
     #[serde(default)]
     pub system: Option<serde_json::Value>,
