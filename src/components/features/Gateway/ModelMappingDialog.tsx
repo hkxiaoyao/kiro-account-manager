@@ -6,8 +6,8 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 
-// Kiro 内部模型格式（点号分隔）
-const AVAILABLE_MODELS = [
+// Kiro 内部模型格式（点号分隔）— 用于目标模型下拉
+const TARGET_MODELS = [
   'claude-opus-4.7',
   'claude-opus-4.6',
   'claude-sonnet-4.6',
@@ -19,6 +19,28 @@ const AVAILABLE_MODELS = [
   'minimax-m2.5',
   'glm-5',
   'qwen3-coder-next',
+]
+
+// 常见源模型名 — 用于源模型下拉
+const SOURCE_MODELS = [
+  'gpt-5.5',
+  'gpt-5.5-pro',
+  'gpt-5.5-instant',
+  'gpt-5.4',
+  'gpt-5.4-pro',
+  'gpt-5.4-mini',
+  'gpt-5.3-codex',
+  'gpt-5.3-codex-spark',
+  'gpt-5.3-instant',
+  'gpt-5.2',
+  'gpt-5.2-pro',
+  'gpt-5.2-codex',
+  'gpt-5.1',
+  'gpt-5.1-pro',
+  'gpt-5.1-codex',
+  'gpt-5.1-codex-max',
+  'gpt-5.1-codex-mini',
+  'gpt-5.1-instant',
 ]
 
 // 预置 GPT/Codex → Claude 映射规则（5.5 ~ 5.1 系列）
@@ -161,13 +183,13 @@ function ModelMappingDialog({ open, onOpenChange, modelMappings, setField }: Mod
               <div className="relative">
                 <Input placeholder="源模型名" className="text-xs" id="dialog-mapping-source" list="model-list-source" />
                 <datalist id="model-list-source">
-                  {AVAILABLE_MODELS.map(m => <option key={m} value={m} />)}
+                  {SOURCE_MODELS.map(m => <option key={m} value={m} />)}
                 </datalist>
               </div>
               <div className="relative">
                 <Input placeholder="目标模型名" className="text-xs" id="dialog-mapping-target" list="model-list-target" />
                 <datalist id="model-list-target">
-                  {AVAILABLE_MODELS.map(m => <option key={m} value={m} />)}
+                  {TARGET_MODELS.map(m => <option key={m} value={m} />)}
                 </datalist>
               </div>
             </div>
