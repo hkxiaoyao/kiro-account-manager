@@ -1423,7 +1423,23 @@ pub async fn proxy_handler(
         }
     }
 
-    // 裁剪完成后，创建 log context
+    // 裁剪完成后，应用系统提示过滤
+    let has_filters = state.config.filter_claude_code
+        || state.config.filter_strip_boundaries
+        || state.config.filter_env_noise
+        || !state.config.prompt_filter_rules.is_empty();
+    if has_filters {
+        for msg in &mut request.messages {
+            if msg.role == "system" {
+                if let Some(serde_json::Value::String(text)) = &msg.content {
+                    let filtered = super::prompt_filter::apply_prompt_filters(&state.config, text);
+                    msg.content = Some(serde_json::Value::String(filtered));
+                }
+            }
+        }
+    }
+
+    // 创建 log context
     let request_log_context = RequestLogContext {
         request: Some(&request),
         ..base_log_context.clone()

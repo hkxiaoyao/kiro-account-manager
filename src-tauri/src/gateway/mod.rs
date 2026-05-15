@@ -5,6 +5,7 @@ pub(crate) mod load_balancer;
 pub mod log_store;
 mod models;
 pub mod prompt_cache;
+pub mod prompt_filter;
 mod proxy;
 pub mod response_cache;
 mod stream;
@@ -92,6 +93,35 @@ pub struct GatewayConfig {
     pub log_level: String,
     #[serde(default)]
     pub model_mappings: Vec<ModelMappingRule>,
+    /// 系统提示过滤：检测 Claude Code 系统提示并替换为精简版
+    #[serde(default)]
+    pub filter_claude_code: bool,
+    /// 系统提示过滤：去掉 --- SYSTEM PROMPT --- 边界标记
+    #[serde(default)]
+    pub filter_strip_boundaries: bool,
+    /// 系统提示过滤：去掉环境噪音行（git status、recent commits 等）
+    #[serde(default)]
+    pub filter_env_noise: bool,
+    /// 自定义提示过滤规则
+    #[serde(default)]
+    pub prompt_filter_rules: Vec<PromptFilterRule>,
+}
+
+/// 自定义提示过滤规则
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PromptFilterRule {
+    pub id: String,
+    pub name: String,
+    #[serde(default = "default_true_val")]
+    pub enabled: bool,
+    /// regex | lines-containing
+    pub rule_type: String,
+    /// 匹配模式（正则表达式或子串）
+    pub match_pattern: String,
+    /// 替换内容（仅 regex 类型使用，空 = 删除匹配）
+    #[serde(default)]
+    pub replace: String,
 }
 
 /// 模型映射规则
@@ -349,6 +379,10 @@ impl Default for GatewayConfig {
             allowed_ips: Vec::new(),
             log_level: default_log_level(),
             model_mappings: Vec::new(),
+            filter_claude_code: false,
+            filter_strip_boundaries: false,
+            filter_env_noise: false,
+            prompt_filter_rules: Vec::new(),
         }
     }
 }
