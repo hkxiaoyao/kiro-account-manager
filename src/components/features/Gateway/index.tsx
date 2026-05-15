@@ -174,37 +174,17 @@ function GatewayPage() {
   const consoleHighlights = useMemo(() => ([
     {
       label: '当前入口',
-      value: effectiveBaseUrl,
-      detail: `${effectiveConfig.localOnly ? '仅本机访问' : '允许远程访问'} · ${status.running ? '运行中' : '待启动'}`},
+      value: effectiveBaseUrl},
     {
       label: '客户端 Key',
-      value: effectiveSecuritySummary.apiKeyState,
-      detail: integrationSummary.authLabel},
+      value: effectiveSecuritySummary.apiKeyState},
     {
       label: '路由模式',
-      value: effectiveRoutingSummary.modeLabel,
-      detail: `${effectiveRoutingSummary.selectionLabel}：${effectiveRoutingSummary.selectionValue}`},
-    {
-      label: '最近风险',
-      value: latestErrorEntry ? '需要排查' : '状态平稳',
-      detail: latestErrorEntry?.message || `最后同步 ${lastStatusSyncAt}`},
-    {
-      label: '运行差异',
-      value: hasRuntimeChanges ? '需重启生效' : '运行态已对齐',
-      detail: hasUnsavedChanges ? '页面有未保存配置' : '配置已保存'},
+      value: effectiveRoutingSummary.modeLabel},
   ]), [
     effectiveBaseUrl,
-    effectiveConfig.localOnly,
-    status.running,
     effectiveSecuritySummary.apiKeyState,
-    integrationSummary.authLabel,
     effectiveRoutingSummary.modeLabel,
-    effectiveRoutingSummary.selectionLabel,
-    effectiveRoutingSummary.selectionValue,
-    latestErrorEntry,
-    lastStatusSyncAt,
-    hasRuntimeChanges,
-    hasUnsavedChanges,
   ])
 
   const pollingFallbackConfig = useMemo(
@@ -466,47 +446,17 @@ function GatewayPage() {
               <Stack gap="sm">
                 <Card className={`glass-card border border-border rounded-xl p-3`}>
           <Stack gap="sm">
-            <Group justify="space-between" align="flex-start">
-              <Stack gap={4}>
-                <Group gap="xs">
-                  <Text fw={700} className={"text-foreground"}>Kiro API 反代</Text>
-                  <Badge color={status.running ? 'green' : 'gray'}>{status.running ? '运行中' : '已停止'}</Badge>
-                  <Badge color={effectiveConfig.localOnly ? 'teal' : 'yellow'}>{effectiveConfig.localOnly ? '本机' : '远程'}</Badge>
-                  {hasUnsavedChanges && <Badge variant="light" color="yellow">未保存</Badge>}
-                </Group>
-                <Text size="sm" className={"text-muted-foreground"}>
-                  {effectiveBaseUrl} · {effectiveRoutingSummary.modeLabel} · {effectiveSecuritySummary.apiKeyState}
-                </Text>
-              </Stack>
-
+            <Group justify="space-between" align="center">
               <Group gap="xs">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowClientConfig(!showClientConfig)}
-                  title="一键配置客户端"
-                >
-                  <Zap size={14} className="mr-1" />
-                  配置客户端
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowRequestLogs(true)}
-                  disabled={!status.running}
-                  title="查看请求日志"
-                >
-                  <ScrollText size={14} className="mr-1" />
-                  查看日志
-                </Button>
+                <Text fw={700} className={"text-foreground"}>Kiro API 反代</Text>
                 {!status.running ? (
                   <Button
                     size="sm"
                     onClick={handleStart}
                     disabled={hasFieldErrors || saving || loading}
-                    className="bg-green-500 hover:bg-green-600 text-white"
+                    className="bg-green-500 hover:bg-green-600 text-white h-7"
                   >
-                    <Play size={14} className="mr-1" />
+                    <Play size={12} className="mr-1" />
                     启动
                   </Button>
                 ) : (
@@ -514,16 +464,27 @@ function GatewayPage() {
                     size="sm"
                     onClick={handleStop}
                     disabled={saving || loading}
-                    className="bg-red-500 hover:bg-red-600 text-white"
+                    className="bg-red-500 hover:bg-red-600 text-white h-7"
                   >
-                    <Square size={14} className="mr-1" />
+                    <Square size={12} className="mr-1" />
                     停止
                   </Button>
                 )}
+                <Badge color={status.running ? 'green' : 'gray'}>{status.running ? '运行中' : '已停止'}</Badge>
+              </Group>
+              <Group gap="xs">
+                <Button variant="outline" size="sm" className="h-7" onClick={() => setShowRequestLogs(true)} disabled={!status.running}>
+                  <ScrollText size={12} className="mr-1" />
+                  日志
+                </Button>
+                <Button variant="outline" size="sm" className="h-7" onClick={() => setShowClientConfig(!showClientConfig)}>
+                  <Zap size={12} className="mr-1" />
+                  配置客户端
+                </Button>
               </Group>
             </Group>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-5 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {consoleHighlights.map((item) => (
                 <div key={item.label} className="border rounded-lg p-2">
                   <Text size="xs" className={"text-muted-foreground"}>{item.label}</Text>
