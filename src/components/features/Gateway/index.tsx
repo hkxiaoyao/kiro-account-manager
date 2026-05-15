@@ -284,6 +284,16 @@ function GatewayPage() {
     return true
   }
 
+  // 静默保存（Dialog 关闭时用，不校验、不重启）
+  const handleSilentSave = async () => {
+    try {
+      await saveGatewayConfig(config)
+      setSavedConfigSnapshot(buildGatewayConfigSnapshot(config))
+    } catch (e) {
+      pushError(e)
+    }
+  }
+
   const handleSave = async () => {
     if (guardInvalidConfig()) return
     setSaving(true)
@@ -525,7 +535,7 @@ function GatewayPage() {
           setConfig={setConfig}
           applyGatewayLocalOnlyChange={applyGatewayLocalOnlyChange}
           createGeneratedApiKey={createGeneratedApiKey}
-          handleSaveConfig={handleSave}
+          handleSaveConfig={handleSilentSave}
           handleAutoStartToggle={handleAutoStartToggle}
         />
 
