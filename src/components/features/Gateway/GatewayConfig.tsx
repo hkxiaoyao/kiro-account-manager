@@ -20,8 +20,6 @@ interface GatewayConfigProps {
   fieldErrors: Record<string, string>;
   setField: (key: string, value: any) => void;
   handleGenerateApiKey: () => void;
-  securitySummary: any;
-  routingSummary: any;
   accountOptions: any[];
   groupOptions: any[];
   actionSummary: any;

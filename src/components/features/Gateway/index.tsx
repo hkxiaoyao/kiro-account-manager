@@ -143,10 +143,6 @@ function GatewayPage() {
     () => buildGatewayActionSummary({ running: status.running, isDirty: hasUnsavedChanges, hasUnsavedChanges, hasRuntimeChanges, hasFieldErrors }),
     [status.running, hasUnsavedChanges, hasRuntimeChanges, hasFieldErrors]
   )
-  const securitySummary = useMemo(
-    () => buildGatewaySecuritySummary({ config }),
-    [config]
-  )
   const effectiveSecuritySummary = useMemo(
     () => buildGatewaySecuritySummary({ config: effectiveConfig }),
     [effectiveConfig]
@@ -177,17 +173,6 @@ function GatewayPage() {
     [filteredRequestLogs]
   )
 
-  const routingSummary = useMemo(
-    () => buildGatewayRoutingSummary({
-      config,
-      counts: {
-        accounts: accounts.length,
-        groups: groups.length},
-      selectedLabels: {
-        single: accountOptions.find(item => item.value === config.accountId)?.label,
-        group: groupOptions.find(item => item.value === config.groupId)?.label}}),
-    [config, accounts.length, groups.length, accountOptions, groupOptions]
-  )
   const effectiveRoutingSummary = useMemo(() => buildGatewayRoutingSummary({
     config: effectiveConfig,
     counts: {
@@ -719,8 +704,6 @@ function GatewayPage() {
               fieldErrors={fieldErrors}
               setField={setField}
               handleGenerateApiKey={handleGenerateApiKey}
-              securitySummary={securitySummary}
-              routingSummary={routingSummary}
               accountOptions={accountOptions}
               groupOptions={groupOptions}
               actionSummary={actionSummary}
