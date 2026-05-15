@@ -6,7 +6,7 @@ interface UseGatewayPollingOptions {
   activeTab: string
   fallbackConfig: any
   onStatus: (data: { status: any; fallbackConfig: any; syncedAt: string }) => void
-  onRequestLogs: (data: { logs: any[]; syncedAt: string }) => void
+  onRequestLogs?: (data: { logs: any[]; syncedAt: string }) => void
   statusInterval?: number
   logsInterval?: number
 }
@@ -94,7 +94,7 @@ export function useGatewayPolling({
 
       fetchGatewayRequestLogs()
         .then((logs) => {
-          if (isActive) {
+          if (isActive && onRequestLogs) {
             onRequestLogs({
               logs,
               syncedAt: formatGatewayTimestamp()

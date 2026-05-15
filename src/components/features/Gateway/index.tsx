@@ -1,4 +1,4 @@
-import { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { startTransition, useCallback, useEffect, useMemo, useState } from 'react'
 import { Activity, Play, RotateCcw, Square, Activity as ActivityIcon, Settings, Zap, Save } from 'lucide-react'
 import { Alert as AlertPrimitive, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -9,7 +9,6 @@ import { useApp } from '../../../hooks/useApp'
 import { Stack, Group, Badge, Card, Text } from '@/components/shared/layout'
 import GatewayConfigComponent from './GatewayConfig'
 import { GatewayObservability } from './GatewayObservability'
-import { getThemeAccent } from '../KiroConfig/themeAccent'
 import { GatewayConfig, GatewayStatus } from './gatewayPageState'
 import {
   GatewayConfigProvider,
@@ -19,18 +18,12 @@ import {
 } from './contexts'
 import { 
   applyGatewayLocalOnlyChange, 
-  buildClientSamples, 
   buildGatewayActionSummary, 
   buildGatewayBaseUrl, 
-  buildGatewayConnectHost, 
   buildGatewayIntegrationSummary, 
-  buildGatewayMetricsSummary, 
-  buildGatewayRequestLogSummary, 
   buildGatewayRoutingSummary, 
   buildGatewaySecuritySummary, 
-  buildGatewayStatusSummary, 
   createGatewayFieldErrors, 
-  filterGatewayRequestLogs, 
   formatGatewayAccountOptionLabel, 
   formatGatewayTimestamp, 
   mergeErrorHistory 
@@ -39,10 +32,8 @@ import {
   buildGatewayConfigSnapshot,
   buildGatewayRuntimeSnapshot,
   buildGatewayStatusState,
-  clearGatewayRequestLogs,
   DEFAULT_GATEWAY_CONFIG,
   DEFAULT_GATEWAY_STATUS,
-  fetchGatewayRequestLogs,
   loadGatewayPageData,
   openGatewayLogDir,
   saveGatewayConfig,
@@ -69,8 +60,7 @@ function ThemedAlert({ title, children, ...props }: any) {
 }
 
 function GatewayPage() {
-  const { t, theme } = useApp()
-  const accent = useMemo(() => getThemeAccent(theme), [theme])
+  const { t } = useApp()
 
   // 定义反代页面使用的色彩系统
   const colors = useMemo(() => ({
@@ -87,11 +77,6 @@ function GatewayPage() {
   const [copySuccess, setCopySuccess] = useState('')
   const [logDir, setLogDir] = useState('')
   const [activeTab, setActiveTab] = useState('config')
-  const [requestLogs, setRequestLogs] = useState<any[]>([])
-  const [requestLogsLoading, setRequestLogsLoading] = useState(false)
-  const [requestLogOutcome, setRequestLogOutcome] = useState('all')
-  const [requestLogQuery, setRequestLogQuery] = useState('')
-  const [lastRequestLogsSyncAt, setLastRequestLogsSyncAt] = useState('-')
   const [savedConfigSnapshot, setSavedConfigSnapshot] = useState(() => buildGatewayConfigSnapshot(DEFAULT_GATEWAY_CONFIG))
   const [appliedRuntimeSnapshot, setAppliedRuntimeSnapshot] = useState<any>(null)
   const [lastStatusSyncAt, setLastStatusSyncAt] = useState('-')
@@ -127,18 +112,6 @@ function GatewayPage() {
     () => buildGatewayBaseUrl(effectiveConfig.host, effectiveConfig.port, effectiveConfig.localOnly),
     [effectiveConfig.host, effectiveConfig.port, effectiveConfig.localOnly]
   )
-  const effectiveConnectHost = useMemo(
-    () => buildGatewayConnectHost(effectiveConfig.host, effectiveConfig.localOnly),
-    [effectiveConfig.host, effectiveConfig.localOnly]
-  )
-  const clientSamples = useMemo(
-    () => buildClientSamples(effectiveBaseUrl, effectiveConfig.clientApiKeysText || effectiveConfig.apiKey),
-    [effectiveBaseUrl, effectiveConfig.clientApiKeysText, effectiveConfig.apiKey]
-  )
-  const statusSummary = useMemo(
-    () => buildGatewayStatusSummary({ config: effectiveConfig, status, errorHistory, lastStatusSyncAt }),
-    [effectiveConfig, status, errorHistory, lastStatusSyncAt]
-  )
   const actionSummary = useMemo(
     () => buildGatewayActionSummary({ running: status.running, isDirty: hasUnsavedChanges, hasUnsavedChanges, hasRuntimeChanges, hasFieldErrors }),
     [status.running, hasUnsavedChanges, hasRuntimeChanges, hasFieldErrors]
@@ -156,23 +129,6 @@ function GatewayPage() {
       errorHistory}),
     [effectiveBaseUrl, effectiveConfig.clientApiKeysText, effectiveConfig.apiKey, logDir, errorHistory]
   )
-  const deferredRequestLogQuery = useDeferredValue(requestLogQuery)
-  const isObservabilityTab = activeTab === 'observability'
-  const requestLogSummary = useMemo(
-    () => isObservabilityTab ? buildGatewayRequestLogSummary(requestLogs) : buildGatewayRequestLogSummary([]),
-    [isObservabilityTab, requestLogs]
-  )
-  const filteredRequestLogs = useMemo(
-    () => isObservabilityTab
-      ? filterGatewayRequestLogs(requestLogs, { outcome: requestLogOutcome, query: deferredRequestLogQuery })
-      : [],
-    [isObservabilityTab, requestLogs, requestLogOutcome, deferredRequestLogQuery]
-  )
-  const filteredRequestLogSummary = useMemo(
-    () => buildGatewayRequestLogSummary(filteredRequestLogs),
-    [filteredRequestLogs]
-  )
-
   const effectiveRoutingSummary = useMemo(() => buildGatewayRoutingSummary({
     config: effectiveConfig,
     counts: {
@@ -205,10 +161,6 @@ function GatewayPage() {
       value: latestErrorEntry ? '需要排查' : '状态平稳',
       detail: latestErrorEntry?.message || `最后同步 ${lastStatusSyncAt}`},
     {
-      label: '观测样本',
-      value: `${requestLogSummary.total} 条请求`,
-      detail: `成功率 ${requestLogSummary.successRateLabel} · 错误率 ${requestLogSummary.errorRateLabel}`},
-    {
       label: '运行差异',
       value: hasRuntimeChanges ? '需重启生效' : '运行态已对齐',
       detail: hasUnsavedChanges ? '页面有未保存配置' : '配置已保存'},
@@ -223,68 +175,9 @@ function GatewayPage() {
     effectiveRoutingSummary.selectionValue,
     latestErrorEntry,
     lastStatusSyncAt,
-    requestLogSummary.total,
-    filteredRequestLogSummary.success,
-    filteredRequestLogSummary.errors,
     hasRuntimeChanges,
     hasUnsavedChanges,
   ])
-
-  const operationsChecklist = useMemo(() => {
-    const checks = [
-      {
-        label: '配置健康',
-        status: hasFieldErrors ? '待修正' : '正常',
-        tone: hasFieldErrors ? 'red' : 'green',
-        detail: hasFieldErrors ? '存在表单错误，保存和启动会被拦截。' : '当前表单字段满足反代启动要求。'},
-      {
-        label: '运行状态',
-        status: status.running ? '运行中' : '未启动',
-        tone: status.running ? 'green' : 'gray',
-        detail: status.running
-          ? `当前监听 ${statusSummary.listen}，请求计数 ${statusSummary.requests}。`
-          : '当前尚未拉起反代，可直接使用现有配置启动。'},
-      {
-        label: '配置同步',
-        status: hasUnsavedChanges ? '未保存' : '已保存',
-        tone: hasUnsavedChanges ? 'yellow' : 'teal',
-        detail: hasUnsavedChanges
-          ? '页面配置已经变化，如需长期保留请先保存配置。'
-          : '页面配置已与配置文件保持一致。'},
-      {
-        label: '运行差异',
-        status: hasRuntimeChanges ? '待重启' : '已对齐',
-        tone: hasRuntimeChanges ? 'orange' : 'teal',
-        detail: hasRuntimeChanges
-          ? '反代仍在使用旧运行参数，需要重启后才会切换到新配置。'
-          : '当前运行参数与页面快照一致。'},
-    ]
-
-    if (latestErrorEntry) {
-      checks.push({
-        label: '最近风险',
-        status: `${latestErrorEntry.count} 次`,
-        tone: 'orange',
-        detail: latestErrorEntry.message})
-    }
-
-    return checks
-  }, [hasFieldErrors, status.running, statusSummary.listen, statusSummary.requests, hasUnsavedChanges, hasRuntimeChanges, latestErrorEntry])
-
-  const integrationGuidance = useMemo(() => ([
-    {
-      label: 'Anthropic Messages API',
-      value: '/v1/messages',
-      detail: '使用 ANTHROPIC_BASE_URL + ANTHROPIC_API_KEY 直连本地反代，支持原生 Messages API 格式。'},
-    {
-      label: 'OpenAI API',
-      value: '/v1/chat/completions, /v1/responses',
-      detail: '使用 OPENAI_BASE_URL + OPENAI_API_KEY，支持 Chat Completions 和 Responses 两种格式，兼容标准 OpenAI 客户端库。'},
-    {
-      label: '排障入口',
-      value: '观测页',
-      detail: '日志目录、错误历史、请求明细都统一收口在观测页，不需要再翻系统日志。'},
-  ]), [])
 
   const pollingFallbackConfig = useMemo(
     () => ({
@@ -293,57 +186,11 @@ function GatewayPage() {
     [config.host, config.port]
   )
 
-  const renderMetricList = (items: any[], emptyLabel: string) => {
-    if (!items.length) {
-      return <Text size="sm" className={"text-muted-foreground"}>{emptyLabel}</Text>
-    }
-
-    return (
-      <Stack gap={6}>
-        {items.map(item => (
-          <Group key={`${item.label}-${item.count}`} justify="space-between" gap="xs">
-            <Text size="sm" className={"text-foreground"} style={{ wordBreak: 'break-word' }}>{item.label}</Text>
-            <Badge variant="light">{item.count}</Badge>
-          </Group>
-        ))}
-      </Stack>
-    )
-  }
-
-  const inputClassNames = useMemo(() => ({
-    input: `text-foreground bg-background border-input ${colors.inputFocus}`,
-    label: "text-foreground",
-    description: "text-muted-foreground",
-    error: 'text-red-400',
-    section: "text-muted-foreground"}), [colors.inputFocus])
-
-  const selectClassNames = useMemo(() => ({
-    ...inputClassNames,
-    dropdown: `glass-card border border-border`,
-    option: "text-foreground"}), [inputClassNames])
-
-  const switchClassNames = useMemo(() => ({
-    label: "text-foreground",
-    description: "text-muted-foreground"}), [])
-
   const pushError = (msg: any) => {
     const normalized = String(msg?.message || msg || '').trim()
     if (!normalized) return
     setErrorHistory(prev => mergeErrorHistory(prev, normalized, formatGatewayTimestamp(), 8))
   }
-
-  const loadRequestLogs = useCallback(async (limit = 120) => {
-    setRequestLogsLoading(true)
-    try {
-      const logs = await fetchGatewayRequestLogs(limit)
-      setRequestLogs(logs)
-      setLastRequestLogsSyncAt(formatGatewayTimestamp())
-    } catch (e) {
-      pushError(e)
-    } finally {
-      setRequestLogsLoading(false)
-    }
-  }, [])
 
   const loadAll = useCallback(async () => {
     setLoading(true)
@@ -390,16 +237,10 @@ function GatewayPage() {
     }
   }, [])
 
-  const handleRequestLogsPoll = useCallback(({ logs, syncedAt }: any) => {
-    setRequestLogs(logs)
-    setLastRequestLogsSyncAt(syncedAt)
-  }, [])
-
   useGatewayPolling({
     activeTab,
     fallbackConfig: pollingFallbackConfig,
-    onStatus: handleStatusPoll,
-    onRequestLogs: handleRequestLogsPoll})
+    onStatus: handleStatusPoll})
 
   const setField = (key: string, value: any) => setConfig(prev => ({ ...prev, [key]: value }))
 
@@ -434,19 +275,6 @@ function GatewayPage() {
       setLogDir(String(dir || ''))
     } catch (e) {
       pushError(e)
-    }
-  }
-
-  const handleClearRequestLogs = async () => {
-    setRequestLogsLoading(true)
-    try {
-      await clearGatewayRequestLogs()
-      setRequestLogs([])
-      setLastRequestLogsSyncAt(formatGatewayTimestamp())
-    } catch (e) {
-      pushError(e)
-    } finally {
-      setRequestLogsLoading(false)
     }
   }
 
