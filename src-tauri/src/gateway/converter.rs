@@ -510,10 +510,9 @@ pub fn get_internal_model_id(external_model: &str) -> Result<String, String> {
 fn normalize_claude_model_format(model: &str) -> String {
     let mut s = model.to_string();
 
-    // 提取并保留 -thinking 后缀
-    let has_thinking = s.ends_with("-thinking");
-    if has_thinking {
-        s = s[..s.len() - 9].to_string(); // 去掉 "-thinking" 暂存
+    // 去掉 -thinking 后缀（thinking 通过系统提示注入启用，Kiro API 不接受带 -thinking 的模型 ID）
+    if let Some(stripped) = s.strip_suffix("-thinking") {
+        s = stripped.to_string();
     }
 
     // 去掉日期后缀（-20xxxxxx，8位数字）
@@ -536,14 +535,13 @@ fn normalize_claude_model_format(model: &str) -> String {
                 if between.len() == 1 && between.chars().all(|c| c.is_ascii_digit()) {
                     // claude-opus-4-7 → claude-opus-4.7
                     let base = &s[..second_last_dash + 1 + between.len()];
-                    let result = format!("{}.{}", base, after_last);
-                    return if has_thinking { format!("{}-thinking", result) } else { result };
+                    return format!("{}.{}", base, after_last);
                 }
             }
         }
     }
 
-    if has_thinking { format!("{}-thinking", s) } else { s }
+    s
 }
 
 /// 带降级的模型映射函数
