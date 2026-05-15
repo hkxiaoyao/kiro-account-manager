@@ -29,6 +29,7 @@ const VirtualRow = memo(function VirtualRow({
   onRefreshToken,
   onEdit,
   onEditLabel,
+  onToggleEnabled,
   onDelete,
   onDeleteRemote,
   onAdd,
@@ -57,6 +58,8 @@ const VirtualRow = memo(function VirtualRow({
             onRefresh={onRefresh}
             onRefreshToken={onRefreshToken}
             onEdit={onEdit}
+            onEditLabel={onEditLabel}
+            onToggleEnabled={onToggleEnabled}
             onDelete={onDelete}
             isRefreshing={Boolean(accountRowStateById?.[item.id]?.isRefreshing)}
             isRefreshingToken={Boolean(accountRowStateById?.[item.id]?.isRefreshingToken)}
@@ -104,6 +107,7 @@ function AccountTable({
   onRefreshToken,
   onEdit,
   onEditLabel,
+  onToggleEnabled,
   onDelete,
   onDeleteRemote,
   onAdd,
@@ -143,6 +147,8 @@ function AccountTable({
       { icon: Key , label: t('accountCard.refreshQuota'), onClick: () => onRefresh(account.id), disabled: Boolean(rowState.isRefreshing) },
       { icon: KeyRound , label: t('accountCard.refreshToken'), onClick: () => onRefreshToken?.(account.id), disabled: Boolean(rowState.isRefreshingToken) },
       { icon: LogIn, label: isUnavailable ? `${statusMeta.label}账号不可切换` : t('accountCard.LogIn'), onClick: () => onSwitch(account), disabled: Boolean(rowState.isSwitching) || isUnavailable },
+      { divider: true },
+      { label: account.enabled === false ? '启用账号' : '禁用账号', onClick: () => onToggleEnabled?.(account, account.enabled === false) },
       { icon: Trash2, label: t('accountCard.delete'), onClick: () => onDelete(account.id), danger: true },
     ]
 
@@ -245,6 +251,7 @@ function AccountTable({
                     onRefreshToken={onRefreshToken}
                     onEdit={onEdit}
                     onEditLabel={onEditLabel}
+                    onToggleEnabled={onToggleEnabled}
                     onDelete={onDelete}
                     onDeleteRemote={onDeleteRemote}
                     onAdd={onAdd}

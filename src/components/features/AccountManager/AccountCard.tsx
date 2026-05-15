@@ -1,7 +1,9 @@
 import { memo, useCallback, useMemo } from 'react'
 import { Eye, Copy, Check, Edit2, RefreshCcw, Key, LogIn, LogOut, Trash2 } from 'lucide-react'
+import { invoke } from '@tauri-apps/api/core'
 import { useApp } from '../../../hooks/useApp'
 import { usePrivacy } from '../../../contexts/PrivacyContext'
+import { Switch } from '../../ui/switch'
 import { getUsagePercent, getProgressBarColor } from './hooks/useAccountStats'
 import { getQuota, getUsed, getSubType, getSubPlan, formatUsage, getAccountDisplayName } from '../../../utils/accountStats'
 import { getAccountStatusMeta, isBannedStatus, isUnavailableStatus } from '../../../utils/accountStatus'
@@ -18,6 +20,8 @@ interface AccountCardProps {
   onRefresh: (id: string) => void;
   onRefreshToken?: (id: string) => void;
   onEdit: (account: Account) => void;
+  onEditLabel?: (account: Account) => void;
+  onToggleEnabled?: (account: Account, enabled: boolean) => void;
   onDelete: (id: string) => void;
   isRefreshing?: boolean;
   isRefreshingToken?: boolean;
@@ -43,6 +47,8 @@ const AccountCard = memo(function AccountCard({
   onRefresh,
   onRefreshToken,
   onEdit,
+  onEditLabel,
+  onToggleEnabled,
   onDelete,
   isRefreshing = false,
   isRefreshingToken = false,
@@ -99,7 +105,7 @@ const AccountCard = memo(function AccountCard({
   return (
     <div
       onContextMenu={handleContextMenu}
-      className={`relative rounded-2xl border flex flex-col min-h-[240px] animate-stagger transition-all duration-300 ${cardStatusClass}`}
+      className={`relative rounded-2xl border flex flex-col min-h-[240px] animate-stagger transition-all duration-300 ${cardStatusClass} ${account.enabled === false ? 'opacity-50 grayscale' : ''}`}
       style={{ animationDelay: `${Math.min(index, 20) * 30}ms` }}
     >
       {isCurrentAccount && (
@@ -116,6 +122,13 @@ const AccountCard = memo(function AccountCard({
       </div>
 
       <div className="absolute top-3 right-3 flex items-center gap-2">
+        <div onClick={(e) => e.stopPropagation()}>
+          <Switch
+            size="sm"
+            checked={account.enabled !== false}
+            onCheckedChange={(checked) => onToggleEnabled?.(account, checked)}
+          />
+        </div>
         <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${statusMeta.key === 'active'
           ? "bg-green-500/10 text-green-500 border border-green-500/20"
           : statusMeta.tone === 'danger'
@@ -278,7 +291,7 @@ const AccountCard = memo(function AccountCard({
                   <LogIn size={16} className={isSwitching ? 'animate-spin' : ''} />
                 </button>
               )}
-              <button onClick={(e) => { e.stopPropagation(); onEdit(account) }} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title={t('accountCard.editRemark')}>
+              <button onClick={(e) => { e.stopPropagation(); onEditLabel ? onEditLabel(account) : onEdit(account) }} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title={t('accountCard.editRemark')}>
                 <Edit2 size={16} />
               </button>
               <button onClick={(e) => { e.stopPropagation(); onDelete(account.id) }} className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title={t('accountCard.delete')}>

@@ -405,6 +405,16 @@ function AccountManager({ onNavigate }: AccountManagerProps) {
     copiedTimerRef.current = setTimeout(() => setCopiedId(null), 1500)
   }, [])
   
+  // 切换账号启用/禁用
+  const handleToggleEnabled = useCallback(async (account: any, enabled: boolean) => {
+    try {
+      const updated = await invoke<any>('update_account', { params: { id: account.id, enabled } })
+      patchAccountLocally(updated)
+    } catch (e) {
+      console.error('Toggle enabled failed:', e)
+    }
+  }, [patchAccountLocally])
+
   // 删除单个账号
   const handleDelete = useCallback(async (id: string) => {
     // 防呆：检查是否是当前账号
@@ -554,6 +564,7 @@ function AccountManager({ onNavigate }: AccountManagerProps) {
           onRefreshToken={handleRefreshToken}
           onEdit={setEditingAccount}
           onEditLabel={setEditingLabelAccount}
+          onToggleEnabled={handleToggleEnabled}
           onDelete={handleDelete}
           onDeleteRemote={handleDeleteRemote}
           onAdd={() => setShowImportModal(true)}
@@ -577,6 +588,7 @@ function AccountManager({ onNavigate }: AccountManagerProps) {
           onRefreshToken={handleRefreshToken}
           onEdit={setEditingAccount}
           onEditLabel={setEditingLabelAccount}
+          onToggleEnabled={handleToggleEnabled}
           onDelete={handleDelete}
           onDeleteRemote={handleDeleteRemote}
           onAdd={() => setShowImportModal(true)}
@@ -596,6 +608,7 @@ function AccountManager({ onNavigate }: AccountManagerProps) {
         <AccountDetailModal
           account={editingAccount}
           onClose={() => setEditingAccount(null)}
+          onRefresh={loadAccounts}
         />
       )}
       {editingLabelAccount && (
