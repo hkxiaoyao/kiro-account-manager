@@ -503,16 +503,17 @@ pub fn get_internal_model_id(external_model: &str) -> Result<String, String> {
 /// 将 Anthropic 公开模型名归一化为 Kiro 内部格式
 ///
 /// 规则：
-/// - 去掉 -thinking 后缀
 /// - 去掉日期后缀 -20xxxxxx（8位数字）
 /// - 版本号横杠转点号：claude-{family}-{major}-{minor} → claude-{family}-{major}.{minor}
+/// - 保留 -thinking 后缀（Kiro 通过模型 ID 区分是否启用思考）
 /// - 已经是点号格式的直接返回
 fn normalize_claude_model_format(model: &str) -> String {
     let mut s = model.to_string();
 
-    // 去掉 -thinking 后缀
-    if let Some(stripped) = s.strip_suffix("-thinking") {
-        s = stripped.to_string();
+    // 提取并保留 -thinking 后缀
+    let has_thinking = s.ends_with("-thinking");
+    if has_thinking {
+        s = s[..s.len() - 9].to_string(); // 去掉 "-thinking" 暂存
     }
 
     // 去掉日期后缀（-20xxxxxx，8位数字）
@@ -535,13 +536,14 @@ fn normalize_claude_model_format(model: &str) -> String {
                 if between.len() == 1 && between.chars().all(|c| c.is_ascii_digit()) {
                     // claude-opus-4-7 → claude-opus-4.7
                     let base = &s[..second_last_dash + 1 + between.len()];
-                    return format!("{}.{}", base, after_last);
+                    let result = format!("{}.{}", base, after_last);
+                    return if has_thinking { format!("{}-thinking", result) } else { result };
                 }
             }
         }
     }
 
-    s
+    if has_thinking { format!("{}-thinking", s) } else { s }
 }
 
 /// 带降级的模型映射函数
