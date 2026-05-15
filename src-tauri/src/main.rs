@@ -83,8 +83,8 @@ use commands::kiro_settings_cmd::{
     set_kiro_telemetry, set_kiro_trusted_commands, set_kiro_trusted_tools, set_kiro_usage_summary,
 };
 use commands::machine_guid::{
-    backup_machine_guid, clear_macos_override, generate_machine_guid, get_machine_guid_backup,
-    get_system_machine_guid, reset_system_machine_guid, restart_as_admin, restore_machine_guid,
+    clear_macos_override, generate_machine_guid,
+    get_system_machine_guid, reset_system_machine_guid, restart_as_admin,
     set_custom_machine_guid,
 };
 use commands::mcp_cmd::{
@@ -458,10 +458,7 @@ fn main() {
             get_all_bound_machine_ids,
             // 系统机器码命令
             get_system_machine_guid,
-            backup_machine_guid,
-            restore_machine_guid,
             reset_system_machine_guid,
-            get_machine_guid_backup,
             set_custom_machine_guid,
             clear_macos_override,
             generate_machine_guid,

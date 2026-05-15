@@ -3109,11 +3109,12 @@ async fn resolve_managed_account_credentials(
 
             if let Some(usage_data) = &usage_data {
                 if usage_exceeds_threshold(usage_data, config.threshold) {
-                    // 记录失败，让 LoadBalancer 选择其他账号
+                    // 配额超阈值，直接禁用账号
                     state.load_balancer.record_failure(&account.id).await;
+                    disable_account_by_id(&account.id, "配额已满");
                     return Err(format!(
-                        "账号 {} 已达到阈值 {}%",
-                        account.label, config.threshold
+                        "账号 {} 配额已满，已自动禁用",
+                        account.label
                     ));
                 }
             }
@@ -3198,6 +3199,17 @@ fn format_managed_upstream_source(config: &GatewayConfig, account: &Account) -> 
         ),
         "pool" => format!("pool:{account_label}"),
         _ => account_label,
+    }
+}
+
+/// 禁用指定账号（配额满时自动调用）
+fn disable_account_by_id(account_id: &str, reason: &str) {
+    let mut store = AccountStore::new();
+    if let Some(account) = store.accounts.iter_mut().find(|a| a.id == account_id) {
+        account.enabled = false;
+        account.disabled_reason = Some(reason.to_string());
+        store.save_to_file();
+        log::info!("[网关] 账号 {} 已自动禁用: {}", account_id, reason);
     }
 }
 
