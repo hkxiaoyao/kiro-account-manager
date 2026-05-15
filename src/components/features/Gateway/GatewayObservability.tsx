@@ -216,6 +216,7 @@ export function GatewayObservability({ status, handleRefresh }: GatewayObservabi
                             <pre className="text-xs text-red-600 dark:text-red-400 whitespace-pre-wrap break-words">{log.error}</pre>
                           </div>
                         </td>
+                        
                       </tr>
                     )}
                   </React.Fragment>

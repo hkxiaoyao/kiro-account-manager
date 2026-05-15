@@ -1,20 +1,18 @@
 import { startTransition, useCallback, useEffect, useMemo, useState } from 'react'
-import { Activity, Play, RotateCcw, Square, Activity as ActivityIcon, Settings, Zap, Save } from 'lucide-react'
+import { Play, RotateCcw, Square, Zap, Save, ScrollText } from 'lucide-react'
 import { Alert as AlertPrimitive, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { invoke } from '@tauri-apps/api/core'
 import { useApp } from '../../../hooks/useApp'
 import { Stack, Group, Badge, Card, Text } from '@/components/shared/layout'
 import GatewayConfigComponent from './GatewayConfig'
-import { GatewayObservability } from './GatewayObservability'
+import { RequestLogsDialog } from './RequestLogsDialog'
 import { GatewayConfig, GatewayStatus } from './gatewayPageState'
 import {
   GatewayConfigProvider,
   GatewayStatusProvider,
-  GatewayDataProvider,
-  GatewayObservabilityProvider
+  GatewayDataProvider
 } from './contexts'
 import { 
   applyGatewayLocalOnlyChange, 
@@ -76,7 +74,7 @@ function GatewayPage() {
   const [saving, setSaving] = useState(false)
   const [copySuccess, setCopySuccess] = useState('')
   const [logDir, setLogDir] = useState('')
-  const [activeTab, setActiveTab] = useState('config')
+  const [showRequestLogs, setShowRequestLogs] = useState(false)
   const [savedConfigSnapshot, setSavedConfigSnapshot] = useState(() => buildGatewayConfigSnapshot(DEFAULT_GATEWAY_CONFIG))
   const [appliedRuntimeSnapshot, setAppliedRuntimeSnapshot] = useState<any>(null)
   const [lastStatusSyncAt, setLastStatusSyncAt] = useState('-')
@@ -238,7 +236,7 @@ function GatewayPage() {
   }, [])
 
   useGatewayPolling({
-    activeTab,
+    activeTab: 'config',
     fallbackConfig: pollingFallbackConfig,
     onStatus: handleStatusPoll})
 
@@ -424,7 +422,6 @@ function GatewayPage() {
     <GatewayConfigProvider>
       <GatewayStatusProvider>
         <GatewayDataProvider>
-          <GatewayObservabilityProvider>
             <div className={`h-full overflow-y-auto p-4 glass-main`}>
               <Stack gap="md">
                 <Card className={`glass-card border border-border rounded-xl p-4`}>
@@ -460,6 +457,16 @@ function GatewayPage() {
                 >
                   <Zap size={14} className="mr-1" />
                   配置客户端
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowRequestLogs(true)}
+                  disabled={!status.running}
+                  title="查看请求日志"
+                >
+                  <ScrollText size={14} className="mr-1" />
+                  查看日志
                 </Button>
                 {!status.running ? (
                   <Button
@@ -507,53 +514,26 @@ function GatewayPage() {
           </Stack>
         </Card>
 
-        <Tabs
-          value={activeTab}
-          onValueChange={(value) => {
-            startTransition(() => {
-              setActiveTab(value || 'config')
-            })
-          }}
-        >
-          <TabsList>
-            <TabsTrigger value="config" className="flex items-center gap-2">
-              <Settings size={16} />
-              {t('gateway.config')}
-            </TabsTrigger>
-            <TabsTrigger value="observability" className="flex items-center gap-2">
-              <ActivityIcon size={16} />
-              {t('gateway.observability')}
-            </TabsTrigger>
-          </TabsList>
+        <GatewayConfigComponent
+          colors={colors}
+          config={config}
+          hasFieldErrors={hasFieldErrors}
+          hasUnsavedChanges={hasUnsavedChanges}
+          fieldErrors={fieldErrors}
+          setField={setField}
+          handleGenerateApiKey={handleGenerateApiKey}
+          accountOptions={accountOptions}
+          groupOptions={groupOptions}
+          actionSummary={actionSummary}
+          ThemedAlert={ThemedAlert}
+          setConfig={setConfig}
+          applyGatewayLocalOnlyChange={applyGatewayLocalOnlyChange}
+          createGeneratedApiKey={createGeneratedApiKey}
+          handleSaveConfig={handleSave}
+          handleAutoStartToggle={handleAutoStartToggle}
+        />
 
-          <TabsContent value="observability">
-            <GatewayObservability
-              status={status}
-              handleRefresh={handleRefresh}
-            />
-          </TabsContent>
-
-          <TabsContent value="config">
-            <GatewayConfigComponent
-              colors={colors}
-              config={config}
-              hasFieldErrors={hasFieldErrors}
-              hasUnsavedChanges={hasUnsavedChanges}
-              fieldErrors={fieldErrors}
-              setField={setField}
-              handleGenerateApiKey={handleGenerateApiKey}
-              accountOptions={accountOptions}
-              groupOptions={groupOptions}
-              actionSummary={actionSummary}
-              ThemedAlert={ThemedAlert}
-              setConfig={setConfig}
-              applyGatewayLocalOnlyChange={applyGatewayLocalOnlyChange}
-              createGeneratedApiKey={createGeneratedApiKey}
-              handleSaveConfig={handleSave}
-              handleAutoStartToggle={handleAutoStartToggle}
-            />
-          </TabsContent>
-        </Tabs>
+        <RequestLogsDialog open={showRequestLogs} onOpenChange={setShowRequestLogs} />
 
         {/* 快速配置客户端弹窗 */}
         <Dialog open={showClientConfig} onOpenChange={(open) => { setShowClientConfig(open); if (!open) setClientConfigResults([]) }}>
@@ -645,7 +625,6 @@ function GatewayPage() {
         </Dialog>
       </Stack>
     </div>
-          </GatewayObservabilityProvider>
         </GatewayDataProvider>
       </GatewayStatusProvider>
     </GatewayConfigProvider>
