@@ -197,7 +197,7 @@ function GatewayConfig({
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/20">
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-sm text-muted-foreground">
                     {(() => {
                       const rawKeys = (config.clientApiKeysText || '').split(/[\n,]+/).map((k: string) => k.trim()).filter(Boolean)
                       const enabledCount = rawKeys.filter((k: string) => !k.startsWith('#disabled#')).length
@@ -206,17 +206,17 @@ function GatewayConfig({
                         : '暂无 API Key'
                     })()}
                   </div>
-                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowApiKeysDialog(true)}>
+                  <Button size="sm" variant="outline" className="h-7 text-sm" onClick={() => setShowApiKeysDialog(true)}>
                     管理 Keys
                   </Button>
                 </div>
                 <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/20">
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-sm text-muted-foreground">
                     {config.modelMappings?.length > 0
                       ? `${config.modelMappings.length} 条映射规则，${config.modelMappings.filter((r: any) => r.enabled).length} 条启用`
                       : '暂无映射规则'}
                   </div>
-                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowModelMappingDialog(true)}>
+                  <Button size="sm" variant="outline" className="h-7 text-sm" onClick={() => setShowModelMappingDialog(true)}>
                     <Shuffle size={12} className="mr-1" />
                     映射规则
                   </Button>
@@ -233,7 +233,7 @@ function GatewayConfig({
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
-                  <Label className="text-xs">仅本机访问</Label>
+                  <Label className="text-sm">仅本机访问</Label>
                   <Switch
                     checked={!!config.localOnly}
                     onCheckedChange={(checked: boolean) => {
@@ -242,29 +242,29 @@ function GatewayConfig({
                   />
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
-                  <Label className="text-xs">自动启动</Label>
+                  <Label className="text-sm">自动启动</Label>
                   <Switch checked={!!config.enabled} onCheckedChange={handleAutoStartToggle} />
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
-                  <Label className="text-xs">Claude Code 精简</Label>
+                  <Label className="text-sm">Claude Code 精简</Label>
                   <Switch checked={!!config.filterClaudeCode} onCheckedChange={(checked: boolean) => setField('filterClaudeCode', checked)} />
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
-                  <Label className="text-xs">去除边界标记</Label>
+                  <Label className="text-sm">去除边界标记</Label>
                   <Switch checked={!!config.filterStripBoundaries} onCheckedChange={(checked: boolean) => setField('filterStripBoundaries', checked)} />
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
-                  <Label className="text-xs">去除环境噪音</Label>
+                  <Label className="text-sm">去除环境噪音</Label>
                   <Switch checked={!!config.filterEnvNoise} onCheckedChange={(checked: boolean) => setField('filterEnvNoise', checked)} />
                 </div>
                 <div className="flex flex-col gap-1 p-3 rounded-lg border border-border bg-muted/30">
-                  <Label className="text-xs">切换阈值 (%)</Label>
+                  <Label className="text-sm">切换阈值 (%)</Label>
                   <Input
                     type="number"
                     value={config.threshold}
                     min={1}
                     max={100}
-                    className="h-7 text-xs"
+                    className="h-7 text-sm"
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setField('threshold', Number(e.target.value) || 90)}
                   />
                 </div>

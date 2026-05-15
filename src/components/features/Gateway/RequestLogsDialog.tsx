@@ -117,7 +117,7 @@ export function RequestLogsDialog({ open, onOpenChange, logLevel, onLogLevelChan
             <div className="flex items-center gap-3">
               <Activity size={16} />
               {requestStats && (
-                <div className="flex items-center gap-2 text-xs">
+                <div className="flex items-center gap-2 text-sm">
                   <span>总 <strong>{requestStats.total}</strong></span>
                   <span className="text-green-600">成功 <strong>{requestStats.success}</strong></span>
                   <span className="text-red-600">错误 <strong>{requestStats.error}</strong></span>
@@ -133,12 +133,12 @@ export function RequestLogsDialog({ open, onOpenChange, logLevel, onLogLevelChan
               <input
                 type="text"
                 placeholder="搜索..."
-                className="text-xs border rounded px-2 py-1 w-32"
+                className="text-sm border rounded px-2 py-1 w-32"
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
               />
               <select
-                className="text-xs border rounded px-2 py-1"
+                className="text-sm border rounded px-2 py-1"
                 value={activeFilter}
                 onChange={(e) => setActiveFilter(e.target.value as any)}
               >
@@ -147,7 +147,7 @@ export function RequestLogsDialog({ open, onOpenChange, logLevel, onLogLevelChan
                 <option value="error">错误</option>
               </select>
               <select
-                className="text-xs border rounded px-2 py-1"
+                className="text-sm border rounded px-2 py-1"
                 value={displayLimit}
                 onChange={(e) => { setDisplayLimit(Number(e.target.value)); fetchRequestLogs(Number(e.target.value)) }}
               >
@@ -175,10 +175,10 @@ export function RequestLogsDialog({ open, onOpenChange, logLevel, onLogLevelChan
               </Button>
               <div className="flex items-center gap-1.5">
                 <Switch size="sm" checked={logRequests} onCheckedChange={onLogRequestsChange} />
-                <span className="text-xs text-muted-foreground">记录</span>
+                <span className="text-sm text-muted-foreground">记录</span>
               </div>
               <select
-                className="text-xs border rounded px-2 py-1"
+                className="text-sm border rounded px-2 py-1"
                 value={logLevel}
                 onChange={(e) => onLogLevelChange(e.target.value)}
                 title="日志级别"
