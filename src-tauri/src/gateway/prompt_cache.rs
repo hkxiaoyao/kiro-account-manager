@@ -358,26 +358,6 @@ fn estimate_tokens(text: &str) -> usize {
     (text.len() + 3) / 4
 }
 
-/// 构建带缓存 usage 的 Anthropic usage 对象
-pub fn build_cached_usage(
-    input_tokens: usize,
-    output_tokens: usize,
-    cache_usage: &CacheUsage,
-) -> serde_json::Value {
-    let billed = input_tokens.saturating_sub(cache_usage.cache_creation_input_tokens + cache_usage.cache_read_input_tokens);
-    let mut usage = serde_json::json!({
-        "input_tokens": billed,
-        "output_tokens": output_tokens,
-    });
-    if cache_usage.cache_creation_input_tokens > 0 {
-        usage["cache_creation_input_tokens"] = serde_json::json!(cache_usage.cache_creation_input_tokens);
-    }
-    if cache_usage.cache_read_input_tokens > 0 {
-        usage["cache_read_input_tokens"] = serde_json::json!(cache_usage.cache_read_input_tokens);
-    }
-    usage
-}
-
 // 全局单例
 static GLOBAL_TRACKER: std::sync::OnceLock<PromptCacheTracker> = std::sync::OnceLock::new();
 

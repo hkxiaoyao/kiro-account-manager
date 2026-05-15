@@ -2013,6 +2013,44 @@ pub async fn proxy_handler(
         aggregated.citations.len()
     );
 
+    // Prompt Cache 模拟：如果响应中没有缓存信息，用模拟器填充
+    if aggregated.cache_read_input_tokens.is_none() && aggregated.cache_creation_input_tokens.is_none() {
+        let tracker = super::prompt_cache::global_prompt_cache_tracker();
+        let messages_json: Vec<serde_json::Value> = request.messages.iter().map(|m| {
+            serde_json::json!({
+                "role": m.role,
+                "content": m.content
+            })
+        }).collect();
+        let tools_json: Option<Vec<serde_json::Value>> = request.tools.as_ref().map(|tools| {
+            tools.iter().map(|t| serde_json::to_value(t).unwrap_or_default()).collect()
+        });
+
+        if let Some(profile) = tracker.build_profile(
+            None,
+            &messages_json,
+            tools_json.as_deref(),
+            aggregated.input_tokens as usize,
+            &request.model,
+        ) {
+            let cache_usage = tracker.compute(&request.model, &profile);
+            tracker.update(&request.model, &profile);
+
+            if cache_usage.cache_read_input_tokens > 0 {
+                aggregated.cache_read_input_tokens = Some(cache_usage.cache_read_input_tokens as i32);
+            }
+            if cache_usage.cache_creation_input_tokens > 0 {
+                aggregated.cache_creation_input_tokens = Some(cache_usage.cache_creation_input_tokens as i32);
+            }
+
+            log::info!(
+                "[非流式] Prompt Cache 模拟: read={}, creation={}",
+                cache_usage.cache_read_input_tokens,
+                cache_usage.cache_creation_input_tokens
+            );
+        }
+    }
+
     let response = match format {
         ResponseFormat::Anthropic => build_anthropic_response(&request.model, &aggregated, &[]),
         ResponseFormat::Responses => build_responses_response_with_ids(
@@ -4687,6 +4725,45 @@ fn stream_proxy_response(
                 aggregated.input_tokens,
                 aggregated.output_tokens
             );
+        }
+
+        // Prompt Cache 模拟：如果响应中没有缓存信息，用模拟器填充
+        if aggregated.cache_read_input_tokens.is_none() && aggregated.cache_creation_input_tokens.is_none() {
+            let tracker = super::prompt_cache::global_prompt_cache_tracker();
+            let messages_json: Vec<serde_json::Value> = request_messages.iter().map(|m| {
+                serde_json::json!({
+                    "role": m.role,
+                    "content": m.content
+                })
+            }).collect();
+            let tools_json: Option<Vec<serde_json::Value>> = request_tools.as_ref().map(|tools| {
+                tools.iter().map(|t| serde_json::to_value(t).unwrap_or_default()).collect()
+            });
+
+            if let Some(profile) = tracker.build_profile(
+                None,
+                &messages_json,
+                tools_json.as_deref(),
+                aggregated.input_tokens as usize,
+                &model,
+            ) {
+                let account_id = model.as_str();
+                let cache_usage = tracker.compute(account_id, &profile);
+                tracker.update(account_id, &profile);
+
+                if cache_usage.cache_read_input_tokens > 0 {
+                    aggregated.cache_read_input_tokens = Some(cache_usage.cache_read_input_tokens as i32);
+                }
+                if cache_usage.cache_creation_input_tokens > 0 {
+                    aggregated.cache_creation_input_tokens = Some(cache_usage.cache_creation_input_tokens as i32);
+                }
+
+                log::info!(
+                    "[流式] Prompt Cache 模拟: read={}, creation={}",
+                    cache_usage.cache_read_input_tokens,
+                    cache_usage.cache_creation_input_tokens
+                );
+            }
         }
 
         match format {
