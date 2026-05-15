@@ -227,163 +227,70 @@ export function GatewayObservability({
   }
 
   return (
-    <div className="space-y-6">
-      <GatewaySubCard>
-        <div className="flex items-center justify-between mb-4">
+    <div className="space-y-4">
+      {/* 顶部操作栏 + 统计指标一行 */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <Activity size={16} />
-            <h3 className="font-semibold">请求概览</h3>
+            <h3 className="font-semibold text-sm">请求观测</h3>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={async () => {
-                try {
-                  await invoke('clear_gateway_request_logs')
-                  setRequestLogs([])
-                  setRequestStats(null)
-                } catch (error) {
-                  console.error('Failed to clear logs:', error)
-                }
-              }}
-              disabled={requestLogs.length === 0}
-            >
-              清空日志
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                fetchRequestLogs()
-                handleRefresh()
-              }}
-              disabled={isRefreshing}
-            >
-              <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
-              刷新
-            </Button>
-          </div>
-        </div>
-
-        {requestMetrics ? (
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <GatewaySubCard>
-                <p className="text-xs text-muted-foreground">总请求</p>
-                <p className="font-bold mt-1">{requestMetrics.total}</p>
-              </GatewaySubCard>
-              <GatewaySubCard>
-                <p className="text-xs text-muted-foreground">成功</p>
-                <p className="font-bold mt-1 text-green-600">{requestMetrics.success}</p>
-              </GatewaySubCard>
-              <GatewaySubCard>
-                <p className="text-xs text-muted-foreground">错误</p>
-                <p className="font-bold mt-1 text-red-600">{requestMetrics.errors}</p>
-              </GatewaySubCard>
-              <GatewaySubCard>
-                <p className="text-xs text-muted-foreground">流式</p>
-                <p className="font-bold mt-1">{requestMetrics.streaming}</p>
-              </GatewaySubCard>
-            </div>
-
-            {/* Token 统计卡片 */}
-            {(requestMetrics.totalInputTokens > 0 || requestMetrics.totalOutputTokens > 0) && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <GatewaySubCard>
-                  <p className="text-xs text-muted-foreground">输入 Tokens</p>
-                  <p className="font-bold mt-1">{requestMetrics.totalInputTokens.toLocaleString()}</p>
-                </GatewaySubCard>
-                <GatewaySubCard>
-                  <p className="text-xs text-muted-foreground">输出 Tokens</p>
-                  <p className="font-bold mt-1">{requestMetrics.totalOutputTokens.toLocaleString()}</p>
-                </GatewaySubCard>
-                <GatewaySubCard>
-                  <p className="text-xs text-muted-foreground">缓存读取</p>
-                  <p className="font-bold mt-1 text-green-600">{requestMetrics.totalCacheReadTokens.toLocaleString()}</p>
-                  <p className="text-xs text-muted-foreground mt-1">节省 90% 成本</p>
-                </GatewaySubCard>
-                <GatewaySubCard>
-                  <p className="text-xs text-muted-foreground">缓存创建</p>
-                  <p className="font-bold mt-1 text-orange-600">{requestMetrics.totalCacheCreationTokens.toLocaleString()}</p>
-                  <p className="text-xs text-muted-foreground mt-1">+25% 成本</p>
-                </GatewaySubCard>
-              </div>
-            )}
-          </div>
-        ) : (
-          <Alert>
-            <AlertTitle>暂无数据</AlertTitle>
-            <AlertDescription>
-              等待第一个请求...
-            </AlertDescription>
-          </Alert>
-        )}
-      </GatewaySubCard>
-
-      {requestMetrics && (
-        <GatewaySurfaceCard>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Zap size={16} />
-              <h3 className="font-semibold">性能指标</h3>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsRequestDetailExpanded(!isRequestDetailExpanded)}
-            >
-              {isRequestDetailExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-              {isRequestDetailExpanded ? '收起' : '展开'}
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            <GatewaySubCard>
-              <p className="text-xs text-muted-foreground">最大延迟</p>
-              <p className="font-bold mt-1">{requestMetrics.maxDurationLabel}</p>
-            </GatewaySubCard>
-            <GatewaySubCard>
-              <p className="text-xs text-muted-foreground">缓存命中率</p>
-              <p className="font-bold mt-1 text-green-600">{requestMetrics.cacheHitRate}</p>
-              <p className="text-xs text-muted-foreground mt-1">{requestMetrics.requestsWithCache} 个请求使用缓存</p>
-            </GatewaySubCard>
-            <GatewaySubCard>
-              <p className="text-xs text-muted-foreground">成本节省</p>
-              <p className="font-bold mt-1 text-green-600">${requestMetrics.costSavings.toFixed(4)}</p>
-              <p className="text-xs text-muted-foreground mt-1">通过缓存节省</p>
-            </GatewaySubCard>
-          </div>
-
-          {isRequestDetailExpanded && (
-            <div className="space-y-4 mt-4">
-              <Alert>
-                <AlertTitle>Token 详细统计</AlertTitle>
-                <AlertDescription>
-                  <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
-                    <div>输入 Tokens: {requestMetrics.totalInputTokens.toLocaleString()}</div>
-                    <div>输出 Tokens: {requestMetrics.totalOutputTokens.toLocaleString()}</div>
-                    <div className="text-green-600">缓存读取: {requestMetrics.totalCacheReadTokens.toLocaleString()}</div>
-                    <div className="text-orange-600">缓存创建: {requestMetrics.totalCacheCreationTokens.toLocaleString()}</div>
-                  </div>
-                </AlertDescription>
-              </Alert>
+          {requestMetrics && (
+            <div className="flex items-center gap-3 text-xs">
+              <span className="text-muted-foreground">总 <strong className="text-foreground">{requestMetrics.total}</strong></span>
+              <span className="text-green-600">成功 <strong>{requestMetrics.success}</strong></span>
+              <span className="text-red-600">错误 <strong>{requestMetrics.errors}</strong></span>
+              <span className="text-muted-foreground">流式 <strong>{requestMetrics.streaming}</strong></span>
+              {requestMetrics.totalInputTokens > 0 && (
+                <>
+                  <span className="text-muted-foreground">输入 <strong>{(requestMetrics.totalInputTokens / 1000).toFixed(1)}K</strong></span>
+                  <span className="text-muted-foreground">输出 <strong>{(requestMetrics.totalOutputTokens / 1000).toFixed(1)}K</strong></span>
+                </>
+              )}
+              {requestMetrics.totalCacheReadTokens > 0 && (
+                <span className="text-green-600">缓存 <strong>{requestMetrics.cacheHitRate}</strong></span>
+              )}
             </div>
           )}
-        </GatewaySurfaceCard>
-      )}
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              try {
+                await invoke('clear_gateway_request_logs')
+                setRequestLogs([])
+                setRequestStats(null)
+              } catch (error) {
+                console.error('Failed to clear logs:', error)
+              }
+            }}
+            disabled={requestLogs.length === 0}
+          >
+            清空
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              fetchRequestLogs()
+              handleRefresh()
+            }}
+            disabled={isRefreshing}
+          >
+            <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+          </Button>
+        </div>
+      </div>
 
+      {/* 请求日志表格 */}
       <GatewaySurfaceCard>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Radio size={16} />
-            <h3 className="font-semibold">请求日志</h3>
-            <Badge variant="outline">{requestMetrics?.total || 0}</Badge>
-            {requestLogs.length < (requestMetrics?.total || 0) && (
-              <span className="text-xs text-muted-foreground">
-                (显示最近 {requestLogs.length} 条)
-              </span>
-            )}
+            <h3 className="font-semibold text-sm">请求日志</h3>
+            <Badge variant="outline" className="text-xs">{filteredLogs.length}</Badge>
           </div>
           <div className="flex gap-2 items-center">
             <input
