@@ -154,6 +154,13 @@ pub struct Account {
     // 成功计数（用于 balanced 策略）
     #[serde(default)]
     pub success_count: u64,
+    // 启用/禁用开关（禁用的账号网关会跳过）
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+}
+
+fn default_enabled() -> bool {
+    true
 }
 
 impl Account {
@@ -190,6 +197,7 @@ impl Account {
             last_failure_at: None,
             disabled_reason: None,
             success_count: 0,
+            enabled: true,
         }
     }
 
@@ -226,6 +234,7 @@ impl Account {
             last_failure_at: None,
             disabled_reason: None,
             success_count: 0,
+            enabled: true,
         }
     }
 

@@ -39,6 +39,7 @@ pub struct UpdateAccountParams {
     pub client_id: Option<String>,
     pub client_secret: Option<String>,
     pub machine_id: Option<String>,
+    pub enabled: Option<bool>,
 }
 
 // ===== 辅助函数 =====
@@ -1192,6 +1193,10 @@ pub fn update_account(
         // 机器码
         if let Some(mid) = params.machine_id {
             store.accounts[idx].machine_id = Some(mid);
+        }
+        // 启用/禁用
+        if let Some(enabled) = params.enabled {
+            store.accounts[idx].enabled = enabled;
         }
         let result = store.accounts[idx].clone();
         save_store(&store)?;

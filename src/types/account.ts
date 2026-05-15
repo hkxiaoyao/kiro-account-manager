@@ -96,6 +96,7 @@ export interface Account {
     // 扩展字段
     clientId?: string;
     clientSecret?: string;
+    enabled?: boolean;
     _index?: number;
 }
 
