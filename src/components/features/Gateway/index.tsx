@@ -448,7 +448,7 @@ function GatewayPage() {
           <Stack gap="sm">
             <Group justify="space-between" align="center">
               <Group gap="xs">
-                <Text fw={700} className={"text-foreground"}>Kiro API 反代</Text>
+                <Text fw={700} size="lg" className={"text-foreground"}>Kiro API 反代</Text>
                 {!status.running ? (
                   <Button
                     size="sm"
@@ -477,10 +477,6 @@ function GatewayPage() {
                   <ScrollText size={12} className="mr-1" />
                   日志
                 </Button>
-                <Button variant="outline" size="sm" className="h-7" onClick={() => setShowClientConfig(!showClientConfig)}>
-                  <Zap size={12} className="mr-1" />
-                  配置客户端
-                </Button>
               </Group>
             </Group>
 
@@ -488,7 +484,7 @@ function GatewayPage() {
               {consoleHighlights.map((item) => (
                 <div key={item.label} className="border rounded-lg p-2">
                   <Text size="xs" className={"text-muted-foreground"}>{item.label}</Text>
-                  <Text fw={700} size="sm" className={"text-foreground"}>{item.value}</Text>
+                  <Text fw={700} className={"text-foreground text-sm"}>{item.value}</Text>
                 </div>
               ))}
             </div>
@@ -507,6 +503,7 @@ function GatewayPage() {
           createGeneratedApiKey={createGeneratedApiKey}
           handleSaveConfig={handleSilentSave}
           handleAutoStartToggle={handleAutoStartToggle}
+          onShowClientConfig={() => setShowClientConfig(true)}
         />
 
         <RequestLogsDialog open={showRequestLogs} onOpenChange={setShowRequestLogs} logLevel={config.logLevel} onLogLevelChange={(v) => setField('logLevel', v)} logRequests={config.logRequests} onLogRequestsChange={(v) => setField('logRequests', v)} />

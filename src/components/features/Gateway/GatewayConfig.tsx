@@ -22,6 +22,7 @@ interface GatewayConfigProps {
   createGeneratedApiKey: () => string;
   handleSaveConfig: () => Promise<void>;
   handleAutoStartToggle: (checked: boolean) => Promise<void>;
+  onShowClientConfig?: () => void;
 }
 
 function GatewayConfig({
@@ -36,6 +37,7 @@ function GatewayConfig({
   createGeneratedApiKey,
   handleSaveConfig,
   handleAutoStartToggle,
+  onShowClientConfig,
 }: GatewayConfigProps) {
   const [showModelMappingDialog, setShowModelMappingDialog] = useState(false)
   const [showApiKeysDialog, setShowApiKeysDialog] = useState(false)
@@ -195,7 +197,7 @@ function GatewayConfig({
                 <div className="w-1 h-4 bg-primary rounded-full"></div>
                 客户端认证与模型
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/20">
                   <div className="text-sm text-muted-foreground">
                     {(() => {
@@ -221,6 +223,15 @@ function GatewayConfig({
                     映射规则
                   </Button>
                 </div>
+                {onShowClientConfig && (
+                  <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/20">
+                    <div className="text-sm text-muted-foreground">写入客户端配置</div>
+                    <Button size="sm" variant="outline" className="h-7 text-sm" onClick={onShowClientConfig}>
+                      <Zap size={12} className="mr-1" />
+                      配置客户端
+                    </Button>
+                  </div>
+                )}
               </div>
               {fieldErrors.clientApiKeysText && <div className="text-xs text-red-500">{fieldErrors.clientApiKeysText}</div>}
             </div>
