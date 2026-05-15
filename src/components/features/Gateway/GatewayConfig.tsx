@@ -327,6 +327,46 @@ function GatewayConfig({
               </div>
             </div>
 
+            {/* 提示词过滤 */}
+            <div className="space-y-3">
+              <div className="text-sm font-medium text-foreground flex items-center gap-2">
+                <div className="w-1 h-4 bg-orange-500 rounded-full"></div>
+                提示词过滤
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
+                  <div className="flex flex-col gap-0.5">
+                    <Label className="text-xs">Claude Code 精简</Label>
+                    <div className="text-[10px] text-muted-foreground">检测 Claude Code 巨大系统提示，替换为精简版（省 token）</div>
+                  </div>
+                  <Switch
+                    checked={!!config.filterClaudeCode}
+                    onCheckedChange={(checked) => setField('filterClaudeCode', checked)}
+                  />
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
+                  <div className="flex flex-col gap-0.5">
+                    <Label className="text-xs">去除边界标记</Label>
+                    <div className="text-[10px] text-muted-foreground">去掉 --- SYSTEM PROMPT --- 等边界标记行</div>
+                  </div>
+                  <Switch
+                    checked={!!config.filterStripBoundaries}
+                    onCheckedChange={(checked) => setField('filterStripBoundaries', checked)}
+                  />
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
+                  <div className="flex flex-col gap-0.5">
+                    <Label className="text-xs">去除环境噪音</Label>
+                    <div className="text-[10px] text-muted-foreground">去掉 git status、recent commits、environment sections 等噪音行</div>
+                  </div>
+                  <Switch
+                    checked={!!config.filterEnvNoise}
+                    onCheckedChange={(checked) => setField('filterEnvNoise', checked)}
+                  />
+                </div>
+              </div>
+            </div>
+
             {/* 账号路由 */}
             <div className="space-y-3">
               <div className="text-sm font-medium text-foreground flex items-center gap-2">

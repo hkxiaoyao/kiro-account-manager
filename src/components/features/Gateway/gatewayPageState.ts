@@ -17,6 +17,9 @@ export interface GatewayConfig {
   allowedIpsText: string;
   logLevel: string;
   modelMappings: ModelMappingRule[];
+  filterClaudeCode: boolean;
+  filterStripBoundaries: boolean;
+  filterEnvNoise: boolean;
 }
 
 export interface ModelMappingRule {
@@ -53,7 +56,10 @@ export const DEFAULT_GATEWAY_CONFIG: GatewayConfig = {
   localOnly: true,
   allowedIpsText: '',
   logLevel: 'debug',
-  modelMappings: []
+  modelMappings: [],
+  filterClaudeCode: false,
+  filterStripBoundaries: false,
+  filterEnvNoise: false
 }
 
 export const DEFAULT_GATEWAY_STATUS: GatewayStatus = {
@@ -80,7 +86,10 @@ export const buildGatewayConfigSnapshot = (config: GatewayConfig) => JSON.string
   localOnly: !!config.localOnly,
   allowedIpsText: config.allowedIpsText || '',
   logLevel: config.logLevel || 'debug',
-  modelMappings: config.modelMappings || []
+  modelMappings: config.modelMappings || [],
+  filterClaudeCode: !!config.filterClaudeCode,
+  filterStripBoundaries: !!config.filterStripBoundaries,
+  filterEnvNoise: !!config.filterEnvNoise
 })
 
 export const buildGatewayRuntimeSnapshot = (config: GatewayConfig) => JSON.stringify({
@@ -97,7 +106,10 @@ export const buildGatewayRuntimeSnapshot = (config: GatewayConfig) => JSON.strin
   localOnly: !!config.localOnly,
   allowedIpsText: config.allowedIpsText || '',
   logLevel: config.logLevel || 'debug',
-  modelMappings: config.modelMappings || []
+  modelMappings: config.modelMappings || [],
+  filterClaudeCode: !!config.filterClaudeCode,
+  filterStripBoundaries: !!config.filterStripBoundaries,
+  filterEnvNoise: !!config.filterEnvNoise
 })
 
 export const hydrateGatewayConfig = (gatewayConfig: any): GatewayConfig => ({
@@ -126,7 +138,10 @@ export const hydrateGatewayConfig = (gatewayConfig: any): GatewayConfig => ({
     ? gatewayConfig.allowedIps.join('\n')
     : '',
   logLevel: gatewayConfig?.logLevel || 'debug',
-  modelMappings: Array.isArray(gatewayConfig?.modelMappings) ? gatewayConfig.modelMappings : []
+  modelMappings: Array.isArray(gatewayConfig?.modelMappings) ? gatewayConfig.modelMappings : [],
+  filterClaudeCode: gatewayConfig?.filterClaudeCode ?? false,
+  filterStripBoundaries: gatewayConfig?.filterStripBoundaries ?? false,
+  filterEnvNoise: gatewayConfig?.filterEnvNoise ?? false
 })
 
 export const buildGatewayStatusState = (gatewayStatus: any, gatewayConfig: any, fallbackConfig: GatewayConfig = DEFAULT_GATEWAY_CONFIG): GatewayStatus => ({
@@ -157,7 +172,10 @@ export const buildGatewayPayload = (config: GatewayConfig) => ({
   localOnly: !!config.localOnly,
   allowedIps: parseAllowedIps(config.allowedIpsText),
   logLevel: config.logLevel,
-  modelMappings: config.modelMappings || []
+  modelMappings: config.modelMappings || [],
+  filterClaudeCode: !!config.filterClaudeCode,
+  filterStripBoundaries: !!config.filterStripBoundaries,
+  filterEnvNoise: !!config.filterEnvNoise
 })
 
 export const loadGatewayPageData = async () => {
