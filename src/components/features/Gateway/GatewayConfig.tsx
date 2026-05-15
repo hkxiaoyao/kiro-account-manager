@@ -1,12 +1,11 @@
 import React, { useState } from 'react'
-import { Dice6, Plus, RotateCw, Scale, TrendingUp, Shuffle, Zap, Activity, Copy } from 'lucide-react'
+import { RotateCw, Scale, TrendingUp, Shuffle, Zap, Activity } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { GatewaySurfaceCard } from './GatewayShared'
 import ModelMappingDialog from './ModelMappingDialog'
 import ApiKeysDialog from './ApiKeysDialog'
@@ -14,7 +13,6 @@ import ApiKeysDialog from './ApiKeysDialog'
 interface GatewayConfigProps {
   colors: any;
   config: any;
-  hasFieldErrors: boolean;
   fieldErrors: Record<string, string>;
   setField: (key: string, value: any) => void;
   accountOptions: any[];
@@ -29,7 +27,6 @@ interface GatewayConfigProps {
 function GatewayConfig({
   colors,
   config,
-  hasFieldErrors,
   fieldErrors,
   setField,
   accountOptions,
@@ -234,11 +231,9 @@ function GatewayConfig({
                 <div className="w-1 h-4 bg-primary rounded-full"></div>
                 安全与高级
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
-                  <div className="flex flex-col gap-0.5">
-                    <Label className="text-xs">仅本机访问</Label>
-                  </div>
+                  <Label className="text-xs">仅本机访问</Label>
                   <Switch
                     checked={!!config.localOnly}
                     onCheckedChange={(checked: boolean) => {
@@ -246,21 +241,32 @@ function GatewayConfig({
                     }}
                   />
                 </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label>切换阈值 (%)</Label>
+                <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
+                  <Label className="text-xs">自动启动</Label>
+                  <Switch checked={!!config.enabled} onCheckedChange={handleAutoStartToggle} />
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
+                  <Label className="text-xs">Claude Code 精简</Label>
+                  <Switch checked={!!config.filterClaudeCode} onCheckedChange={(checked: boolean) => setField('filterClaudeCode', checked)} />
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
+                  <Label className="text-xs">去除边界标记</Label>
+                  <Switch checked={!!config.filterStripBoundaries} onCheckedChange={(checked: boolean) => setField('filterStripBoundaries', checked)} />
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
+                  <Label className="text-xs">去除环境噪音</Label>
+                  <Switch checked={!!config.filterEnvNoise} onCheckedChange={(checked: boolean) => setField('filterEnvNoise', checked)} />
+                </div>
+                <div className="flex flex-col gap-1 p-3 rounded-lg border border-border bg-muted/30">
+                  <Label className="text-xs">切换阈值 (%)</Label>
                   <Input
                     type="number"
                     value={config.threshold}
                     min={1}
                     max={100}
+                    className="h-7 text-xs"
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setField('threshold', Number(e.target.value) || 90)}
                   />
-                </div>
-                <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
-                  <div className="flex flex-col gap-0.5">
-                    <Label className="text-xs">自动启动</Label>
-                  </div>
-                  <Switch checked={!!config.enabled} onCheckedChange={handleAutoStartToggle} />
                 </div>
               </div>
 
@@ -277,33 +283,6 @@ function GatewayConfig({
                   {fieldErrors.allowedIpsText && <div className="text-xs text-red-500">{fieldErrors.allowedIpsText}</div>}
                 </div>
               )}
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
-                  <div className="flex flex-col gap-0.5">
-                    <Label className="text-xs">自动启动</Label>
-                  </div>
-                  <Switch checked={!!config.enabled} onCheckedChange={handleAutoStartToggle} />
-                </div>
-                <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
-                  <div className="flex flex-col gap-0.5">
-                    <Label className="text-xs">Claude Code 精简</Label>
-                  </div>
-                  <Switch checked={!!config.filterClaudeCode} onCheckedChange={(checked: boolean) => setField('filterClaudeCode', checked)} />
-                </div>
-                <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
-                  <div className="flex flex-col gap-0.5">
-                    <Label className="text-xs">去除边界标记</Label>
-                  </div>
-                  <Switch checked={!!config.filterStripBoundaries} onCheckedChange={(checked: boolean) => setField('filterStripBoundaries', checked)} />
-                </div>
-                <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
-                  <div className="flex flex-col gap-0.5">
-                    <Label className="text-xs">去除环境噪音</Label>
-                  </div>
-                  <Switch checked={!!config.filterEnvNoise} onCheckedChange={(checked: boolean) => setField('filterEnvNoise', checked)} />
-                </div>
-              </div>
             </div>
           </div>
         </div>

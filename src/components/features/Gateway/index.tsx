@@ -498,7 +498,6 @@ function GatewayPage() {
         <GatewayConfigComponent
           colors={colors}
           config={config}
-          hasFieldErrors={hasFieldErrors}
           fieldErrors={fieldErrors}
           setField={setField}
           accountOptions={accountOptions}
