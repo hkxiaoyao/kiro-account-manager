@@ -986,6 +986,19 @@ async fn spawn_runtime(config: GatewayConfig) -> Result<GatewayRuntime, String> 
     // 初始化内存日志存储（保存最近 10000 条日志）
     let log_store = Arc::new(log_store::LogStore::new(10000));
 
+    // 从文件加载历史日志到内存（启动时恢复）
+    if let Ok(path) = request_log_path() {
+        if let Ok(history) = get_gateway_request_logs_from_path(&path, Some(500)) {
+            let store_clone = log_store.clone();
+            tokio::spawn(async move {
+                // 历史日志是倒序的（最新在前），需要反转后逐条添加
+                for entry in history.into_iter().rev() {
+                    store_clone.add(entry).await;
+                }
+            });
+        }
+    }
+
     // 初始化响应缓存
     let cache_config = response_cache::CacheConfig::default();
     let cache_dir = dirs::data_dir()
