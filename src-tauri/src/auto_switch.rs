@@ -323,7 +323,25 @@ fn calculate_remaining(account: &Account) -> f64 {
         let total_limit = main_limit + trial_limit + bonus_limit;
         let total_usage = main_usage + trial_usage + bonus_usage;
 
-        total_limit - total_usage
+        // 如果超额已开启，加上超额上限
+        let overage_enabled = account
+            .usage_data
+            .as_ref()
+            .and_then(|data| data.get("overageConfiguration"))
+            .and_then(|cfg| cfg.get("overageStatus"))
+            .and_then(|s| s.as_str())
+            == Some("ENABLED");
+
+        let overage_cap = if overage_enabled {
+            breakdown
+                .get("overageCap")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0)
+        } else {
+            0.0
+        };
+
+        (total_limit + overage_cap) - total_usage
     } else {
         // 如果没有 usage_data，返回 0
         0.0
@@ -341,6 +359,11 @@ fn find_available_account(
         .find(|acc| {
             // 排除当前账号
             if acc.id == current_account.id {
+                return false;
+            }
+
+            // 排除禁用的账号
+            if !acc.enabled {
                 return false;
             }
 

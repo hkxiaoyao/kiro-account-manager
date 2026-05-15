@@ -3008,14 +3008,14 @@ async fn resolve_managed_account_credentials(
             .accounts
             .iter()
             .filter(|account| {
-                config.group_id.as_deref() == account.group_id.as_deref() && account.is_available()
+                config.group_id.as_deref() == account.group_id.as_deref() && account.is_available() && account.enabled
             })
             .cloned()
             .collect::<Vec<_>>(),
         "pool" => store
             .accounts
             .iter()
-            .filter(|account| account.is_available())
+            .filter(|account| account.is_available() && account.enabled)
             .cloned()
             .collect::<Vec<_>>(),
         _ => Vec::new(),
@@ -3268,7 +3268,32 @@ fn usage_exceeds_threshold(usage_data: &Value, threshold: i32) -> bool {
     if limit <= 0 {
         return false;
     }
-    (current as f64 / limit as f64) * 100.0 >= f64::from(threshold)
+
+    // 如果超额已开启，使用 (usageLimit + overageCap) 作为总限额
+    let overage_enabled = usage_data
+        .get("overageConfiguration")
+        .and_then(|cfg| cfg.get("overageStatus"))
+        .and_then(Value::as_str)
+        == Some("ENABLED");
+
+    let effective_limit = if overage_enabled {
+        let overage_cap = usage_data
+            .get("usageBreakdownList")
+            .and_then(Value::as_array)
+            .and_then(|arr| arr.first())
+            .and_then(|b| b.get("overageCap"))
+            .and_then(Value::as_i64)
+            .unwrap_or(0);
+        limit + overage_cap
+    } else {
+        limit
+    };
+
+    if effective_limit <= 0 {
+        return false;
+    }
+
+    (current as f64 / effective_limit as f64) * 100.0 >= f64::from(threshold)
 }
 
 fn extract_usage_totals(usage_data: &Value) -> Option<(i64, i64)> {
