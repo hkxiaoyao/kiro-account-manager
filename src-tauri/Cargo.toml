@@ -49,6 +49,9 @@ async-trait = "0.1"
 dirs = "5"
 ipnet = "2"
 rcgen = { version = "0.13", features = ["pem"] }
+tokio-rustls = "0.26"
+rustls-pemfile = "2"
+webpki-roots = "0.26"
 rusqlite = { version = "0.32", features = ["bundled"] }
 anyhow = "1.0"
 lru = "0.12"

@@ -65,6 +65,10 @@ use commands::gateway_cmd::{
 use commands::cache_cmd::{
     get_cache_config, get_cache_stats, clear_all_cache, clear_session_cache, cleanup_expired_cache,
 };
+//MITM 代理
+use commands::mitm_cmd::{
+    get_mitm_status, generate_mitm_ca, install_mitm_ca, get_mitm_ca_pem,
+};
 //分组
 use commands::group_tag_cmd::{
     add_group, add_tag, add_tag_to_account, delete_group, delete_tag, get_groups, get_tags,
@@ -492,6 +496,11 @@ fn main() {
             clear_all_cache,
             clear_session_cache,
             cleanup_expired_cache,
+            // MITM 代理命令
+            get_mitm_status,
+            generate_mitm_ca,
+            install_mitm_ca,
+            get_mitm_ca_pem,
             // 代理检测命令
             detect_system_proxy,
             // 更新检查命令

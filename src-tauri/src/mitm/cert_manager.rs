@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! CA 证书管理模块
 //!
 //! 负责：
@@ -17,7 +18,21 @@ const CA_CERT_FILE: &str = "ca.crt";
 const CA_KEY_FILE: &str = "ca.key";
 const CA_COMMON_NAME: &str = "Kiro Account Manager CA";
 const CA_ORG: &str = "Kiro Account Manager";
+#[allow(dead_code)]
 const CA_VALIDITY_DAYS: u32 = 3650; // 10 年
+
+/// 默认证书存储目录
+pub fn default_certs_dir() -> PathBuf {
+    dirs::data_dir()
+        .unwrap_or_else(|| {
+            let home = std::env::var("USERPROFILE")
+                .or_else(|_| std::env::var("HOME"))
+                .unwrap_or_else(|_| ".".to_string());
+            PathBuf::from(home)
+        })
+        .join(".kiro-account-manager")
+        .join("certs")
+}
 
 /// 证书管理器
 pub struct CertManager {

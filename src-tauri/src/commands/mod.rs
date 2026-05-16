@@ -8,6 +8,7 @@ pub mod app_data_cmd;
 pub mod app_settings_cmd;
 pub mod auth_cmd;
 pub mod cache_cmd;
+pub mod mitm_cmd;
 pub mod cli_config_cmd;
 pub mod custom_agents_cmd;
 pub mod gateway_cmd;
