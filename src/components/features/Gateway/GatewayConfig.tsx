@@ -145,11 +145,8 @@ function GatewayConfig({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="round_robin"><div className="flex items-center gap-2"><RotateCw size={14} /><span>轮询</span></div></SelectItem>
-                        <SelectItem value="balanced"><div className="flex items-center gap-2"><Scale size={14} /><span>均衡使用</span></div></SelectItem>
                         <SelectItem value="most_quota"><div className="flex items-center gap-2"><TrendingUp size={14} /><span>优先剩余额度</span></div></SelectItem>
                         <SelectItem value="random"><div className="flex items-center gap-2"><Shuffle size={14} /><span>随机</span></div></SelectItem>
-                        <SelectItem value="weighted_random"><div className="flex items-center gap-2"><Zap size={14} /><span>加权随机</span></div></SelectItem>
-                        <SelectItem value="least_connections"><div className="flex items-center gap-2"><Activity size={14} /><span>最少连接</span></div></SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
