@@ -18,6 +18,7 @@ mod models;
 mod services;
 mod tasks;  // 后台任务模块
 mod utils;
+mod mitm;  // MITM 代理模块
 
 use core::account::{AccountStore, GroupTagStore};
 use auth::AuthState;

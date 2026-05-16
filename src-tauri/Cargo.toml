@@ -48,6 +48,7 @@ encoding_rs = "0.8"
 async-trait = "0.1"
 dirs = "5"
 ipnet = "2"
+rcgen = { version = "0.13", features = ["pem"] }
 rusqlite = { version = "0.32", features = ["bundled"] }
 anyhow = "1.0"
 lru = "0.12"
