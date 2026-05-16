@@ -58,6 +58,68 @@ interface SettingsGeneralProps {
   t: TFunction;
 }
 
+/// 紧凑分组卡片：标题 + 可选图标，比原版的 p-6 + text-lg 节省一半空间
+function SectionCard({
+  title,
+  icon,
+  badge,
+  desc,
+  accent = 'primary',
+  children,
+}: {
+  title: string
+  icon?: React.ReactNode
+  badge?: React.ReactNode
+  desc?: string
+  accent?: 'primary' | 'orange'
+  children: React.ReactNode
+}) {
+  const accentClass = accent === 'orange' ? 'bg-orange-500' : 'bg-primary'
+  return (
+    <Card className="card-glow">
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <div className={`w-1 h-4 ${accentClass} rounded-full`} />
+          {icon}
+          <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+          {badge}
+        </div>
+        {desc && <p className="text-xs text-muted-foreground -mt-1">{desc}</p>}
+        {children}
+      </CardContent>
+    </Card>
+  )
+}
+
+/// 紧凑开关行：左侧 switch+图标+标签，右侧可选附加控件
+function SwitchRow({
+  checked,
+  onCheckedChange,
+  icon,
+  label,
+  hint,
+  trailing,
+  title,
+}: {
+  checked: boolean
+  onCheckedChange: (v: boolean) => void
+  icon?: React.ReactNode
+  label: string
+  hint?: string
+  trailing?: React.ReactNode
+  title?: string
+}) {
+  return (
+    <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-card hover:bg-muted/40 transition-colors" title={title}>
+      <Switch checked={checked} onCheckedChange={onCheckedChange} />
+      {icon && <span className="text-muted-foreground">{icon}</span>}
+      <span className="text-sm font-medium text-foreground">{label}</span>
+      {hint && <span className="text-xs text-muted-foreground ml-1">{hint}</span>}
+      {trailing && <div className="ml-auto flex items-center gap-2">{trailing}</div>}
+    </div>
+  )
+}
+
 function SettingsGeneral({
   autoRefresh,
   autoRefreshInterval,
@@ -94,28 +156,21 @@ function SettingsGeneral({
   handleAutoSwitchThresholdChange,
   handleAutoSwitchIntervalChange,
   handleCloseToTrayChange,
-  t
+  t,
 }: SettingsGeneralProps) {
-  const accountToggleContainerClass = "bg-card hover:bg-muted/50 border border-border text-foreground"
   const browserChanged = browserPath !== originalBrowserPath
 
   const [copiedField, setCopiedField] = React.useState<string | null>(null)
   const copiedTimerRef = React.useRef<NodeJS.Timeout | null>(null)
 
   React.useEffect(() => {
-    return () => {
-      if (copiedTimerRef.current) {
-        clearTimeout(copiedTimerRef.current)
-      }
-    }
+    return () => { if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current) }
   }, [])
 
   const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text).catch(e => console.error('Copy failed:', e))
     setCopiedField(field)
-    if (copiedTimerRef.current) {
-      clearTimeout(copiedTimerRef.current)
-    }
+    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
     copiedTimerRef.current = setTimeout(() => setCopiedField(null), 1500)
   }
 
@@ -137,344 +192,265 @@ function SettingsGeneral({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* 账号管理 */}
-      <Card className="card-glow animate-slide-in-left delay-200">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-1 h-5 bg-primary rounded-full"></div>
-            <h2 className="text-lg font-semibold text-foreground">{t('settings.account')}</h2>
-          </div>
-          <p className="text-sm text-muted-foreground mb-5">{t('settings.accountDesc')}</p>
-
-          <div className="space-y-3">
-            {/* 自动刷新 Token */}
-            <div className="flex items-center gap-3">
-              <label className={`flex items-center gap-2 cursor-pointer px-4 py-3 rounded-xl border flex-shrink-0 transition-colors ${accountToggleContainerClass}`} title={t('settings.autoRefreshDesc')}>
-                <Switch checked={autoRefresh} onCheckedChange={handleAutoRefreshChange} />
-                <Clock size={16} />
-                <span className="text-sm font-medium whitespace-nowrap">{t('settings.autoRefresh')}</span>
-              </label>
+      <SectionCard title={t('settings.account')}>
+        <div className="space-y-2">
+          {/* 自动刷新 Token */}
+          <SwitchRow
+            checked={autoRefresh}
+            onCheckedChange={handleAutoRefreshChange}
+            icon={<Clock size={14} />}
+            label={t('settings.autoRefresh')}
+            title={t('settings.autoRefreshDesc')}
+            trailing={
               <Select value={String(autoRefreshInterval)} onValueChange={handleAutoRefreshIntervalChange} disabled={!autoRefresh}>
-                <SelectTrigger className="text-foreground bg-background border-border focus:ring-primary/20 flex-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-border">
-                  <SelectItem value="10" className="text-foreground">10 {t('common.minutes')}</SelectItem>
-                  <SelectItem value="20" className="text-foreground">20 {t('common.minutes')}</SelectItem>
-                  <SelectItem value="30" className="text-foreground">30 {t('common.minutes')}</SelectItem>
-                  <SelectItem value="40" className="text-foreground">40 {t('common.minutes')}</SelectItem>
-                  <SelectItem value="50" className="text-foreground">50 {t('common.minutes')} ({t('common.recommended')})</SelectItem>
+                <SelectTrigger className="h-7 w-[140px] text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10 {t('common.minutes')}</SelectItem>
+                  <SelectItem value="20">20 {t('common.minutes')}</SelectItem>
+                  <SelectItem value="30">30 {t('common.minutes')}</SelectItem>
+                  <SelectItem value="40">40 {t('common.minutes')}</SelectItem>
+                  <SelectItem value="50">50 {t('common.minutes')} ({t('common.recommended')})</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
+            }
+          />
 
-            {/* 机器码设置 */}
-            <div className="flex items-center gap-3">
-              <label className={`flex items-center gap-2 cursor-pointer px-4 py-3 rounded-xl border flex-shrink-0 transition-colors ${accountToggleContainerClass}`} title={t('settings.autoChangeMachineIdDesc')}>
-                <Switch checked={autoChangeMachineId} onCheckedChange={handleAutoChangeMachineIdChange} />
-                <Shuffle size={16} />
-                <span className="text-sm font-medium whitespace-nowrap">{t('settings.autoChangeMachineId')}</span>
-              </label>
+          {/* 机器码 */}
+          <SwitchRow
+            checked={autoChangeMachineId}
+            onCheckedChange={handleAutoChangeMachineIdChange}
+            icon={<Shuffle size={14} />}
+            label={t('settings.autoChangeMachineId')}
+            title={t('settings.autoChangeMachineIdDesc')}
+            trailing={
               <Select value={machineIdMode} onValueChange={handleMachineIdModeChange} disabled={!autoChangeMachineId}>
-                <SelectTrigger className="text-foreground bg-background border-border focus:ring-primary/20 flex-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-border">
-                  <SelectItem value="bind" className="text-foreground">{t('settings.machineIdBind')} ({t('common.recommended')})</SelectItem>
-                  <SelectItem value="random" className="text-foreground">{t('settings.machineIdRandom')}</SelectItem>
+                <SelectTrigger className="h-7 w-[160px] text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="bind">{t('settings.machineIdBind')} ({t('common.recommended')})</SelectItem>
+                  <SelectItem value="random">{t('settings.machineIdRandom')}</SelectItem>
+                </SelectContent>
+              </Select>
+            }
+          />
+
+          {/* 隐私模式 */}
+          <SwitchRow
+            checked={privacyMode}
+            onCheckedChange={setPrivacyMode}
+            icon={privacyMode ? <EyeOff size={14} /> : <Eye size={14} />}
+            label={t('settings.privacyMode')}
+            hint={`(${t('settings.privacyModeHint')})`}
+            title={t('settings.privacyModeDesc')}
+          />
+
+          {/* 自动换号 */}
+          <SwitchRow
+            checked={autoSwitchEnabled}
+            onCheckedChange={handleAutoSwitchEnabledChange}
+            icon={<Repeat size={14} />}
+            label={t('settings.autoSwitch')}
+            title={t('settings.autoSwitchDesc')}
+          />
+          {autoSwitchEnabled && (
+            <div className="flex items-center gap-2 pl-9 pr-3">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">{t('settings.autoSwitchThreshold')}</span>
+              <Input
+                type="number"
+                value={autoSwitchThreshold}
+                onChange={(e) => handleAutoSwitchThresholdChange(parseFloat(e.target.value) || 0)}
+                min={0}
+                step={0.1}
+                className="h-7 w-20 text-center text-xs"
+              />
+              <Select value={String(autoSwitchInterval)} onValueChange={handleAutoSwitchIntervalChange}>
+                <SelectTrigger className="h-7 flex-1 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 {t('common.minutes')}</SelectItem>
+                  <SelectItem value="3">3 {t('common.minutes')}</SelectItem>
+                  <SelectItem value="5">5 {t('common.minutes')}</SelectItem>
+                  <SelectItem value="10">10 {t('common.minutes')}</SelectItem>
+                  <SelectItem value="15">15 {t('common.minutes')}</SelectItem>
+                  <SelectItem value="30">30 {t('common.minutes')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+          )}
 
-            {/* 隐私模式 */}
-            <label className={`flex items-center gap-2 cursor-pointer px-4 py-3 rounded-xl border transition-colors ${accountToggleContainerClass}`} title={t('settings.privacyModeDesc')}>
-              <Switch checked={privacyMode} onCheckedChange={setPrivacyMode} />
-              {privacyMode ? <EyeOff size={16} /> : <Eye size={16} />}
-              <span className="text-sm font-medium whitespace-nowrap">{t('settings.privacyMode')}</span>
-              <span className="text-xs text-muted-foreground ml-1">({t('settings.privacyModeHint')})</span>
-            </label>
+          {/* 关闭到托盘（合并进账号管理）*/}
+          <SwitchRow
+            checked={closeToTray}
+            onCheckedChange={handleCloseToTrayChange}
+            label="最小化到托盘"
+            hint="(关闭按钮 → 后台运行)"
+          />
+        </div>
+      </SectionCard>
 
-            {/* 自动换号 */}
-            <div className="space-y-2">
-              <label className={`flex items-center gap-2 cursor-pointer px-4 py-3 rounded-xl border transition-colors ${accountToggleContainerClass}`} title={t('settings.autoSwitchDesc')}>
-                <Switch checked={autoSwitchEnabled} onCheckedChange={handleAutoSwitchEnabledChange} />
-                <Repeat size={16} />
-                <span className="text-sm font-medium whitespace-nowrap">{t('settings.autoSwitch')}</span>
-              </label>
-              {autoSwitchEnabled && (
-                <div className="flex items-center gap-2 pl-4">
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">{t('settings.autoSwitchThreshold')}</span>
-                  <Input
-                    type="number"
-                    value={autoSwitchThreshold}
-                    onChange={(e) => handleAutoSwitchThresholdChange(parseFloat(e.target.value) || 0)}
-                    disabled={!autoSwitchEnabled}
-                    min={0}
-                    step={0.1}
-                    className="text-foreground bg-background border-border text-center w-20"
-                  />
-                  <Select value={String(autoSwitchInterval)} onValueChange={handleAutoSwitchIntervalChange} disabled={!autoSwitchEnabled}>
-                    <SelectTrigger className="text-foreground bg-background border-border flex-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-card border-border">
-                      <SelectItem value="1" className="text-foreground">1 {t('common.minutes')}</SelectItem>
-                      <SelectItem value="3" className="text-foreground">3 {t('common.minutes')}</SelectItem>
-                      <SelectItem value="5" className="text-foreground">5 {t('common.minutes')}</SelectItem>
-                      <SelectItem value="10" className="text-foreground">10 {t('common.minutes')}</SelectItem>
-                      <SelectItem value="15" className="text-foreground">15 {t('common.minutes')}</SelectItem>
-                      <SelectItem value="30" className="text-foreground">30 {t('common.minutes')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </div>
+      {/* 浏览器 + Kiro IDE 路径（双栏并列）*/}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <SectionCard title={t('settings.browser')} icon={<Globe size={14} className="text-primary" />}>
+          <div className="flex gap-1.5">
+            <Input
+              value={browserPath}
+              onChange={(e) => setBrowserPath(e.target.value)}
+              placeholder={t('settings.browserPlaceholder')}
+              className="h-8 text-xs flex-1"
+            />
+            <button
+              onClick={handleDetectBrowsers}
+              className="px-2.5 h-8 border rounded-md bg-card hover:bg-muted/50 border-border text-foreground transition-colors"
+              title={t('settings.detectBrowsersTitle')}
+            >
+              <Search size={13} />
+            </button>
+            <button
+              onClick={handleApplyBrowser}
+              disabled={savingBrowser || !browserChanged}
+              className={`px-3 h-8 rounded-md flex items-center gap-1 text-xs font-medium border transition-colors disabled:opacity-50 ${
+                browserChanged
+                  ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
+                  : 'bg-muted text-muted-foreground border-border'
+              }`}
+            >
+              {savingBrowser ? <RefreshCw size={12} className="animate-spin" /> : <Check size={12} />}
+              <span className="hidden sm:inline">{savingBrowser ? t('settings.saving') : t('settings.apply')}</span>
+            </button>
           </div>
-        </CardContent>
-      </Card>
+
+          {showBrowserList && detectedBrowsers.length > 0 && (
+            <div className="rounded-md border border-border bg-muted/30 p-2 mt-2 space-y-1">
+              <div className="flex items-center justify-between mb-1 px-1">
+                <span className="text-xs font-medium">{t('settings.detectedBrowsers')}</span>
+                <button onClick={() => setShowBrowserList(false)} className="text-[10px] text-muted-foreground hover:text-foreground">
+                  {t('settings.close')}
+                </button>
+              </div>
+              {detectedBrowsers.map((browser, index) => (
+                <div key={index} className="flex items-center justify-between p-1.5 rounded bg-card border border-border hover:bg-muted/50 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-medium">{browser.name}</div>
+                    <div className="text-[10px] text-muted-foreground truncate">{browser.path}</div>
+                  </div>
+                  <button onClick={() => handleSelectBrowser(browser, true)} className="ml-2 px-2 py-1 text-[10px] rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+                    {t('settings.selectBrowser')}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <p className="text-[11px] text-muted-foreground">{t('settings.browserTip')}</p>
+        </SectionCard>
+
+        <SectionCard title={t('settings.kiroIdePath')} icon={<Cpu size={14} className="text-primary" />}>
+          <div className="flex gap-1.5">
+            <Input
+              value={customKiroPath || ''}
+              placeholder={t('settings.useDefaultPath')}
+              readOnly
+              className="h-8 text-xs bg-muted/50 cursor-not-allowed flex-1"
+            />
+            <button
+              onClick={handleBrowseKiroPath}
+              className="px-2.5 h-8 border rounded-md bg-card hover:bg-muted/50 border-border text-foreground transition-colors"
+              title={t('settings.browse')}
+            >
+              <Search size={13} />
+            </button>
+            {customKiroPath && (
+              <button
+                onClick={handleClearKiroPath}
+                className="px-2.5 h-8 border rounded-md bg-card hover:bg-red-500/10 border-border text-red-500 transition-colors"
+                title={t('settings.clear')}
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
+          <p className="text-[11px] text-muted-foreground">{t('settings.kiroPathTip')}</p>
+        </SectionCard>
+      </div>
 
       {/* 应用数据目录 */}
-      <Card className="card-glow animate-slide-in-left delay-225">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-1 h-5 bg-primary rounded-full"></div>
-            <FolderOpen size={18} className="text-primary" />
-            <h2 className="text-lg font-semibold text-foreground">{t('settings.appDataDir')}</h2>
-          </div>
-          <p className="text-sm text-muted-foreground mb-5">{t('settings.appDataDirDesc')}</p>
-
-          <div className="space-y-3">
-            <div className="rounded-xl p-4 border border-border bg-muted/30">
-              <div className="flex items-center gap-2 mb-3">
-                <code className="flex-1 text-sm px-3 py-2 rounded-lg font-mono text-foreground border border-border bg-card break-all">
-                  {appDataDir || t('common.loading')}
-                </code>
-                {appDataDir && (
-                  <button onClick={() => copyToClipboard(appDataDir, 'appDataDir')} className="p-2 rounded-lg hover:bg-muted/50 transition-colors flex-shrink-0" title="复制路径">
-                    {copiedField === 'appDataDir' ? <Check size={16} className="text-green-500" /> : <Copy size={16} className="text-muted-foreground" />}
-                  </button>
-                )}
-              </div>
-            </div>
-
+      <SectionCard title={t('settings.appDataDir')} icon={<FolderOpen size={14} className="text-primary" />}>
+        <div className="flex items-center gap-2">
+          <code className="flex-1 text-xs px-2 py-1.5 rounded font-mono text-foreground border border-border bg-muted/30 break-all">
+            {appDataDir || t('common.loading')}
+          </code>
+          {appDataDir && (
             <button
-              onClick={handleOpenAppDataDir}
-              disabled={!appDataDir}
-              className="w-full px-4 py-3 rounded-xl flex items-center justify-center gap-2 font-medium bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              onClick={() => copyToClipboard(appDataDir, 'appDataDir')}
+              className="p-1.5 rounded border border-border hover:bg-muted/50 transition-colors flex-shrink-0"
+              title="复制路径"
             >
-              <ExternalLink size={16} />
-              {t('settings.openInExplorer')}
+              {copiedField === 'appDataDir' ? <Check size={13} className="text-green-500" /> : <Copy size={13} className="text-muted-foreground" />}
             </button>
-
-            <p className="text-xs text-muted-foreground">{t('settings.appDataDirTip')}</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 关闭窗口行为 */}
-      <Card className="card-glow animate-slide-in-left delay-237">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-1 h-5 bg-primary rounded-full"></div>
-            <h2 className="text-lg font-semibold text-foreground">关闭窗口行为</h2>
-          </div>
-          <p className="text-sm text-muted-foreground mb-5">设置点击关闭按钮时的行为</p>
-
-          <div className="space-y-3">
-            <label className={`flex items-center gap-2 cursor-pointer px-4 py-3 rounded-xl border transition-colors ${accountToggleContainerClass}`}>
-              <Switch checked={closeToTray} onCheckedChange={handleCloseToTrayChange} />
-              <span className="text-sm font-medium whitespace-nowrap">最小化到托盘</span>
-              <span className="text-xs text-muted-foreground ml-1">(推荐，后台任务继续运行)</span>
-            </label>
-            <p className="text-xs text-muted-foreground">
-              {closeToTray 
-                ? '✓ 关闭窗口时最小化到系统托盘，后台任务继续运行。点击托盘图标可重新打开窗口。' 
-                : '✗ 关闭窗口时直接退出应用，所有后台任务将停止。'}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 浏览器 */}
-      <Card className="card-glow animate-slide-in-left delay-250">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-1 h-5 bg-primary rounded-full"></div>
-            <Globe size={18} className="text-primary" />
-            <h2 className="text-lg font-semibold text-foreground">{t('settings.browser')}</h2>
-          </div>
-          <p className="text-sm text-muted-foreground mb-5">{t('settings.browserDesc')}</p>
-
-          <div className="space-y-3">
-            <div className="flex gap-3">
-              <Input
-                value={browserPath}
-                onChange={(e) => setBrowserPath(e.target.value)}
-                placeholder={t('settings.browserPlaceholder')}
-                className="text-foreground bg-background border-border flex-1"
-              />
-              <button
-                onClick={handleDetectBrowsers}
-                className="px-4 py-2.5 border rounded-xl bg-card hover:bg-muted/50 border-border text-foreground flex items-center gap-2 transition-colors"
-                title={t('settings.detectBrowsersTitle')}
-              >
-                <Search size={16} />
-                <span className="hidden sm:inline">{t('settings.detect')}</span>
-              </button>
-              <button
-                onClick={handleApplyBrowser}
-                disabled={savingBrowser || !browserChanged}
-                className={`px-5 py-2.5 rounded-xl flex items-center gap-2 font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed border transition-colors ${browserChanged
-                  ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90"
-                  : "bg-muted text-muted-foreground border-border"
-                  }`}
-              >
-                {savingBrowser ? <RefreshCw size={16} className="animate-spin" /> : <Check size={16} />}
-                <span className="hidden sm:inline">{savingBrowser ? t('settings.saving') : t('settings.apply')}</span>
-              </button>
-            </div>
-
-            {/* 检测到的浏览器列表 */}
-            {showBrowserList && detectedBrowsers.length > 0 && (
-              <div className="p-4 rounded-xl border border-border bg-muted/30 animate-slide-in-down">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-medium text-foreground">{t('settings.detectedBrowsers')}</span>
-                  <button onClick={() => setShowBrowserList(false)} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-                    {t('settings.close')}
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {detectedBrowsers.map((browser, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-card hover:bg-muted/50 transition-colors border border-border">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-foreground">{browser.name}</div>
-                        <div className="text-xs text-muted-foreground truncate">{browser.path}</div>
-                      </div>
-                      <button onClick={() => handleSelectBrowser(browser, true)} className="ml-3 px-3 py-1.5 text-xs rounded-lg transition-colors border bg-primary text-primary-foreground border-primary hover:bg-primary/90">
-                        {t('settings.selectBrowser')}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <p className="text-xs text-muted-foreground">{t('settings.browserTip')}</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Kiro IDE 路径 */}
-      <Card className="card-glow animate-slide-in-left delay-275">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-1 h-5 bg-primary rounded-full"></div>
-            <Cpu size={18} className="text-primary" />
-            <h2 className="text-lg font-semibold text-foreground">{t('settings.kiroIdePath')}</h2>
-          </div>
-          <p className="text-sm text-muted-foreground mb-5">{t('settings.kiroIdePathDesc')}</p>
-
-          <div className="space-y-3">
-            <div className="flex gap-3">
-              <Input
-                value={customKiroPath || ''}
-                placeholder={t('settings.useDefaultPath')}
-                readOnly
-                className="text-foreground bg-muted/50 border-border flex-1 cursor-not-allowed"
-              />
-              <button
-                onClick={handleBrowseKiroPath}
-                className="px-4 py-2.5 border rounded-xl bg-card hover:bg-muted/50 border-border text-foreground flex items-center gap-2 transition-colors"
-                title={t('settings.browse')}
-              >
-                <Search size={16} />
-                <span className="hidden sm:inline">{t('settings.browse')}</span>
-              </button>
-              {customKiroPath && (
-                <button
-                  onClick={handleClearKiroPath}
-                  className="px-4 py-2.5 border rounded-xl bg-card hover:bg-red-500/10 border-border text-red-500 flex items-center gap-2 transition-colors"
-                  title={t('settings.clear')}
-                >
-                  <X size={16} />
-                  <span className="hidden sm:inline">{t('settings.clear')}</span>
-                </button>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">{t('settings.kiroPathTip')}</p>
-          </div>
-        </CardContent>
-      </Card>
+          )}
+          <button
+            onClick={handleOpenAppDataDir}
+            disabled={!appDataDir}
+            className="h-8 px-3 rounded-md flex items-center gap-1.5 text-xs font-medium bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50 transition-colors"
+          >
+            <ExternalLink size={12} />
+            {t('settings.openInExplorer')}
+          </button>
+        </div>
+      </SectionCard>
 
       {/* 系统机器码 */}
-      <Card className="card-glow animate-slide-in-left delay-300">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-1 h-5 bg-orange-500 rounded-full"></div>
-            <Shield size={18} className="text-orange-500" />
-            <h2 className="text-lg font-semibold text-foreground">{t('settings.systemMachineGuid')}</h2>
-            {systemMachineInfo?.osType && (
-              <span className="text-xs px-2 py-0.5 rounded-full text-muted-foreground border border-border bg-muted/30">
-                {resolveOsLabel(systemMachineInfo.osType, t('common.unknown'))}
-              </span>
-            )}
-          </div>
-          <p className="text-sm text-muted-foreground mb-5">
-            {systemMachineInfo?.osType === 'macos'
-              ? t('settings.machineGuidDescMac')
-              : systemMachineInfo?.osType === 'linux'
-                ? t('settings.machineGuidDescLinux')
-                : t('settings.machineGuidDescWin')}
-          </p>
+      <SectionCard
+        title={t('settings.systemMachineGuid')}
+        accent="orange"
+        icon={<Shield size={14} className="text-orange-500" />}
+        badge={
+          systemMachineInfo?.osType ? (
+            <span className="text-[10px] px-1.5 py-0.5 rounded text-muted-foreground border border-border bg-muted/30">
+              {resolveOsLabel(systemMachineInfo.osType, t('common.unknown'))}
+            </span>
+          ) : null
+        }
+      >
+        <div className="flex items-center gap-2">
+          <code className="flex-1 text-xs px-2 py-1.5 rounded font-mono text-foreground border border-border bg-muted/30 break-all">
+            {systemMachineInfo?.machineGuid || t('common.loading')}
+          </code>
+          {systemMachineInfo?.machineGuid && (
+            <button
+              onClick={() => copyToClipboard(systemMachineInfo.machineGuid, 'sysMachineGuid')}
+              className="p-1.5 rounded border border-border hover:bg-muted/50 transition-colors flex-shrink-0"
+              title="复制"
+            >
+              {copiedField === 'sysMachineGuid' ? <Check size={13} className="text-green-500" /> : <Copy size={13} className="text-muted-foreground" />}
+            </button>
+          )}
+          {systemMachineInfo?.canModify && (
+            <button
+              onClick={handleResetSystemMachineGuid}
+              disabled={machineGuidAction !== null}
+              className="h-8 px-3 rounded-md flex items-center gap-1.5 text-xs font-medium bg-red-500 hover:bg-red-600 text-white disabled:opacity-50 transition-colors"
+            >
+              {machineGuidAction === 'reset' ? <RefreshCw size={12} className="animate-spin" /> : <Shuffle size={12} />}
+              {t('common.reset')}
+            </button>
+          )}
+        </div>
 
-          <div className="space-y-4">
-            {/* 当前值 */}
-            <div className="rounded-xl p-4 border border-border bg-muted/30">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-foreground">{t('settings.currentMachineGuid')}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 text-sm px-3 py-2 rounded-lg font-mono text-foreground border border-border bg-card break-all">
-                  {systemMachineInfo?.machineGuid || t('common.loading')}
-                </code>
-                {systemMachineInfo?.machineGuid && (
-                  <button onClick={() => copyToClipboard(systemMachineInfo.machineGuid, 'sysMachineGuid')} className="p-2 rounded-lg hover:bg-muted/50 transition-colors flex-shrink-0" title="复制">
-                    {copiedField === 'sysMachineGuid' ? <Check size={16} className="text-green-500" /> : <Copy size={16} className="text-muted-foreground" />}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* 警告提示 */}
-            {systemMachineInfo?.requiresAdmin && (
-              <div className="flex items-start gap-3 bg-orange-500/10 rounded-xl p-4 border border-orange-500/20">
-                <AlertTriangle size={18} className="text-orange-500 flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="font-medium text-orange-500 mb-2 text-sm">{t('settings.adminWarningTitle')}</p>
-                  <ul className="list-disc list-inside space-y-1 text-xs text-muted-foreground">
-                    <li>{t('settings.adminWarning1')}</li>
-                    <li>{t('settings.adminWarning2')}</li>
-                    <li>{t('settings.adminWarning3')}</li>
-                  </ul>
-                </div>
-              </div>
-            )}
-
-            {/* 操作按钮 */}
-            {systemMachineInfo?.canModify && (
-              <button
-                onClick={handleResetSystemMachineGuid}
-                disabled={machineGuidAction !== null}
-                className="w-full px-4 py-3 rounded-xl flex items-center justify-center gap-2 font-medium bg-red-500 hover:bg-red-600 text-white disabled:opacity-50 transition-colors"
-              >
-                {machineGuidAction === 'reset' ? <RefreshCw size={16} className="animate-spin" /> : <Shuffle size={16} />}
-                {t('common.reset')}
-              </button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+        {systemMachineInfo?.requiresAdmin && (
+          <details className="text-xs">
+            <summary className="cursor-pointer text-orange-500 hover:underline flex items-center gap-1.5 select-none">
+              <AlertTriangle size={12} />
+              {t('settings.adminWarningTitle')}
+            </summary>
+            <ul className="list-disc list-inside space-y-0.5 mt-1.5 ml-4 text-[11px] text-muted-foreground">
+              <li>{t('settings.adminWarning1')}</li>
+              <li>{t('settings.adminWarning2')}</li>
+              <li>{t('settings.adminWarning3')}</li>
+            </ul>
+          </details>
+        )}
+      </SectionCard>
     </div>
   )
 }
