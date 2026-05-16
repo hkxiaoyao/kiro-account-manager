@@ -69,6 +69,7 @@ use commands::cache_cmd::{
 use commands::mitm_cmd::{
     get_mitm_status, generate_mitm_ca, install_mitm_ca, get_mitm_ca_pem,
     start_mitm_proxy, stop_mitm_proxy, get_mitm_config, save_mitm_config,
+    get_mitm_log_path, open_mitm_log_dir,
 };
 //分组
 use commands::group_tag_cmd::{
@@ -156,9 +157,11 @@ fn setup_log_plugin() -> tauri_plugin_log::Builder {
             target.starts_with("kiro_account_manager")
         })
         // 输出到日志文件 + 终端 stdout（dev 模式可见）
+        // 文件名：app.log（所有模块通用应用日志，含 [MITM]/[Gateway]/[Account] 等前缀区分）
+        // MITM 业务事件还会单独写 mitm.log，Gateway 业务请求单独写 gateway-*.log
         .targets([
             tauri_plugin_log::Target::new(
-                tauri_plugin_log::TargetKind::LogDir { file_name: Some("gateway".to_string()) }
+                tauri_plugin_log::TargetKind::LogDir { file_name: Some("app".to_string()) }
             ),
             tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
         ])
@@ -508,6 +511,8 @@ fn main() {
             stop_mitm_proxy,
             get_mitm_config,
             save_mitm_config,
+            get_mitm_log_path,
+            open_mitm_log_dir,
             // 代理检测命令
             detect_system_proxy,
             // 更新检查命令

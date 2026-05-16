@@ -81,6 +81,7 @@ impl MitmProxyServer {
             .map_err(|e| format!("绑定端口失败: {e}"))?;
 
         log::info!("[MITM] 代理服务器已启动: {}", addr);
+        super::mitm_log::append(&format!("代理服务器已启动: {}", addr));
 
         loop {
             let (stream, client_addr) = match listener.accept().await {
@@ -139,6 +140,7 @@ async fn handle_connection(
 
     if config.log_requests {
         log::info!("[MITM] CONNECT {} from {}", target, client_addr);
+        super::mitm_log::append(&format!("CONNECT {} from {}", target, client_addr));
     }
 
     // 判断是否需要 MITM 拦截
@@ -344,6 +346,11 @@ fn replace_machine_id(request_data: &[u8], target_id: &str) -> Vec<u8> {
             replaced,
             &target_id[..16]
         );
+        super::mitm_log::append(&format!(
+            "已替换机器码 {} 处 → {}...",
+            replaced,
+            &target_id[..16]
+        ));
         result.as_bytes().to_vec()
     } else {
         request_data.to_vec()
@@ -391,6 +398,7 @@ fn filter_kiro_prompt(request_data: &[u8]) -> Vec<u8> {
     }
 
     log::info!("[MITM] 已过滤 Kiro IDE 系统提示词");
+    super::mitm_log::append("已过滤 Kiro IDE 系统提示词");
 
     match serde_json::to_vec(&json) {
         Ok(new_body) => new_body,

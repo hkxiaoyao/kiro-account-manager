@@ -264,8 +264,19 @@ function MitmProxy() {
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <Label className="text-xs text-muted-foreground">记录请求日志</Label>
-                    <div className="h-8 flex items-center">
+                    <div className="h-8 flex items-center justify-between gap-2">
                       <Switch checked={logRequests} onCheckedChange={setLogRequests} />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={async () => {
+                          try { await invoke('open_mitm_log_dir') }
+                          catch (e) { alert(`打开失败：${e}`) }
+                        }}
+                      >
+                        <FolderOpen size={12} className="mr-1" />打开日志
+                      </Button>
                     </div>
                   </div>
                 </div>

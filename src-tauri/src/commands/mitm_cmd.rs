@@ -165,3 +165,21 @@ pub async fn get_mitm_config() -> Result<MitmConfig, String> {
 pub async fn save_mitm_config(config_data: MitmConfig) -> Result<(), String> {
     config::save_mitm_config(&config_data)
 }
+
+/// 获取 MITM 日志文件路径（前端用于显示）
+#[tauri::command]
+pub fn get_mitm_log_path() -> String {
+    crate::mitm::mitm_log::mitm_log_path()
+        .to_string_lossy()
+        .to_string()
+}
+
+/// 在系统文件管理器中打开 MITM 日志目录
+#[tauri::command]
+pub fn open_mitm_log_dir() -> Result<String, String> {
+    let path = crate::mitm::mitm_log::mitm_log_path();
+    let dir = path.parent().ok_or("无法获取日志目录")?;
+    std::fs::create_dir_all(dir).map_err(|e| format!("创建日志目录失败: {e}"))?;
+    open::that(dir).map_err(|e| format!("打开日志目录失败: {e}"))?;
+    Ok(dir.to_string_lossy().to_string())
+}
