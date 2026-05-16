@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import {
   Shield, CheckCircle2, XCircle, AlertCircle, Download, Play, Square,
-  RefreshCw, Copy, Check, FolderOpen, Globe, Cpu, Filter,
+  RefreshCw, Check, FolderOpen, Globe, Cpu, Filter,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,7 +11,6 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-
 interface MitmStatus {
   running: boolean
   port: number
@@ -277,49 +276,6 @@ function MitmProxy() {
                     <span>请先完成 Step 1 生成 CA 证书，否则启动后 TLS 握手会失败。</span>
                   </div>
                 )}
-
-                <details className="group">
-                  <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground select-none flex items-center gap-1.5">
-                    <Globe size={12} />
-                    <span>需要 Kiro IDE 走代理？查看环境变量配置</span>
-                  </summary>
-                  <div className="mt-3 pt-3 border-t space-y-2">
-                    <Tabs defaultValue="windows" className="w-full">
-                      <TabsList className="h-7">
-                        <TabsTrigger value="windows" className="text-xs h-5">Windows</TabsTrigger>
-                        <TabsTrigger value="unix" className="text-xs h-5">macOS / Linux</TabsTrigger>
-                        <TabsTrigger value="single" className="text-xs h-5">仅作用 Kiro</TabsTrigger>
-                      </TabsList>
-                      <TabsContent value="windows" className="mt-2 space-y-2">
-                        <CommandRow
-                          label="PowerShell（永久，重启终端生效）"
-                          command={`[System.Environment]::SetEnvironmentVariable('HTTPS_PROXY','http://127.0.0.1:${port}','User'); [System.Environment]::SetEnvironmentVariable('HTTP_PROXY','http://127.0.0.1:${port}','User')`}
-                        />
-                        <CommandRow
-                          label="cmd（临时，仅当前终端）"
-                          command={`set HTTPS_PROXY=http://127.0.0.1:${port}&& set HTTP_PROXY=http://127.0.0.1:${port}`}
-                        />
-                      </TabsContent>
-                      <TabsContent value="unix" className="mt-2 space-y-2">
-                        <CommandRow
-                          label="bash / zsh（写入 ~/.zshrc 或 ~/.bashrc）"
-                          command={`export HTTPS_PROXY=http://127.0.0.1:${port}\nexport HTTP_PROXY=http://127.0.0.1:${port}`}
-                        />
-                      </TabsContent>
-                      <TabsContent value="single" className="mt-2 space-y-2">
-                        <CommandRow
-                          label="Windows · 仅本次启动 Kiro"
-                          command={`set HTTPS_PROXY=http://127.0.0.1:${port}&& "%LOCALAPPDATA%\\Programs\\Kiro\\Kiro.exe"`}
-                        />
-                        <CommandRow
-                          label="macOS / Linux · 仅本次启动 Kiro"
-                          command={`HTTPS_PROXY=http://127.0.0.1:${port} HTTP_PROXY=http://127.0.0.1:${port} kiro`}
-                        />
-                      </TabsContent>
-                    </Tabs>
-                    <p className="text-[11px] text-muted-foreground">设置后必须重启 Kiro 才生效。</p>
-                  </div>
-                </details>
               </div>
             </StepCard>
           </div>
@@ -473,35 +429,6 @@ function StepCard({
         <div className="text-sm font-semibold">{title}</div>
       </div>
       <div className="p-4">{children}</div>
-    </div>
-  )
-}
-
-function CommandRow({ label, command }: { label: string; command: string }) {
-  const [copied, setCopied] = useState(false)
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(command)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    } catch (e) {
-      console.error('Copy failed:', e)
-    }
-  }
-  return (
-    <div className="space-y-1">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="flex items-stretch gap-1.5">
-        <code className="flex-1 bg-muted/60 border px-2.5 py-1.5 rounded text-xs font-mono break-all whitespace-pre-wrap leading-relaxed">{command}</code>
-        <Button
-          size="sm"
-          variant={copied ? 'default' : 'outline'}
-          className="h-auto px-2.5 shrink-0"
-          onClick={handleCopy}
-        >
-          {copied ? <><Check size={12} className="mr-1" />已复制</> : <><Copy size={12} className="mr-1" />复制</>}
-        </Button>
-      </div>
     </div>
   )
 }
