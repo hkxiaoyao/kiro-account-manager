@@ -99,10 +99,28 @@ function MitmProxy() {
               <span className="text-sm font-medium">{status?.running ? `运行中 :${port}` : '已停止'}</span>
             </div>
             <div className="flex gap-2">
-              <Button size="sm" disabled={status?.running || !status?.caInstalled}>
+              <Button size="sm" disabled={status?.running || !status?.caInstalled} onClick={async () => {
+                setLoading(true)
+                try {
+                  await invoke('start_mitm_proxy', {
+                    port,
+                    targetDeviceId: targetDeviceId || null,
+                    mitmDomains: mitmDomains.split('\n').map(s => s.trim()).filter(Boolean)
+                  })
+                  await fetchStatus()
+                } catch (e: any) { alert(`启动失败: ${e}`) }
+                finally { setLoading(false) }
+              }}>
                 <Play size={14} className="mr-1" />启动
               </Button>
-              <Button size="sm" variant="destructive" disabled={!status?.running}>
+              <Button size="sm" variant="destructive" disabled={!status?.running} onClick={async () => {
+                setLoading(true)
+                try {
+                  await invoke('stop_mitm_proxy')
+                  await fetchStatus()
+                } catch (e: any) { alert(`停止失败: ${e}`) }
+                finally { setLoading(false) }
+              }}>
                 <Square size={14} className="mr-1" />停止
               </Button>
             </div>

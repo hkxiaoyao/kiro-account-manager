@@ -149,7 +149,7 @@ async fn handle_mitm_connect(
     client_stream: &mut TcpStream,
     hostname: &str,
     port: u16,
-    _config: &MitmProxyConfig,
+    config: &MitmProxyConfig,
     cert_manager: &CertManager,
 ) -> Result<(), String> {
     // 回复 200 表示隧道建立
@@ -195,9 +195,12 @@ async fn handle_mitm_connect(
 
     let request_data = &request_buf[..n];
 
-    // TODO: 在这里修改请求（机器码替换、提示词过滤）
-    // 目前先透传
-    let modified_request = request_data.to_vec();
+    // 机器码替换
+    let modified_request = if let Some(target_id) = &config.target_device_id {
+        replace_machine_id(request_data, target_id)
+    } else {
+        request_data.to_vec()
+    };
 
     // 连接到真实服务器
     let server_addr = format!("{}:{}", hostname, port);
@@ -284,5 +287,37 @@ fn parse_host_port(target: &str) -> Result<(String, u16), String> {
         Ok((host, port))
     } else {
         Ok((target.to_string(), 443))
+    }
+}
+
+/// 64位十六进制机器码正则
+const MACHINE_ID_PATTERN: &str = r"[a-f0-9]{64}";
+
+/// 替换请求中的机器码
+/// 匹配所有 64 位十六进制字符串并替换为目标值
+fn replace_machine_id(request_data: &[u8], target_id: &str) -> Vec<u8> {
+    let request_str = String::from_utf8_lossy(request_data);
+    let re = regex::Regex::new(MACHINE_ID_PATTERN).unwrap();
+
+    let mut replaced = false;
+    let result = re.replace_all(&request_str, |caps: &regex::Captures| {
+        let matched = caps.get(0).unwrap().as_str();
+        // 不替换已经是目标 ID 的
+        if matched == target_id {
+            return matched.to_string();
+        }
+        replaced = true;
+        log::info!(
+            "[MITM] 替换机器码: {}... → {}...",
+            &matched[..16],
+            &target_id[..16.min(target_id.len())]
+        );
+        target_id.to_string()
+    });
+
+    if replaced {
+        result.as_bytes().to_vec()
+    } else {
+        request_data.to_vec()
     }
 }

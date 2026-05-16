@@ -1,6 +1,7 @@
 /// MITM 代理管理命令
 
 use crate::mitm::cert_manager::CertManager;
+use crate::mitm::proxy_server::{MitmProxyConfig, MitmProxyServer};
 use crate::state::AppState;
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -17,19 +18,9 @@ pub struct MitmStatus {
     pub target_device_id: Option<String>,
 }
 
-/// MITM 代理配置（前端传入）
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MitmConfig {
-    pub port: u16,
-    pub mitm_domains: Vec<String>,
-    pub target_device_id: Option<String>,
-    pub log_requests: bool,
-}
-
 /// 获取 MITM 代理状态
 #[tauri::command]
-pub async fn get_mitm_status(_state: State<'_, AppState>) -> Result<MitmStatus, String> {
+pub async fn get_mitm_status(state: State<'_, AppState>) -> Result<MitmStatus, String> {
     let certs_dir = crate::mitm::cert_manager::default_certs_dir();
     let ca_installed = certs_dir.join("ca.crt").exists();
     let ca_cert_path = if ca_installed {
@@ -38,8 +29,12 @@ pub async fn get_mitm_status(_state: State<'_, AppState>) -> Result<MitmStatus, 
         None
     };
 
+    let running = state.mitm_shutdown.lock()
+        .map(|guard| guard.is_some())
+        .unwrap_or(false);
+
     Ok(MitmStatus {
-        running: false, // TODO: 从运行时状态获取
+        running,
         port: 8766,
         ca_installed,
         ca_cert_path,
@@ -49,6 +44,81 @@ pub async fn get_mitm_status(_state: State<'_, AppState>) -> Result<MitmStatus, 
         ],
         target_device_id: None,
     })
+}
+
+/// 启动 MITM 代理
+#[tauri::command]
+pub async fn start_mitm_proxy(
+    state: State<'_, AppState>,
+    port: u16,
+    target_device_id: Option<String>,
+    mitm_domains: Vec<String>,
+) -> Result<(), String> {
+    // 检查是否已在运行
+    {
+        let guard = state.mitm_shutdown.lock().map_err(|_| "锁失败")?;
+        if guard.is_some() {
+            return Err("MITM 代理已在运行".to_string());
+        }
+    }
+
+    let certs_dir = crate::mitm::cert_manager::default_certs_dir();
+    let cert_manager = CertManager::new(certs_dir)?;
+
+    let config = MitmProxyConfig {
+        host: "127.0.0.1".to_string(),
+        port,
+        mitm_domains: if mitm_domains.is_empty() {
+            vec![
+                "q.us-east-1.amazonaws.com".to_string(),
+                "q.eu-central-1.amazonaws.com".to_string(),
+            ]
+        } else {
+            mitm_domains
+        },
+        target_device_id,
+        log_requests: true,
+    };
+
+    let (shutdown_tx, mut shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+
+    let server = MitmProxyServer::new(config, cert_manager);
+
+    tokio::spawn(async move {
+        tokio::select! {
+            result = server.start() => {
+                if let Err(e) = result {
+                    log::error!("[MITM] 代理服务器错误: {}", e);
+                }
+            }
+            _ = &mut shutdown_rx => {
+                log::info!("[MITM] 代理服务器已停止");
+            }
+        }
+    });
+
+    let mut guard = state.mitm_shutdown.lock().map_err(|_| "锁失败")?;
+    *guard = Some(shutdown_tx);
+
+    log::info!("[MITM] 代理已启动，端口 {}", port);
+    Ok(())
+}
+
+/// 停止 MITM 代理
+#[tauri::command]
+pub async fn stop_mitm_proxy(state: State<'_, AppState>) -> Result<(), String> {
+    let shutdown_tx = {
+        let mut guard = state.mitm_shutdown.lock().map_err(|_| "锁失败")?;
+        guard.take()
+    };
+
+    if let Some(tx) = shutdown_tx {
+        let _ = tx.send(());
+        log::info!("[MITM] 已发送停止信号");
+        Ok(())
+    } else {
+        Err("MITM 代理未运行".to_string())
+    }
 }
 
 /// 生成 CA 证书
@@ -67,7 +137,7 @@ pub async fn install_mitm_ca() -> Result<(), String> {
     manager.install_ca_to_system()
 }
 
-/// 获取 CA 证书 PEM 内容（用于导出）
+/// 获取 CA 证书 PEM 内容
 #[tauri::command]
 pub async fn get_mitm_ca_pem() -> Result<String, String> {
     let certs_dir = crate::mitm::cert_manager::default_certs_dir();

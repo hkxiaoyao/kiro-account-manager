@@ -19,4 +19,5 @@ pub struct AppState {
     pub auth: AuthState,
     pub pending_login: Mutex<Option<PendingLogin>>,
     pub gateway: Mutex<Option<GatewayRuntime>>,
+    pub mitm_shutdown: Mutex<Option<tokio::sync::oneshot::Sender<()>>>,
 }
