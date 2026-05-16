@@ -266,6 +266,8 @@ struct RequestLogContext<'a> {
     request_body: Option<&'a str>,
     /// 从原始请求体提取的 model（用于错误日志）
     model_hint: Option<String>,
+    /// 是否流式请求（避免 request 为 None 时丢失信息）
+    is_stream: Option<bool>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -804,6 +806,7 @@ async fn guarded_local_response(
         started_at,
         request_body,
         model_hint: None,
+        is_stream: None,
     };
 
     if state.config.local_only && !client_addr.ip().is_loopback() {
@@ -983,7 +986,9 @@ fn write_request_log(
             .request
             .map(|item| item.model.clone())
             .or_else(|| context.model_hint.clone()),
-        stream: context.request.map(|item| item.stream).unwrap_or(false),
+        stream: context.is_stream
+            .or_else(|| context.request.map(|item| item.stream))
+            .unwrap_or(false),
         upstream_source: context.upstream.map(|item| item.source_label.clone()),
         region: context.upstream.map(|item| item.region.clone()),
         status_code: status.as_u16(),
@@ -1117,7 +1122,7 @@ pub async fn proxy_handler(
             chrono::Local::now().format("%H:%M:%S"),
             request_index,
             endpoint,
-            &raw_request_body[..raw_request_body.len().min(50000)]
+            &raw_request_body[..safe_truncate(&raw_request_body, 50000)]
         );
         let _ = std::fs::OpenOptions::new()
             .create(true)
@@ -1136,6 +1141,7 @@ pub async fn proxy_handler(
         started_at,
         request_body: Some(raw_request_body.as_str()),
         model_hint,
+        is_stream: None,
     };
 
     if state.config.local_only && !client_addr.ip().is_loopback() {
@@ -1441,6 +1447,75 @@ pub async fn proxy_handler(
                     msg.content = Some(serde_json::Value::String(filtered));
                 }
             }
+        }
+    }
+
+    // ===== 响应缓存：查找 =====
+    // 仅对非流式请求尝试缓存命中
+    let cache_session_id = extract_session_id_from_request(&request).unwrap_or_default();
+    let messages_hash = {
+        use sha2::{Sha256, Digest};
+        let mut hasher = Sha256::new();
+        hasher.update(request.model.as_bytes());
+        for msg in &request.messages {
+            hasher.update(msg.role.as_bytes());
+            if let Some(content) = &msg.content {
+                hasher.update(content.to_string().as_bytes());
+            }
+        }
+        if let Some(tools) = &request.tools {
+            hasher.update(serde_json::to_string(tools).unwrap_or_default().as_bytes());
+        }
+        format!("{:x}", hasher.finalize())
+    };
+    let cache_message_count = request.messages.len();
+    let cache_total_chars: usize = request.messages.iter()
+        .filter_map(|m| m.content.as_ref())
+        .map(|c| c.to_string().len())
+        .sum();
+
+    if !request.stream {
+        let mut cache_guard = state.response_cache.lock().await;
+        if let Some(cached) = cache_guard.get(
+            &cache_session_id,
+            &messages_hash,
+            cache_message_count,
+            cache_total_chars,
+        ) {
+            drop(cache_guard);
+            log::info!(
+                "[响应缓存] 命中! session={}, hash={}, 响应长度={}",
+                &cache_session_id[..cache_session_id.len().min(16)],
+                &messages_hash[..16],
+                cached.response.len()
+            );
+
+            // 从缓存构建响应
+            if let Ok(cached_response) = serde_json::from_str::<Value>(&cached.response) {
+                // 记录缓存命中日志
+                let cache_log_context = RequestLogContext {
+                    request: Some(&request),
+                    ..base_log_context.clone()
+                };
+                write_request_log(
+                    &cache_log_context,
+                    StatusCode::OK,
+                    "success (cached)",
+                    None,
+                    None,
+                    Some(&cached.response),
+                    Some(cached.input_tokens),
+                    Some(cached.output_tokens),
+                    None,
+                    None,
+                    &state,
+                );
+                return Json(cached_response).into_response();
+            }
+            // 缓存内容解析失败，继续正常流程
+            log::warn!("[响应缓存] 缓存内容解析失败，走正常请求流程");
+        } else {
+            drop(cache_guard);
         }
     }
 
@@ -1856,6 +1931,7 @@ pub async fn proxy_handler(
             started_at: upstream_payload_log_context.started_at,
             request_body: None,
             model_hint: upstream_payload_log_context.model_hint.clone(),
+            is_stream: Some(true),
         };
 
         return stream_proxy_response(
@@ -1893,28 +1969,10 @@ pub async fn proxy_handler(
     };
 
     // 添加调试日志：记录原始响应体大小和前几个字节
-    log::info!(
-        "[非流式响应] 原始字节大小: {} 字节, 前 100 字节: {:?}",
+    log::debug!(
+        "[非流式响应] 原始字节大小: {} 字节",
         raw_bytes.len(),
-        &raw_bytes[..raw_bytes.len().min(100)]
     );
-
-    // 调试：将原始响应体写入文件（无论是否 Debug 模式）
-    {
-        use std::fs;
-        use std::path::PathBuf;
-        let debug_dir = PathBuf::from("debug_responses");
-        if !debug_dir.exists() {
-            let _ = fs::create_dir_all(&debug_dir);
-        }
-        let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
-        let debug_file = debug_dir.join(format!("response_{}.bin", timestamp));
-        if let Err(e) = fs::write(&debug_file, &raw_bytes) {
-            log::error!("写入调试响应文件失败: {}", e);
-        } else {
-            log::info!("✅ 调试响应已写入: {:?}", debug_file);
-        }
-    }
 
     // 解码 EventStream 消息并提取所有 JSON payload
     let mut buffer = raw_bytes.to_vec();
@@ -1989,20 +2047,6 @@ pub async fn proxy_handler(
 
     // 用于调试日志的拼接字符串
     let body = json_payloads.join("");
-
-    // 调试：将解析出的 JSON 写入文件（无论是否 Debug 模式）
-    {
-        use std::fs;
-        use std::path::PathBuf;
-        let debug_dir = PathBuf::from("debug_responses");
-        let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
-        let json_file = debug_dir.join(format!("parsed_{}.json", timestamp));
-        if let Err(e) = fs::write(&json_file, &body) {
-            log::error!("写入解析后的 JSON 文件失败: {}", e);
-        } else {
-            log::info!("✅ 解析后的 JSON 已写入: {:?}", json_file);
-        }
-    }
 
     // 添加调试日志：记录解码后的 JSON 数量和预览
     log::info!(
@@ -2107,6 +2151,27 @@ pub async fn proxy_handler(
         )
         .await;
     }
+    // ===== 响应缓存：写入（仅非流式成功响应） =====
+    {
+        let response_json = serde_json::to_string(&response).unwrap_or_default();
+        let mut cache_guard = state.response_cache.lock().await;
+        cache_guard.put(
+            &cache_session_id,
+            &messages_hash,
+            response_json,
+            aggregated.input_tokens,
+            aggregated.output_tokens,
+            cache_message_count,
+            cache_total_chars,
+        );
+        drop(cache_guard);
+        log::debug!(
+            "[响应缓存] 已写入: session={}, hash={}",
+            &cache_session_id[..cache_session_id.len().min(16)],
+            &messages_hash[..16]
+        );
+    }
+
     write_request_log(
         &upstream_payload_log_context,
         StatusCode::OK,
@@ -2144,6 +2209,7 @@ pub async fn mcp_proxy_handler(
         started_at,
         request_body: Some(raw_request_body.as_str()),
         model_hint,
+        is_stream: None,
     };
 
     if state.config.local_only && !client_addr.ip().is_loopback() {
@@ -2820,11 +2886,18 @@ fn normalized_assistant_message_from_aggregated(
         metadata: if aggregated.thinking.is_empty() {
             None
         } else {
+            let mut reasoning_text = json!({
+                "text": aggregated.thinking
+            });
+            if let Some(sig) = &aggregated.thinking_signature {
+                reasoning_text.as_object_mut().unwrap().insert(
+                    "signature".to_string(),
+                    json!(sig),
+                );
+            }
             Some(json!({
                 "reasoningContent": {
-                    "reasoningText": {
-                        "text": aggregated.thinking
-                    }
+                    "reasoningText": reasoning_text
                 }
             }))
         },
@@ -4038,6 +4111,18 @@ fn extract_error_message(body: &str) -> String {
     body.to_string()
 }
 
+/// 安全截断字符串到指定字节数，确保不会切到 UTF-8 多字节字符中间
+fn safe_truncate(s: &str, max_bytes: usize) -> usize {
+    if s.len() <= max_bytes {
+        return s.len();
+    }
+    let mut end = max_bytes;
+    while end > 0 && !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    end
+}
+
 fn sanitize_error(message: &str) -> String {
     let mut sanitized = message.to_string();
     for pattern in [
@@ -4299,6 +4384,9 @@ fn stream_proxy_response(
                                                 aggregated.cache_creation_input_tokens,
                                             )
                                             .await;
+                                        }
+                                        KiroEvent::ThinkingSignature(sig) => {
+                                            aggregated.thinking_signature = Some(sig);
                                         }
                                         KiroEvent::Text(text) => {
                                             aggregated.text.push_str(&text);

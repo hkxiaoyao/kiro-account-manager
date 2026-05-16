@@ -73,7 +73,6 @@ impl CacheEntry {
     }
 
     /// 检查是否可以复用（增量检查）
-    #[allow(dead_code)]
     pub fn can_reuse(&self, new_message_count: usize, new_total_chars: usize, config: &CacheConfig) -> bool {
         if self.is_expired() {
             return false;
@@ -114,13 +113,11 @@ impl ResponseCache {
     }
 
     /// 生成缓存键
-    #[allow(dead_code)]
     fn cache_key(session_id: &str, messages_hash: &str) -> String {
         format!("{}:{}", session_id, messages_hash)
     }
 
     /// 获取缓存（三层查找）
-    #[allow(dead_code)]
     pub fn get(
         &mut self,
         session_id: &str,
@@ -170,7 +167,6 @@ impl ResponseCache {
     }
 
     /// 保存缓存（三层写入）
-    #[allow(dead_code)]
     pub fn put(
         &mut self,
         session_id: &str,
@@ -228,7 +224,6 @@ impl ResponseCache {
     }
 
     /// 从磁盘加载缓存
-    #[allow(dead_code)]
     fn load_from_disk(&self, key: &str) -> Option<CacheEntry> {
         let cache_dir = self.cache_dir.as_ref()?;
         let file_path = cache_dir.join(format!("{}.json", Self::sanitize_key(key)));
@@ -242,7 +237,6 @@ impl ResponseCache {
     }
 
     /// 保存缓存到磁盘
-    #[allow(dead_code)]
     fn save_to_disk(&self, key: &str, entry: &CacheEntry) -> Result<(), std::io::Error> {
         let cache_dir = self.cache_dir.as_ref().ok_or_else(|| {
             std::io::Error::new(std::io::ErrorKind::NotFound, "缓存目录未设置")
@@ -258,7 +252,6 @@ impl ResponseCache {
     }
 
     /// 从磁盘删除缓存
-    #[allow(dead_code)]
     fn delete_from_disk(&self, key: &str) -> Result<(), std::io::Error> {
         let cache_dir = self.cache_dir.as_ref().ok_or_else(|| {
             std::io::Error::new(std::io::ErrorKind::NotFound, "缓存目录未设置")
