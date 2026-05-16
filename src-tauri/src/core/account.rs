@@ -432,9 +432,6 @@ fn is_unavailable_status(status: &str) -> bool {
             | "失效"
             | "已失效"
             | "Token已失效"
-            | "expired"
-            | "过期"
-            | "已过期"
     )
 }
 
