@@ -153,7 +153,6 @@ function MitmProxy() {
 
   // 当前步骤推进
   const stepCa = status?.caInstalled ? 'done' : status?.caGenerated ? 'partial' : 'todo'
-  const stepProxy = stepCa === 'done' ? 'active' : 'pending'
   const stepStart = status?.running ? 'done' : stepCa === 'done' ? 'active' : 'pending'
 
   return (
@@ -250,48 +249,8 @@ function MitmProxy() {
               </div>
             </StepCard>
 
-            {/* Step 2 · 配置系统代理 */}
-            <StepCard index={2} title="配置系统代理" state={stepProxy === 'active' ? 'active' : 'pending'}>
-              <Tabs defaultValue="windows" className="w-full">
-                <TabsList className="h-8">
-                  <TabsTrigger value="windows" className="text-xs h-6">Windows</TabsTrigger>
-                  <TabsTrigger value="unix" className="text-xs h-6">macOS / Linux</TabsTrigger>
-                  <TabsTrigger value="single" className="text-xs h-6">仅作用 Kiro</TabsTrigger>
-                </TabsList>
-                <TabsContent value="windows" className="mt-3 space-y-2">
-                  <CommandRow
-                    label="PowerShell（永久，重启终端生效）"
-                    command={`[System.Environment]::SetEnvironmentVariable('HTTPS_PROXY','http://127.0.0.1:${port}','User'); [System.Environment]::SetEnvironmentVariable('HTTP_PROXY','http://127.0.0.1:${port}','User')`}
-                  />
-                  <CommandRow
-                    label="cmd（临时，仅当前终端）"
-                    command={`set HTTPS_PROXY=http://127.0.0.1:${port}&& set HTTP_PROXY=http://127.0.0.1:${port}`}
-                  />
-                </TabsContent>
-                <TabsContent value="unix" className="mt-3 space-y-2">
-                  <CommandRow
-                    label="bash / zsh（写入 ~/.zshrc 或 ~/.bashrc）"
-                    command={`export HTTPS_PROXY=http://127.0.0.1:${port}\nexport HTTP_PROXY=http://127.0.0.1:${port}`}
-                  />
-                </TabsContent>
-                <TabsContent value="single" className="mt-3 space-y-2">
-                  <CommandRow
-                    label="Windows · 仅本次启动 Kiro"
-                    command={`set HTTPS_PROXY=http://127.0.0.1:${port}&& "%LOCALAPPDATA%\\Programs\\Kiro\\Kiro.exe"`}
-                  />
-                  <CommandRow
-                    label="macOS / Linux · 仅本次启动 Kiro"
-                    command={`HTTPS_PROXY=http://127.0.0.1:${port} HTTP_PROXY=http://127.0.0.1:${port} kiro`}
-                  />
-                </TabsContent>
-              </Tabs>
-              <p className="text-xs text-muted-foreground mt-3">
-                Kiro 基于 VS Code，请求走 AWS SDK 默认 HTTP 客户端，会读取 <code className="bg-muted px-1 rounded">HTTPS_PROXY</code> 环境变量。设置后 <strong>必须重启 Kiro</strong> 才生效。
-              </p>
-            </StepCard>
-
-            {/* Step 3 · 启动并验证 */}
-            <StepCard index={3} title="启动代理并使用 Kiro" state={stepStart === 'done' ? 'done' : stepStart === 'active' ? 'active' : 'pending'}>
+            {/* Step 2 · 启动并验证 */}
+            <StepCard index={2} title="启动代理并使用 Kiro" state={stepStart === 'done' ? 'done' : stepStart === 'active' ? 'active' : 'pending'}>
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1.5">
@@ -318,6 +277,51 @@ function MitmProxy() {
                     <span>请先完成 Step 1 生成 CA 证书，否则启动后 TLS 握手会失败。</span>
                   </div>
                 )}
+
+                <details className="group">
+                  <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground select-none flex items-center gap-1.5">
+                    <Globe size={12} />
+                    <span>需要 Kiro IDE 走代理？查看环境变量配置</span>
+                  </summary>
+                  <div className="mt-3 pt-3 border-t space-y-2">
+                    <p className="text-xs text-muted-foreground">
+                      Kiro 基于 VS Code，请求走 AWS SDK 默认 HTTP 客户端，会读取 <code className="bg-muted px-1 rounded">HTTPS_PROXY</code> 环境变量。设置后 <strong>必须重启 Kiro</strong> 才生效。
+                    </p>
+                    <Tabs defaultValue="windows" className="w-full">
+                      <TabsList className="h-7">
+                        <TabsTrigger value="windows" className="text-xs h-5">Windows</TabsTrigger>
+                        <TabsTrigger value="unix" className="text-xs h-5">macOS / Linux</TabsTrigger>
+                        <TabsTrigger value="single" className="text-xs h-5">仅作用 Kiro</TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="windows" className="mt-2 space-y-2">
+                        <CommandRow
+                          label="PowerShell（永久，重启终端生效）"
+                          command={`[System.Environment]::SetEnvironmentVariable('HTTPS_PROXY','http://127.0.0.1:${port}','User'); [System.Environment]::SetEnvironmentVariable('HTTP_PROXY','http://127.0.0.1:${port}','User')`}
+                        />
+                        <CommandRow
+                          label="cmd（临时，仅当前终端）"
+                          command={`set HTTPS_PROXY=http://127.0.0.1:${port}&& set HTTP_PROXY=http://127.0.0.1:${port}`}
+                        />
+                      </TabsContent>
+                      <TabsContent value="unix" className="mt-2 space-y-2">
+                        <CommandRow
+                          label="bash / zsh（写入 ~/.zshrc 或 ~/.bashrc）"
+                          command={`export HTTPS_PROXY=http://127.0.0.1:${port}\nexport HTTP_PROXY=http://127.0.0.1:${port}`}
+                        />
+                      </TabsContent>
+                      <TabsContent value="single" className="mt-2 space-y-2">
+                        <CommandRow
+                          label="Windows · 仅本次启动 Kiro"
+                          command={`set HTTPS_PROXY=http://127.0.0.1:${port}&& "%LOCALAPPDATA%\\Programs\\Kiro\\Kiro.exe"`}
+                        />
+                        <CommandRow
+                          label="macOS / Linux · 仅本次启动 Kiro"
+                          command={`HTTPS_PROXY=http://127.0.0.1:${port} HTTP_PROXY=http://127.0.0.1:${port} kiro`}
+                        />
+                      </TabsContent>
+                    </Tabs>
+                  </div>
+                </details>
               </div>
             </StepCard>
           </div>
