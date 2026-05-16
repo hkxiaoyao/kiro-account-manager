@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import {
   Shield, CheckCircle2, XCircle, AlertCircle, Download, Play, Square,
-  RefreshCw, Check, FolderOpen, Globe, Cpu, Filter,
+  RefreshCw, Check, FolderOpen, Globe, Cpu, Filter, Dices,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -308,13 +308,29 @@ function MitmProxy() {
                 <TabsContent value="machine" className="p-4 space-y-3 mt-0">
                   <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">目标机器码（64 位小写十六进制）</Label>
-                    <Input
-                      placeholder="留空不替换"
-                      value={targetDeviceId}
-                      onChange={(e) => setTargetDeviceId(e.target.value.toLowerCase())}
-                      className="h-8 font-mono text-xs"
-                      maxLength={64}
-                    />
+                    <div className="flex gap-1.5">
+                      <Input
+                        placeholder="留空不替换"
+                        value={targetDeviceId}
+                        onChange={(e) => setTargetDeviceId(e.target.value.toLowerCase())}
+                        className="h-8 font-mono text-xs flex-1"
+                        maxLength={64}
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 px-2 shrink-0"
+                        title="生成随机机器码（与 IDE 输出格式一致：64 位小写 hex）"
+                        onClick={async () => {
+                          const bytes = new Uint8Array(32)
+                          crypto.getRandomValues(bytes)
+                          const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
+                          setTargetDeviceId(hex)
+                        }}
+                      >
+                        <Dices size={13} className="mr-1" />生成
+                      </Button>
+                    </div>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-muted-foreground">长度 {targetDeviceId.length}/64</span>
                       {targetDeviceId.length === 64 && /^[a-f0-9]{64}$/.test(targetDeviceId) && (
