@@ -3305,6 +3305,9 @@ fn persist_account_refresh(
             target.usage_data = Some(data);
         }
         target.status = calc_status(is_banned, is_auth_error);
+        if is_banned || is_auth_error {
+            target.enabled = false;
+        }
 
         // 失败追踪逻辑
         if should_increment_failure {

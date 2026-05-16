@@ -151,6 +151,7 @@ impl TokenRefreshService {
                                     }
 
                                     acc.status = "invalid".to_string();
+                                    acc.enabled = false;
                                     let _ = store.try_save_to_file();
                                     log::warn!(
                                         "Token refresh loop: marked account {} as invalid",

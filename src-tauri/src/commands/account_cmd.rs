@@ -1393,6 +1393,7 @@ pub async fn list_available_models(
             let mut store = lock_store(&state.store, "store")?;
             if let Some(stored_account) = store.accounts.iter_mut().find(|item| item.id == id) {
                 stored_account.status = "banned".to_string();
+                stored_account.enabled = false;
                 save_store(&store)?;
             }
             Err(error)
