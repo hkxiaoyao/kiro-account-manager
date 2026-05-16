@@ -231,8 +231,38 @@ impl CertManager {
 
     /// 检查 CA 是否已安装到系统
     pub fn is_ca_installed(&self) -> bool {
-        // 简单检查：CA 文件是否存在
-        self.ca_cert_path().exists()
+        Self::check_ca_installed_in_system(&self.certs_dir)
+    }
+
+    /// 静态方法：检查 CA 是否已安装到系统信任存储
+    #[cfg(target_os = "windows")]
+    pub fn check_ca_installed_in_system(certs_dir: &std::path::Path) -> bool {
+        let cert_path = certs_dir.join(CA_CERT_FILE);
+        if !cert_path.exists() { return false; }
+        // 用 certutil 验证是否在 ROOT 存储中
+        let output = std::process::Command::new("certutil")
+            .args(["-verifystore", "ROOT", &cert_path.to_string_lossy()])
+            .output();
+        matches!(output, Ok(o) if o.status.success())
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn check_ca_installed_in_system(certs_dir: &std::path::Path) -> bool {
+        let cert_path = certs_dir.join(CA_CERT_FILE);
+        if !cert_path.exists() { return false; }
+        let output = std::process::Command::new("security")
+            .args(["find-certificate", "-c", CA_COMMON_NAME, "/Library/Keychains/System.keychain"])
+            .output();
+        matches!(output, Ok(o) if o.status.success())
+    }
+
+    #[cfg(target_os = "linux")]
+    pub fn check_ca_installed_in_system(certs_dir: &std::path::Path) -> bool {
+        let cert_path = certs_dir.join(CA_CERT_FILE);
+        if !cert_path.exists() { return false; }
+        // 检查是否在系统 CA 目录中
+        std::path::Path::new("/usr/local/share/ca-certificates/kiro-account-manager-ca.crt").exists()
+            || std::path::Path::new("/etc/pki/ca-trust/source/anchors/kiro-account-manager-ca.crt").exists()
     }
 }
 

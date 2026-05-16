@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 interface MitmStatus {
   running: boolean
   port: number
+  caGenerated: boolean
   caInstalled: boolean
   caCertPath: string | null
   mitmDomains: string[]
@@ -99,7 +100,7 @@ function MitmProxy() {
               <span className="text-sm font-medium">{status?.running ? `运行中 :${port}` : '已停止'}</span>
             </div>
             <div className="flex gap-2">
-              <Button size="sm" disabled={status?.running || !status?.caInstalled} onClick={async () => {
+              <Button size="sm" disabled={status?.running || !status?.caGenerated} onClick={async () => {
                 setLoading(true)
                 try {
                   await invoke('start_mitm_proxy', {
@@ -146,8 +147,16 @@ function MitmProxy() {
             CA 证书
           </div>
           <div className="flex items-center gap-2">
-            {status?.caInstalled ? (
-              <><CheckCircle size={14} className="text-green-500" /><span className="text-sm">已生成</span></>
+            {status?.caGenerated ? (
+              <>
+                <CheckCircle size={14} className="text-green-500" />
+                <span className="text-sm">已生成</span>
+                {status?.caInstalled ? (
+                  <span className="text-xs text-green-600 bg-green-50 dark:bg-green-950/30 px-1.5 py-0.5 rounded">已安装到系统</span>
+                ) : (
+                  <span className="text-xs text-orange-600 bg-orange-50 dark:bg-orange-950/30 px-1.5 py-0.5 rounded">未安装到系统</span>
+                )}
+              </>
             ) : (
               <><XCircle size={14} className="text-muted-foreground" /><span className="text-sm text-muted-foreground">未生成</span></>
             )}
@@ -162,10 +171,10 @@ function MitmProxy() {
               <RefreshCw size={12} className={`mr-1 ${loading ? 'animate-spin' : ''}`} />
               {status?.caInstalled ? '重新生成' : '生成'}
             </Button>
-            <Button size="sm" variant="outline" onClick={handleInstallCa} disabled={!status?.caInstalled || loading}>
+            <Button size="sm" variant="outline" onClick={handleInstallCa} disabled={!status?.caGenerated || status?.caInstalled || loading}>
               安装到系统
             </Button>
-            <Button size="sm" variant="outline" onClick={handleExportCa} disabled={!status?.caInstalled}>
+            <Button size="sm" variant="outline" onClick={handleExportCa} disabled={!status?.caGenerated}>
               <Download size={12} className="mr-1" />导出
             </Button>
           </div>

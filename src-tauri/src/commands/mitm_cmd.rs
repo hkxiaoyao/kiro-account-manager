@@ -12,6 +12,7 @@ use tauri::State;
 pub struct MitmStatus {
     pub running: bool,
     pub port: u16,
+    pub ca_generated: bool,
     pub ca_installed: bool,
     pub ca_cert_path: Option<String>,
     pub mitm_domains: Vec<String>,
@@ -22,8 +23,13 @@ pub struct MitmStatus {
 #[tauri::command]
 pub async fn get_mitm_status(state: State<'_, AppState>) -> Result<MitmStatus, String> {
     let certs_dir = crate::mitm::cert_manager::default_certs_dir();
-    let ca_installed = certs_dir.join("ca.crt").exists();
-    let ca_cert_path = if ca_installed {
+    let ca_generated = certs_dir.join("ca.crt").exists();
+    let ca_installed = if ca_generated {
+        CertManager::check_ca_installed_in_system(&certs_dir)
+    } else {
+        false
+    };
+    let ca_cert_path = if ca_generated {
         Some(certs_dir.join("ca.crt").to_string_lossy().to_string())
     } else {
         None
@@ -36,6 +42,7 @@ pub async fn get_mitm_status(state: State<'_, AppState>) -> Result<MitmStatus, S
     Ok(MitmStatus {
         running,
         port: 8766,
+        ca_generated,
         ca_installed,
         ca_cert_path,
         mitm_domains: vec![
