@@ -6,7 +6,8 @@
   "nav.desktopOAuth": "在线登入",
   "nav.socialIdC": "Social/IdC",
   "nav.settings": "设置",
-  "nav.gateway": "Kiro API 反代",
+  "nav.gateway": "API 反代",
+  "nav.mitmProxy": "MITM 代理",
   "nav.about": "关于",
 
   "gateway.overview": "总览",
@@ -14,8 +15,8 @@
   "gateway.observability": "观测",
   "gateway.config": "配置",
   "nav.kiroConnected": "Kiro IDE 已连接",
-  "nav.collapseSidebar": "双击折叠侧边栏",
-  "nav.expandSidebar": "双击展开侧边栏",
+  "nav.collapseSidebar": "折叠侧边栏",
+  "nav.expandSidebar": "展开侧边栏",
 
   "home.title": "Kiro Account Manager",
   "home.subtitle": "管理你的 Kiro IDE 账号，智能切换，配额监控",

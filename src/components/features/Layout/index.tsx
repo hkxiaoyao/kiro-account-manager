@@ -1,7 +1,7 @@
 import { useState, useEffect, ReactNode } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { getVersion } from '@tauri-apps/api/app'
-import { User, Sun, Moon, Palette, LucideIcon } from 'lucide-react'
+import { User, Sun, Moon, Palette, ChevronLeft, ChevronRight, LucideIcon } from 'lucide-react'
 import { Button } from '../../ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../ui/tooltip'
 import { cn } from '../../../lib/utils'
@@ -77,15 +77,15 @@ function Sidebar({ activeMenu, onMenuChange }: SidebarProps) {
 
   return (
     <div
-      className={cn("flex flex-col relative transition-all duration-300 glass-sidebar z-10")}
-      style={{ width: collapsed ? 64 : 224 }}
+      className={cn("flex flex-col relative transition-[width] duration-200 ease-in-out glass-sidebar z-10 overflow-hidden")}
+      style={{ width: collapsed ? 64 : 192 }}
     >
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
             <div
-              className={cn("cursor-pointer select-none", collapsed ? "p-2" : "p-4", "pb-3")}
-              onDoubleClick={toggleCollapsed}
+              className={cn("cursor-pointer select-none", collapsed ? "p-2" : "p-3", "pb-2")}
+              onClick={toggleCollapsed}
             >
               <div
                 className={cn(
@@ -135,10 +135,10 @@ function Sidebar({ activeMenu, onMenuChange }: SidebarProps) {
                       animationFillMode: 'both'
                     }}
                   >
-                    <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+                    <Icon size={18} strokeWidth={isActive ? 2.5 : 2} className="shrink-0" />
                     {!collapsed && (
                       <>
-                        <div className="flex-1 text-left">
+                        <div className="flex-1 text-left whitespace-nowrap overflow-hidden">
                           <div className="text-sm">{item.label}</div>
                           {item.desc && <div className="text-xs sidebar-muted">{item.desc}</div>}
                         </div>
@@ -188,23 +188,42 @@ function Sidebar({ activeMenu, onMenuChange }: SidebarProps) {
       )}
 
       <div className={cn("px-3 pb-3 flex items-center gap-2", collapsed ? "flex-col" : "justify-between")}>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleThemeClick}
-                className="sidebar-card sidebar-foreground sidebar-hover"
-              >
-                <ThemeIcon size={16} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side={collapsed ? "right" : "top"}>
-              {t(`theme.${theme}`)}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <div className="flex items-center gap-1">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleThemeClick}
+                  className="sidebar-card sidebar-foreground sidebar-hover h-7 w-7"
+                >
+                  <ThemeIcon size={14} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side={collapsed ? "right" : "top"}>
+                {t(`theme.${theme}`)}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleCollapsed}
+                  className="sidebar-foreground sidebar-hover h-7 w-7"
+                >
+                  {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side={collapsed ? "right" : "top"}>
+                {collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
 
         {!collapsed && (
           <span className="text-[10px] ml-auto sidebar-muted font-mono tracking-tighter">v{version || '...'}</span>
