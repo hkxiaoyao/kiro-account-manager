@@ -302,25 +302,29 @@ export default function SessionManager() {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="p-6 border-b">
-        <h1 className="text-2xl font-bold">会话管理</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          管理 Kiro IDE 的 chat sessions
-        </p>
+    <div className="flex flex-col h-full glass-main">
+      {/* Header（紧凑）*/}
+      <div className="px-5 py-3 border-b border-border flex items-center gap-2.5">
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/80 to-primary flex items-center justify-center shadow-md ring-1 ring-primary/20">
+          <MessageSquare size={16} className="text-primary-foreground" />
+        </div>
+        <div className="flex flex-col">
+          <h1 className="text-base font-semibold text-foreground leading-tight">会话管理</h1>
+          <p className="text-xs text-muted-foreground leading-tight">管理 Kiro IDE 的 chat sessions</p>
+        </div>
       </div>
 
       <div className="flex-1 flex overflow-hidden">
         {/* Left Sidebar - Workspaces with expandable sessions */}
-        <div className="w-80 border-r flex flex-col">
-          <div className="p-4 border-b">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="font-semibold">工作区与会话</h2>
+        <div className="w-72 border-r border-border flex flex-col">
+          <div className="p-3 border-b border-border space-y-2">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-semibold text-foreground">工作区与会话</h2>
               {selectedWorkspaceHashes.size > 0 && (
                 <Button
                   variant="destructive"
                   size="sm"
+                  className="h-6 text-[11px]"
                   onClick={handleBatchDeleteWorkspaces}
                 >
                   <Trash2 className="h-3 w-3 mr-1" />
@@ -328,13 +332,13 @@ export default function SessionManager() {
                 </Button>
               )}
             </div>
-            <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
               <span>{workspaces.length} 个工作区</span>
               {workspaces.length > 0 && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 px-2"
+                  className="h-5 px-2 text-[11px]"
                   onClick={toggleSelectAllWorkspaces}
                 >
                   {selectedWorkspaceHashes.size === workspaces.length ? '取消全选' : '全选'}
@@ -343,12 +347,12 @@ export default function SessionManager() {
             </div>
             {/* Search */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
                 placeholder="搜索会话..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
+                className="h-8 pl-8 text-xs"
               />
             </div>
           </div>
@@ -555,28 +559,30 @@ export default function SessionManager() {
             </div>
           ) : selectedSession ? (
             <>
-              <div className="p-4 border-b flex items-center justify-between">
+              <div className="px-4 py-2.5 border-b border-border flex items-center justify-between">
                 <div className="flex-1 min-w-0">
-                  <h2 className="text-xl font-bold truncate">{selectedSession.title}</h2>
-                  <p className="text-sm text-muted-foreground mt-1 truncate">
+                  <h2 className="text-sm font-semibold text-foreground truncate">{selectedSession.title}</h2>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 truncate font-mono">
                     {selectedSession.workspaceDirectory}
                   </p>
                 </div>
-                <div className="flex gap-2 ml-4">
+                <div className="flex gap-1.5 ml-3">
                   <Button
                     variant="outline"
                     size="sm"
+                    className="h-7 text-xs"
                     onClick={() => handleExportSession('json')}
                   >
-                    <Download className="h-4 w-4 mr-2" />
+                    <Download className="h-3.5 w-3.5 mr-1" />
                     JSON
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
+                    className="h-7 text-xs"
                     onClick={() => handleExportSession('markdown')}
                   >
-                    <Download className="h-4 w-4 mr-2" />
+                    <Download className="h-3.5 w-3.5 mr-1" />
                     Markdown
                   </Button>
                 </div>

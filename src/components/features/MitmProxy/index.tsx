@@ -185,8 +185,8 @@ function MitmProxy() {
   const stepStart = status?.running ? 'done' : stepCa === 'done' ? 'active' : 'pending'
 
   return (
-    <div className="h-full overflow-auto">
-      <div className="max-w-5xl mx-auto p-6 space-y-4">
+    <div className="h-full overflow-auto glass-main">
+      <div className="max-w-5xl mx-auto p-5 space-y-3">
         {/* 顶部：状态总览条 */}
         <div className="border rounded-lg bg-card overflow-hidden">
           <div className="flex items-center gap-4 p-4">
