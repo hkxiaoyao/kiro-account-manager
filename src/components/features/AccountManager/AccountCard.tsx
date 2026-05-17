@@ -105,7 +105,7 @@ const AccountCard = memo(function AccountCard({
   return (
     <div
       onContextMenu={handleContextMenu}
-      className={`relative rounded-xl border flex flex-col min-h-[220px] animate-stagger transition-all duration-300 ${cardStatusClass} ${account.enabled === false ? 'opacity-50 grayscale' : ''}`}
+      className={`relative rounded-xl border flex flex-col min-h-[260px] animate-stagger transition-all duration-300 ${cardStatusClass} ${account.enabled === false ? 'opacity-50 grayscale' : ''}`}
       style={{ animationDelay: `${Math.min(index, 20) * 30}ms` }}
     >
       {isCurrentAccount && (
@@ -256,12 +256,12 @@ const AccountCard = memo(function AccountCard({
           )}
         </div>
 
-        <div className="mt-auto pt-3 border-t border-border/50 flex items-center justify-between">
-          <div className="flex items-center gap-1">
+        <div className="mt-auto pt-3 border-t border-border/50 flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-1 flex-wrap">
             {account.machineId && (
               <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted/50 border border-border/30 text-[10px] text-muted-foreground">
                 <span className="font-mono">
-                  {account.machineId.length > 12 
+                  {account.machineId.length > 12
                     ? `${account.machineId.slice(0, 8)}...${account.machineId.slice(-4)}`
                     : account.machineId
                   }
@@ -271,7 +271,7 @@ const AccountCard = memo(function AccountCard({
                 </button>
               </div>
             )}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5 flex-wrap">
               <button onClick={(e) => { e.stopPropagation(); onEdit(account) }} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title={t('accountCard.viewDetails')}>
                 <Eye size={16} />
               </button>

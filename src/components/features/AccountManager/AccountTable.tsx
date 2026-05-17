@@ -183,7 +183,7 @@ function AccountTable({
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 240,
+    estimateSize: () => 280,
     overscan: 1})
 
   // 将 selectedIds 转为 Set 提高查找性能
