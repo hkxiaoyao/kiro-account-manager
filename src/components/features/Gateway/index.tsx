@@ -448,13 +448,13 @@ function GatewayPage() {
           <Stack gap="sm">
             <Group justify="space-between" align="center">
               <Group gap="xs">
-                <Text fw={700} size="lg" className={"text-foreground"}>Kiro API 反代</Text>
+                <Text fw={700} className="text-foreground text-base">Kiro API 反代</Text>
                 {!status.running ? (
                   <Button
                     size="sm"
                     onClick={handleStart}
                     disabled={hasFieldErrors || saving || loading}
-                    className="bg-green-500 hover:bg-green-600 text-white h-7"
+                    className="bg-green-500 hover:bg-green-600 text-white h-7 px-2.5 text-xs"
                   >
                     <Play size={12} className="mr-1" />
                     启动
@@ -464,7 +464,7 @@ function GatewayPage() {
                     size="sm"
                     onClick={handleStop}
                     disabled={saving || loading}
-                    className="bg-red-500 hover:bg-red-600 text-white h-7"
+                    className="bg-red-500 hover:bg-red-600 text-white h-7 px-2.5 text-xs"
                   >
                     <Square size={12} className="mr-1" />
                     停止
@@ -473,8 +473,8 @@ function GatewayPage() {
                 <Badge color={status.running ? 'green' : 'gray'}>{status.running ? '运行中' : '已停止'}</Badge>
               </Group>
               <Group gap="xs">
-                <Button variant="outline" size="default" className="h-9 px-4 text-sm" onClick={() => setShowRequestLogs(true)} disabled={!status.running}>
-                  <ScrollText size={16} className="mr-1.5" />
+                <Button variant="outline" size="sm" className="h-7 px-2.5 text-xs" onClick={() => setShowRequestLogs(true)} disabled={!status.running}>
+                  <ScrollText size={12} className="mr-1" />
                   请求日志
                 </Button>
               </Group>
