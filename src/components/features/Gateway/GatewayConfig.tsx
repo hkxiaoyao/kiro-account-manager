@@ -11,7 +11,6 @@ import ModelMappingDialog from './ModelMappingDialog'
 import ApiKeysDialog from './ApiKeysDialog'
 
 interface GatewayConfigProps {
-  colors: any;
   config: any;
   fieldErrors: Record<string, string>;
   setField: (key: string, value: any) => void;
@@ -26,7 +25,6 @@ interface GatewayConfigProps {
 }
 
 function GatewayConfig({
-  colors,
   config,
   fieldErrors,
   setField,
@@ -44,7 +42,7 @@ function GatewayConfig({
 
   return (
     <div className="grid grid-cols-1 gap-3">
-      <GatewaySurfaceCard colors={colors}>
+      <GatewaySurfaceCard>
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-4">
             {/* Section 1: 网络与路由 */}

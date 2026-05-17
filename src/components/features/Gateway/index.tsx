@@ -40,7 +40,6 @@ import {
   hydrateGatewayConfig
 } from './gatewayPageState'
 import { useGatewayPolling } from './useGatewayPolling'
-import React from 'react'
 
 function Alert(props: any) {
   return <AlertPrimitive {...props} />
@@ -59,11 +58,6 @@ function ThemedAlert({ title, children, ...props }: any) {
 
 function GatewayPage() {
   const { t } = useApp()
-
-  // 定义反代页面使用的色彩系统
-  const colors = useMemo(() => ({
-    inputFocus: 'focus:ring-primary/20 focus:border-primary',
-  }), [])
 
   const [config, setConfig] = useState<GatewayConfig>(DEFAULT_GATEWAY_CONFIG)
   const [status, setStatus] = useState<GatewayStatus>(DEFAULT_GATEWAY_STATUS)
@@ -492,7 +486,6 @@ function GatewayPage() {
         </Card>
 
         <GatewayConfigComponent
-          colors={colors}
           config={config}
           fieldErrors={fieldErrors}
           setField={setField}

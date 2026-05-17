@@ -1,11 +1,9 @@
+import type React from 'react'
 import { Card, CardContent } from '@/components/ui/card'
-import React from 'react'
 
-interface GatewaySurfaceCardProps extends React.HTMLAttributes<HTMLDivElement> {
-  colors?: Record<string, string>;
-}
+interface GatewaySurfaceCardProps extends React.HTMLAttributes<HTMLDivElement> {}
 
-export function GatewaySurfaceCard({ colors, className = '', children, ...props }: GatewaySurfaceCardProps) {
+export function GatewaySurfaceCard({ className = '', children, ...props }: GatewaySurfaceCardProps) {
   return (
     <Card
       className={`glass-card border-border border rounded-md ${className}`.trim()}

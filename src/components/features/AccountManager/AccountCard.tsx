@@ -55,10 +55,6 @@ const AccountCard = memo(function AccountCard({
   isCurrentAccount,
   tagDefinitions = [],
   groupDefinitions = [],
-  availableModels = null,
-  availableModelsLoading = false,
-  availableModelsError = '',
-  onLoadAvailableModels,
   onContextMenuOpen,
   index = 0
 }: AccountCardProps) {
