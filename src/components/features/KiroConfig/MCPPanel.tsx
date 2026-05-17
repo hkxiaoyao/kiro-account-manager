@@ -113,15 +113,15 @@ function MCPPanel({ onCountChange, projectDir }: any) {
       <div className="h-full flex flex-col max-w-full overflow-x-hidden">
       {/* 警告横幅 */}
       {toolCount > 50 && (
-        <div className={`mx-6 mt-4 mb-2 px-4 py-3 rounded-xl border-2 ${colors.warning} ${colors.warningBorder} flex items-start gap-3`}>
-          <div className={`mt-0.5 text-foreground`}>
+        <div className={`mx-3 mt-3 mb-1 px-3 py-2.5 rounded-lg border ${colors.warning} ${colors.warningBorder} flex items-start gap-2`}>
+          <div className="mt-0.5 text-foreground text-sm">
             ⚠️
           </div>
           <div className="flex-1">
-            <div className={`text-sm font-medium text-foreground mb-1`}>
+            <div className="text-xs font-semibold text-foreground mb-0.5">
               MCP 工具数量较多
             </div>
-            <div className={`text-xs text-muted-foreground leading-relaxed`}>
+            <div className="text-[11px] text-muted-foreground leading-relaxed">
               您已配置约 {toolCount} 个 MCP 工具（{serverList.length} 个服务器）。过多的工具可能导致工具选择性能下降和上下文消耗增加。建议禁用不常用的服务器。
             </div>
           </div>
@@ -129,7 +129,7 @@ function MCPPanel({ onCountChange, projectDir }: any) {
       )}
 
       {/* 工具栏 */}
-      <div className={`px-6 py-3 border-b border-border flex items-center justify-between gap-4 max-w-full overflow-x-hidden`}>
+      <div className="px-3 py-2.5 border-b border-border flex items-center justify-between gap-3 max-w-full overflow-x-hidden">
         <SearchInput
           value={searchQuery}
           onChange={setSearchQuery}
@@ -138,25 +138,25 @@ function MCPPanel({ onCountChange, projectDir }: any) {
           t={t}
           accent={accent}
         />
-        <div className="flex items-center gap-3">
-          <span className={`text-sm text-muted-foreground`}>{filteredServers.length}/{serverList.length}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">{filteredServers.length}/{serverList.length}</span>
           <button
             onClick={() => setShowAddModal(true)}
-            className={`cursor-pointer px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1.5 ${accentGradientButtonClass} transition-colors duration-200 focus:outline-none focus:ring-2 ${accent.ring}`}
+            className={`cursor-pointer px-2.5 h-8 rounded-md text-xs font-medium flex items-center gap-1 ${accentGradientButtonClass} transition-colors duration-200 focus:outline-none focus:ring-2 ${accent.ring}`}
           >
-            <Plus size={14} />{t('mcp.add')}
+            <Plus size={13} />{t('mcp.add')}
           </button>
         </div>
       </div>
 
       {/* 列表 */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-3">
         {loading ? (
-          <div className={`text-center py-12 text-muted-foreground`}>{t('common.loading')}</div>
+          <div className="text-center py-12 text-muted-foreground text-sm">{t('common.loading')}</div>
         ) : serverList.length === 0 ? (
           <div className="text-center py-12">
-            <Server size={48} className={`mx-auto mb-4 text-muted-foreground opacity-50`} />
-            <p className={"text-muted-foreground"}>{t('mcp.noServers')}</p>
+            <Server size={40} className="mx-auto mb-3 text-muted-foreground opacity-40" />
+            <p className="text-sm text-muted-foreground">{t('mcp.noServers')}</p>
           </div>
         ) : (
           <div className="space-y-3">

@@ -255,10 +255,10 @@ function AgentsPanel({ onCountChange, projectDir }: any) {
   }
 
   return (
-    <div className="h-full flex gap-4 p-4 max-w-full overflow-x-hidden">
+    <div className="h-full flex gap-3 p-4 max-w-full overflow-x-hidden">
       {/* 左侧列表 */}
-      <div className={`w-80 flex flex-col glass-card border border-border rounded-2xl overflow-hidden shadow-lg`}>
-        <div className={`p-4 border-b border-border flex items-center justify-between`}>
+      <div className={`w-72 flex flex-col glass-card border border-border rounded-xl overflow-hidden`}>
+        <div className={`p-3 border-b border-border flex items-center justify-between`}>
           <div className="flex items-center gap-2">
             <Bot size={18} className={accent.text} />
             <span className={`text-sm font-semibold text-foreground`}>Custom Agents</span>
@@ -366,10 +366,10 @@ function AgentsPanel({ onCountChange, projectDir }: any) {
       </div>
 
       {/* 右侧编辑器 */}
-      <div className={`flex-1 flex flex-col glass-card border border-border rounded-2xl overflow-hidden shadow-lg`}>
+      <div className={`flex-1 flex flex-col glass-card border border-border rounded-xl overflow-hidden`}>
         {selectedAgent ? (
           <>
-            <div className={`p-4 border-b border-border flex items-center justify-between`}>
+            <div className={`p-3 border-b border-border flex items-center justify-between`}>
               <div className="flex items-center gap-2">
                 <h3 className={`font-semibold text-foreground`}>{selectedAgent.fileName}</h3>
                 <ScopeBadge scope={selectedAgent.scope} accent={accent} />

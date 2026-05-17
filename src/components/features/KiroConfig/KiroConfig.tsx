@@ -12,16 +12,6 @@ import AgentsPanel from './AgentsPanel'
 import PowersPanel from './PowersPanel'
 import { handleUiError } from '../../../utils/errorLogger'
 import { getThemeAccent } from './themeAccent'
-import React from 'react'
-
-// 定义配置页面使用的色彩系统
-const colors = {
-  inputFocus: 'focus:ring-primary/20 focus:border-primary',
-  badgeActive: 'bg-primary/20 text-primary border border-primary/30',
-  badgeDisabled: 'bg-muted/50 text-muted-foreground border border-border/50',
-  btnDisabled: 'opacity-50 cursor-not-allowed grayscale',
-  dialogHeader: 'border-b border-border bg-muted/30'
-}
 
 function KiroConfig() {
   const { t, theme } = useApp()
@@ -79,105 +69,109 @@ function KiroConfig() {
   ]
 
   return (
-    <div className={`h-full flex flex-col max-w-full overflow-x-hidden glass-main`}>
-      <div className="flex flex-col">
-        {/* 头部 */}
-        <div className={`glass-card border-b border-border px-6 py-4 flex items-center gap-4`}>
-
-          <div className={`w-10 h-10 bg-gradient-to-br ${accent.gradientFrom} ${accent.gradientTo} rounded-xl flex items-center justify-center shadow-lg ${accent.shadow}`}>
-            <Settings2 size={20} className="text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h1 className={`text-xl font-bold text-foreground`}>{t('kiroConfig.title')}</h1>
-            <p className={`text-sm text-muted-foreground`}>
-              {t('kiroConfig.subtitle')}
-            </p>
-          </div>
-          {/* 项目目录选择器 */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleSelectProjectDir}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer hover:bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 ${accent.ring}`}
-              title={t('kiroConfig.selectProjectDir')}
-            >
-              <FolderOpen size={16} className="text-amber-500" />
-              {projectDir ? (
-                <span className="max-w-[200px] truncate text-xs">{projectDir.split(/[/\\]/).pop()}</span>
-              ) : (
-                <span className={`text-xs text-muted-foreground`}>{t('kiroConfig.noProjectDir')}</span>
-              )}
-            </button>
-            {projectDir && (
-              <button
-                onClick={() => setProjectDir(null)}
-                className={`p-1.5 rounded-lg hover:bg-muted/50 transition-colors duration-200 cursor-pointer focus:outline-none focus:ring-2 ${accent.ring}`}
-                title={t('kiroConfig.clearProjectDir')}
-              >
-                <X size={14} className={"text-muted-foreground"} />
-              </button>
-            )}
-          </div>
+    <div className="h-full flex flex-col max-w-full overflow-x-hidden glass-main">
+      {/* Header（紧凑）*/}
+      <div className="px-5 py-3 border-b border-border flex items-center gap-3">
+        <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${accent.gradientFrom} ${accent.gradientTo} flex items-center justify-center shadow-md ring-1 ring-primary/20 flex-shrink-0`}>
+          <Settings2 size={16} className="text-primary-foreground" />
+        </div>
+        <div className="flex flex-col min-w-0 flex-1">
+          <h1 className="text-base font-semibold text-foreground leading-tight">{t('kiroConfig.title')}</h1>
+          <p className="text-xs text-muted-foreground leading-tight truncate">{t('kiroConfig.subtitle')}</p>
         </div>
 
-        {/* Tab 切换 */}
-        <div className="px-6 py-3 border-b border-transparent">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList>
-              {TABS.map(tab => {
-                const Icon = tab.icon
-                const isDisabled = !!tab.disabled
-                return (
-                  <TabsTrigger
-                    key={tab.id}
-                    value={tab.id}
-                    disabled={isDisabled}
-                    title={isDisabled ? t('kiroConfig.selectProjectDir') : ''}
-                    className="flex items-center gap-2"
-                  >
-                    <Icon size={16} />
-                    {tab.label}
-                    {tab.count > 0 && (
-                      <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                        activeTab === tab.id ? colors.badgeActive : colors.badgeDisabled
-                      }`}>
-                        {tab.count}
-                      </span>
-                    )}
-                  </TabsTrigger>
-                )
-              })}
-            </TabsList>
-
-            {/* 内容区 */}
-            <div className="mt-4 flex-1">
-              <TabsContent value="mcp">
-                <MCPPanel onCountChange={setMcpCount} projectDir={projectDir} />
-              </TabsContent>
-              <TabsContent value="steering">
-                <SteeringPanel onCountChange={setSteeringCount} projectDir={projectDir} />
-              </TabsContent>
-              <TabsContent value="skills">
-                <SkillsPanel onCountChange={setSkillsCount} projectDir={projectDir} />
-              </TabsContent>
-              <TabsContent value="hooks">
-                {projectDir
-                  ? <HooksPanel onCountChange={setHooksCount} projectDir={projectDir} />
-                  : <div className={`h-full flex items-center justify-center text-muted-foreground`}>{t('kiroConfig.selectProjectDir')}</div>
-                }
-              </TabsContent>
-              <TabsContent value="agents">
-                <AgentsPanel onCountChange={setAgentsCount} projectDir={projectDir} />
-              </TabsContent>
-              <TabsContent value="powers">
-                <PowersPanel onCountChange={setPowersCount} />
-              </TabsContent>
-            </div>
-          </Tabs>
+        {/* 项目目录选择器 */}
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <button
+            onClick={handleSelectProjectDir}
+            className={`flex items-center gap-1.5 px-2.5 h-8 rounded-md text-xs transition-colors cursor-pointer hover:bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 ${accent.ring}`}
+            title={t('kiroConfig.selectProjectDir')}
+          >
+            <FolderOpen size={13} className="text-amber-500" />
+            {projectDir ? (
+              <span className="max-w-[160px] truncate">{projectDir.split(/[/\\]/).pop()}</span>
+            ) : (
+              <span className="text-muted-foreground">{t('kiroConfig.noProjectDir')}</span>
+            )}
+          </button>
+          {projectDir && (
+            <button
+              onClick={() => setProjectDir(null)}
+              className={`p-1.5 rounded-md hover:bg-muted/50 transition-colors cursor-pointer focus:outline-none focus:ring-2 ${accent.ring}`}
+              title={t('kiroConfig.clearProjectDir')}
+            >
+              <X size={13} className="text-muted-foreground" />
+            </button>
+          )}
         </div>
       </div>
 
+      {/* Tabs + Content */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+        <div className="px-5 pt-3 pb-2">
+          <TabsList className="glass-card flex h-9 w-full justify-start overflow-x-auto rounded-lg border-none p-0.5 no-scrollbar lg:w-fit">
+            {TABS.map(tab => {
+              const Icon = tab.icon
+              const isDisabled = !!tab.disabled
+              return (
+                <TabsTrigger
+                  key={tab.id}
+                  value={tab.id}
+                  disabled={isDisabled}
+                  title={isDisabled ? t('kiroConfig.selectProjectDir') : ''}
+                  className="gap-1.5 px-3 h-8 shrink-0 text-xs font-medium data-[state=active]:shadow-sm"
+                >
+                  <Icon size={14} />
+                  {tab.label}
+                  {tab.count > 0 && (
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                      activeTab === tab.id
+                        ? 'bg-primary/20 text-primary'
+                        : 'bg-muted/50 text-muted-foreground'
+                    }`}>
+                      {tab.count}
+                    </span>
+                  )}
+                </TabsTrigger>
+              )
+            })}
+          </TabsList>
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <TabsContent value="mcp" className="h-full m-0">
+            <MCPPanel onCountChange={setMcpCount} projectDir={projectDir} />
+          </TabsContent>
+          <TabsContent value="steering" className="h-full m-0">
+            <SteeringPanel onCountChange={setSteeringCount} projectDir={projectDir} />
+          </TabsContent>
+          <TabsContent value="skills" className="h-full m-0">
+            <SkillsPanel onCountChange={setSkillsCount} projectDir={projectDir} />
+          </TabsContent>
+          <TabsContent value="hooks" className="h-full m-0">
+            {projectDir
+              ? <HooksPanel onCountChange={setHooksCount} projectDir={projectDir} />
+              : (
+                <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                  <div className="text-center">
+                    <FolderOpen size={32} className="mx-auto mb-2 opacity-30" />
+                    <p>{t('kiroConfig.selectProjectDir')}</p>
+                  </div>
+                </div>
+              )
+            }
+          </TabsContent>
+          <TabsContent value="agents" className="h-full m-0">
+            <AgentsPanel onCountChange={setAgentsCount} projectDir={projectDir} />
+          </TabsContent>
+          <TabsContent value="powers" className="h-full m-0">
+            <PowersPanel onCountChange={setPowersCount} />
+          </TabsContent>
+        </div>
+      </Tabs>
     </div>
   )
 }
 
 export default KiroConfig
+

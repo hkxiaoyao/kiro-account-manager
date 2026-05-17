@@ -128,9 +128,9 @@ function PowersPanel({ onCountChange }: any) {
   }
 
   return (
-    <div className="h-full flex gap-4 p-4 max-w-full overflow-x-hidden">
+    <div className="h-full flex gap-3 p-4 max-w-full overflow-x-hidden">
       {/* 左侧列表 */}
-    <div className={`w-80 flex flex-col glass-card border border-border rounded-2xl overflow-hidden shadow-lg max-w-full`}>
+    <div className={`w-72 flex flex-col glass-card border border-border rounded-xl overflow-hidden max-w-full`}>
 
         <div className={`p-3 border-b border-border`}>
           <div className={`flex items-center gap-1 p-1 rounded-xl bg-muted/30`}>
@@ -298,7 +298,7 @@ function PowersPanel({ onCountChange }: any) {
       </div>
 
       {/* 右侧详情 */}
-      <div className={`flex-1 flex flex-col glass-card border border-border rounded-2xl overflow-hidden shadow-lg`}>
+      <div className={`flex-1 flex flex-col glass-card border border-border rounded-xl overflow-hidden`}>
         {selectedPower ? (
           /* 已安装 Power 详情 */
           <>

@@ -279,7 +279,7 @@ function SteeringPanel({ onCountChange, projectDir }: any) {
   }
 
   return (
-    <div className="h-full flex gap-4 p-4">
+    <div className="h-full flex gap-3 p-4">
       {/* 左侧列表 */}
       <FileList
         files={files}
@@ -299,7 +299,7 @@ function SteeringPanel({ onCountChange, projectDir }: any) {
       />
 
       {/* 右侧编辑器 */}
-      <div className={`flex-1 flex flex-col glass-card border border-border rounded-2xl overflow-hidden shadow-lg`}>
+      <div className={`flex-1 flex flex-col glass-card border border-border rounded-xl overflow-hidden`}>
         {selectedFile ? (
           <Editor
             file={selectedFile}
@@ -380,8 +380,8 @@ function FileList({ files, selectedFile, onSelect, onDelete, onRefresh, onCreate
     style: inclusionStyles[g.key]})).filter(g => g.files.length > 0)
 
   return (
-    <div className={`w-80 flex flex-col glass-card border border-border rounded-2xl overflow-hidden shadow-lg`}>
-      <div className={`p-4 border-b border-border flex items-center justify-between`}>
+    <div className={`w-72 flex flex-col glass-card border border-border rounded-xl overflow-hidden`}>
+      <div className={`p-3 border-b border-border flex items-center justify-between`}>
         <div className="flex items-center gap-2">
           <FileText size={18} className={accent.text} />
           <span className={`text-sm font-semibold text-foreground`}>Steering</span>
@@ -514,7 +514,7 @@ function Editor({ file, editState, hasChanges, saving, refining, inclusionOption
   const accentSolidButtonClass = getSolidAccentButton(accent)
   return (
     <>
-      <div className={`p-4 border-b border-border flex items-center justify-between`}>
+      <div className={`p-3 border-b border-border flex items-center justify-between`}>
         <div className="flex items-center gap-2">
           <h3 className={`font-semibold text-foreground`}>{file.fileName}</h3>
           <ScopeBadge scope={file.scope} accent={accent} />

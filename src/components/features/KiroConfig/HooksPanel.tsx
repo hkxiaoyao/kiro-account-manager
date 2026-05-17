@@ -177,8 +177,8 @@ function HooksPanel({ onCountChange, projectDir }: any) {
   }
 
   return (
-    <div className="flex h-full min-h-0 gap-4 p-4 overflow-hidden">
-      <div className={`w-80 min-h-0 flex flex-col glass-card border border-border rounded-2xl overflow-hidden shadow-lg max-w-full`}>
+    <div className="flex h-full min-h-0 gap-3 p-4 overflow-hidden">
+      <div className={`w-72 min-h-0 flex flex-col glass-card border border-border rounded-xl overflow-hidden max-w-full`}>
         <div className={`p-4 border-b border-border`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -257,7 +257,7 @@ function HooksPanel({ onCountChange, projectDir }: any) {
         </div>
       </div>
 
-      <div className={`flex-1 min-h-0 flex flex-col glass-card border border-border rounded-2xl overflow-hidden shadow-lg`}>
+      <div className={`flex-1 min-h-0 flex flex-col glass-card border border-border rounded-xl overflow-hidden`}>
         {!projectDir ? (
           <div className={`flex-1 flex items-center justify-center text-muted-foreground`}>
             <div className="text-center px-6">
@@ -267,7 +267,7 @@ function HooksPanel({ onCountChange, projectDir }: any) {
           </div>
         ) : selectedHook ? (
           <>
-            <div className={`p-4 border-b border-border flex items-center justify-between`}>
+            <div className={`p-3 border-b border-border flex items-center justify-between`}>
               <div className="flex items-center gap-2">
                 <h3 className={`font-semibold text-foreground`}>{selectedHook.fileName}</h3>
                 {hasChanges && <span className="text-xs text-orange-500">● {t('hooks.unsaved')}</span>}
