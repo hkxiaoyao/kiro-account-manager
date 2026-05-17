@@ -195,31 +195,17 @@ function FilterDropdown({
           setButtonRect(rect)
           setOpen(!open)
         }}
-        className={`
-          cursor-pointer flex items-center gap-2.5 px-3 py-2.5
-          glass-card border-2 border-border
-          rounded-xl hover:bg-muted/50
-          transition-all duration-200
-          shadow-sm hover:shadow-md focus:outline-none focus:ring-2 ${accent.ring}
-          ${activeCount > 0 ? `${accent.border} ${accent.bgSoft} ${accent.shadow}` : ''}
-          ${open ? `ring-2 ${accent.ring}` : ''}
-        `}
+        className={`relative h-8 w-8 rounded-md inline-flex items-center justify-center transition-colors cursor-pointer focus:outline-none focus:ring-2 ${accent.ring} ${
+          activeCount > 0
+            ? `${accent.solidBg} text-white shadow-sm`
+            : 'glass-card border border-border hover:bg-muted/50 text-muted-foreground'
+        } ${open ? `ring-2 ${accent.ring}` : ''}`}
         title={t('filter.title')}
         aria-label={t('filter.title')}
       >
-        <div className={`
-          w-8 h-8 rounded-lg flex items-center justify-center
-          ${activeCount > 0 ? `bg-gradient-to-br ${accent.gradientFrom} ${accent.gradientTo} shadow-lg ${accent.shadow}` : `bg-muted/30`}
-          transition-all duration-200
-        `}>
-          <Filter
-            size={16}
-            className={activeCount > 0 ? 'text-white' : "text-muted-foreground"}
-            strokeWidth={2.5}
-          />
-        </div>
+        <Filter size={14} strokeWidth={2.5} />
         {activeCount > 0 && (
-          <span className={`px-2 py-0.5 bg-gradient-to-r ${accent.gradientFrom} ${accent.gradientTo} text-white text-xs rounded-full font-bold min-w-[20px] text-center shadow-lg ${accent.shadow}`}>
+          <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary text-white text-[9px] font-bold flex items-center justify-center ring-2 ring-background">
             {activeCount}
           </span>
         )}
@@ -228,68 +214,50 @@ function FilterDropdown({
       {open && buttonRect && createPortal(
         <div
           ref={panelRef}
-          className={`
-            fixed w-[420px] max-w-[calc(100vw-48px)]
-            glass-card border border-border
-            rounded-2xl shadow-2xl z-[9999]
-            overflow-hidden
-          `}
+          className="fixed w-[380px] max-w-[calc(100vw-32px)] glass-card border border-border rounded-xl shadow-xl z-[9999] overflow-hidden"
           style={{
-            top: `${buttonRect.bottom + 12}px`,
+            top: `${buttonRect.bottom + 8}px`,
             right: `${window.innerWidth - buttonRect.right}px`,
-            animation: 'slideDown 0.2s ease-out',
-            boxShadow: '0 20px 40px -12px rgba(0, 0, 0, 0.25)'
+            animation: 'slideDown 0.15s ease-out',
           }}
         >
-            <div className={`px-4 py-4 border-b border-border space-y-3`}>
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3 min-w-0">
-                <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${accent.gradientFrom} ${accent.gradientTo} shadow-lg ${accent.shadow}`}>
-                  <Filter size={18} className="text-white" strokeWidth={2.5} />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className={`text-sm font-semibold text-foreground`}>{t('filter.title')}</span>
-                    {activeCount > 0 && (
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${accent.bgSoft} ${accent.text}`}>
-                        {activeCount} 项生效
-                      </span>
-                    )}
-                  </div>
-                  <p className={`mt-1 text-xs text-muted-foreground`}>
-                    组合分组、标签、状态和配额条件，快速收敛账号列表。
-                  </p>
-                </div>
+            <div className={`px-4 py-3 border-b border-border`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Filter size={14} className={accent.text} strokeWidth={2.5} />
+                <span className="text-sm font-semibold text-foreground">{t('filter.title')}</span>
+                {activeCount > 0 && (
+                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${accent.bgSoft} ${accent.text}`}>
+                    {activeCount}
+                  </span>
+                )}
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-1.5">
                 {activeCount > 0 && (
                   <button
                     onClick={clearAll}
-                    className={`cursor-pointer text-xs text-muted-foreground hover:text-red-500 flex items-center gap-1 px-2.5 py-1.5 rounded-lg hover:bg-red-500/10 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-red-500/60`}
+                    className="cursor-pointer text-[11px] text-red-500 hover:bg-red-500/10 px-2 py-1 rounded-md transition-colors"
                   >
-                    <X size={12} strokeWidth={2.5} />
                     清空
                   </button>
                 )}
                 <button
                   onClick={() => setOpen(false)}
-                  type="button"
-                  aria-label="关闭筛选面板"
-                  title="关闭筛选面板"
-                  className={`cursor-pointer inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border text-muted-foreground hover:bg-muted/50 transition-all duration-200 hover:scale-[1.02] active:scale-95 focus:outline-none focus:ring-2 ${accent.ring}`}
+                  className="cursor-pointer h-7 w-7 rounded-md inline-flex items-center justify-center hover:bg-muted/50 text-muted-foreground transition-colors"
+                  aria-label="关闭"
                 >
-                  <X size={15} strokeWidth={2.5} />
+                  <X size={14} />
                 </button>
               </div>
             </div>
             {summaryItems.length > 0 && (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5 mt-2">
                 {summaryItems.map(item => (
                   <span
                     key={item.key}
-                    className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] border-border bg-muted/30 text-foreground`}
+                    className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] border-border bg-muted/30 text-foreground"
                   >
-                    <span className={"text-muted-foreground"}>{item.label}</span>
+                    <span className="text-muted-foreground">{item.label}</span>
                     <span className="font-medium">{item.value}</span>
                   </span>
                 ))}
@@ -297,16 +265,10 @@ function FilterDropdown({
             )}
           </div>
 
-          <div className="p-4 space-y-4 max-h-[480px] overflow-y-auto custom-scrollbar max-w-full">
+          <div className="p-3 space-y-3 max-h-[420px] overflow-y-auto custom-scrollbar max-w-full">
             {allTags.length > 0 && (
-              <SectionCard
-                title="基础筛选"
-                subtitle="优先按标签缩小范围，适合高频定位。"
-              >
+              <SectionCard title="标签">
                 <div>
-                  <label className={`block text-xs font-medium text-muted-foreground mb-2`}>
-                    {t('tags.title')}
-                  </label>
                   <SearchableTagSelect
                     tags={allTags}
                     value={selectedTag}
@@ -322,14 +284,10 @@ function FilterDropdown({
               </SectionCard>
             )}
 
-            <SectionCard
-              title="高级筛选"
-              subtitle="按订阅、状态、登录方式、使用量和分组进一步精确收敛。"
-            >
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <SectionCard title="条件筛选">
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 <FilterSelect
                   label={t('filter.subscription')}
-                  hint="适合快速筛出不同套餐层级的账号。"
                   value={filters.subscriptions?.length > 0 ? filters.subscriptions[0] : ''}
                   options={SUBSCRIPTION_OPTIONS}
                   onChange={(value: string) => onFiltersChange({ ...filters, subscriptions: [value] })}
@@ -339,7 +297,6 @@ function FilterDropdown({
 
                 <FilterSelect
                   label={t('filter.status')}
-                  hint="查看正常、封顶、失效等当前状态。"
                   value={filters.statuses?.length > 0 ? filters.statuses[0] : ''}
                   options={STATUS_OPTIONS}
                   onChange={(value: string) => onFiltersChange({ ...filters, statuses: [value] })}
@@ -349,7 +306,6 @@ function FilterDropdown({
 
                 <FilterSelect
                   label={t('filter.provider')}
-                  hint="按登录来源区分 Google、GitHub 等账号。"
                   value={filters.providers?.length > 0 ? filters.providers[0] : ''}
                   options={PROVIDER_OPTIONS}
                   onChange={(value: string) => onFiltersChange({ ...filters, providers: [value] })}
@@ -359,7 +315,6 @@ function FilterDropdown({
 
                 <FilterSelect
                   label="使用量"
-                  hint="快速关注不同 usage 区间的账号。"
                   value={filters.usageRange || ''}
                   options={USAGE_RANGE_OPTIONS}
                   onChange={(value: string) => onFiltersChange({ ...filters, usageRange: value })}
@@ -370,7 +325,6 @@ function FilterDropdown({
                 {allGroups.length > 0 && (
                   <FilterField
                     label={t('groups.title') || '分组'}
-                    hint="不常用时放最后，需要时也能直接搜索或切到有/无分组。"
                     active={Boolean(selectedGroup)}
                     accent={accent}
                     fullWidth
@@ -392,23 +346,13 @@ function FilterDropdown({
             </SectionCard>
           </div>
 
-          <div className={`flex items-center justify-end gap-2 border-t border-border px-4 py-3 glass-card`}>
-            <div className="flex items-center gap-2">
-              {activeCount > 0 && (
-                <button
-                  onClick={clearAll}
-                  className="cursor-pointer rounded-lg px-3 py-2 text-xs font-medium text-red-500 transition-all duration-200 hover:bg-red-500/10 focus:outline-none focus:ring-2 focus:ring-red-500/60"
-                >
-                  一键清空
-                </button>
-              )}
-              <button
-                onClick={() => setOpen(false)}
-                className={`cursor-pointer rounded-lg px-3 py-2 text-xs font-medium ${accent.text} ${accent.bgSoft} transition-all duration-200 hover:opacity-90 focus:outline-none focus:ring-2 ${accent.ring}`}
-              >
-                完成
-              </button>
-            </div>
+          <div className="flex items-center justify-end border-t border-border px-3 py-2">
+            <button
+              onClick={() => setOpen(false)}
+              className={`cursor-pointer rounded-md px-3 h-8 text-xs font-medium ${accent.text} ${accent.bgSoft} hover:opacity-90 transition-colors`}
+            >
+              完成
+            </button>
           </div>
 
           <style>{`

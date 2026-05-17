@@ -130,7 +130,7 @@ const ListRow = memo(function ListRow({
   return (
     <div
       onContextMenu={handleContextMenu}
-      className={`group flex items-center gap-3 px-3 border-b border-border hover:bg-muted/30 cursor-context-menu animate-stagger ${isCurrent ? 'bg-green-500/5' : ''} ${account.enabled === false ? 'opacity-50' : ''}`}
+      className={`group relative flex items-center gap-3 px-3 border-b border-border hover:bg-muted/30 cursor-context-menu animate-stagger ${isCurrent ? 'bg-green-500/5' : ''} ${account.enabled === false ? 'opacity-50' : ''}`}
       style={{ height: ROW_HEIGHT, animationDelay: `${Math.min(account._index || 0, 20) * 30}ms` }}
     >
       {contextMenu && (
@@ -244,8 +244,8 @@ const ListRow = memo(function ListRow({
         ) : <span className="text-xs text-muted-foreground">—</span>}
       </div>
 
-      {/* 操作按钮（hover 时显示） */}
-      <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+      {/* 操作按钮（hover 时绝对定位浮起，避免占用列宽） */}
+      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-card/95 backdrop-blur-sm rounded-md shadow-sm border border-border px-1 py-1">
         {isCurrent ? (
           <button
             onClick={(e) => { e.stopPropagation(); onSwitch(account) }}
@@ -434,7 +434,6 @@ function AccountListView({
         </button>
         <div className="w-16">分组</div>
         <div className="flex-1">标签</div>
-        <div className="w-[140px] text-right">操作</div>
       </div>
 
       {/* 列表 */}
