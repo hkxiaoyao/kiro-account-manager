@@ -217,7 +217,11 @@ const AccountCard = memo(function AccountCard({
             />
           </div>
           <div className="flex items-center justify-between text-[10px] font-medium">
-            <span className="text-foreground">{formatUsage(used)} / {formatUsage(quota)}</span>
+            <span className="text-foreground">
+              {(breakdown?.currentOverages ?? 0) > 0
+                ? `${formatUsage(quota)} / ${formatUsage(quota)}`
+                : `${formatUsage(used)} / ${formatUsage(quota)}`}
+            </span>
             {(breakdown?.currentOverages ?? 0) > 0 ? (
               <span className="text-purple-500 font-bold">超额 {formatUsage(breakdown!.currentOverages)}</span>
             ) : (

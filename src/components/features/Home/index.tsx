@@ -358,8 +358,6 @@ function CurrentAccountDetail({ account, accent, maskEmail, t }: {
   const mainLimit = breakdown?.usageLimit ?? 0
   const mainLimitPrecision = breakdown?.usageLimitWithPrecision ?? mainLimit
   const mainPercent = mainLimit > 0 ? Math.round((mainUsed / mainLimit) * 100) : 0
-  const isOverage = percent > 100
-  const overageAmount = used > quota ? used - quota : 0
 
   // 超额相关字段
   const currentOverages = breakdown?.currentOverages ?? 0
@@ -368,6 +366,9 @@ function CurrentAccountDetail({ account, accent, maskEmail, t }: {
   const overageCapPrecision = breakdown?.overageCapWithPrecision ?? overageCap
   const overageCharges = breakdown?.overageCharges ?? 0
   const overageRate = breakdown?.overageRate ?? 0
+
+  const isOverage = currentOverages > 0
+  const overageAmount = used > quota ? used - quota : 0
   const displayName = breakdown?.displayName || 'Credit'
   const displayNamePlural = breakdown?.displayNamePlural || 'Credits'
   const resourceType = breakdown?.resourceType || ''
@@ -446,7 +447,7 @@ function CurrentAccountDetail({ account, accent, maskEmail, t }: {
         </div>
         <div className="flex items-center justify-between">
           <span className="text-[11px] text-muted-foreground font-mono">
-            {mainUsedPrecision} / {mainLimitPrecision} {displayName}
+            {isOverage ? mainLimitPrecision : mainUsedPrecision} / {mainLimitPrecision} {displayName}
           </span>
           {isOverage ? (
             <span className="text-[11px] font-semibold text-purple-500">超额 {currentOveragesPrecision}</span>

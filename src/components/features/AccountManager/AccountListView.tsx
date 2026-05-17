@@ -175,7 +175,9 @@ const ListRow = memo(function ListRow({
       {/* 配额 */}
       <div className="w-24 shrink-0">
         <div className="flex items-center justify-between">
-          <span className={`text-[11px] font-bold ${isOverage ? 'text-purple-500' : used >= limit && limit > 0 ? 'text-red-500' : 'text-foreground'}`}>{formatUsage(used)}</span>
+          <span className={`text-[11px] font-bold ${isOverage ? 'text-purple-500' : used >= limit && limit > 0 ? 'text-red-500' : 'text-foreground'}`}>
+            {isOverage ? formatUsage(limit) : formatUsage(used)}
+          </span>
           <span className="text-[10px] text-muted-foreground">/{formatUsage(limit)}</span>
         </div>
         <div className="h-1 rounded-full bg-muted mt-0.5 overflow-hidden">
