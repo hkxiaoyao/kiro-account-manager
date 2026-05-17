@@ -150,7 +150,7 @@ const ListRow = memo(function ListRow({
       />
 
       {/* 邮箱 + 备注 */}
-      <div className="w-48 shrink-0 min-w-0">
+      <div className="flex-[2] min-w-[120px] min-w-0">
         <div className="flex items-center gap-1.5">
           <span className="text-xs font-medium truncate text-foreground">
             {account.email ? maskEmail(account.email) : getAccountDisplayName(account)}
@@ -240,7 +240,7 @@ const ListRow = memo(function ListRow({
       </div>
 
       {/* 标签 */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-[1.5] min-w-[80px] min-w-0">
         {account.tagLinks && account.tagLinks.length > 0 ? (
           <div className="flex items-center gap-1 flex-wrap">
             {account.tagLinks.slice(0, 3).map(tagLink => {
@@ -440,7 +440,7 @@ function AccountListView({
       {/* 表头 */}
       <div className="flex items-center gap-3 px-3 h-9 bg-muted/50 border border-border rounded-t-md text-muted-foreground text-[10px] font-bold uppercase tracking-wider">
         <div className="w-4" />
-        <div className="w-48">邮箱</div>
+        <div className="flex-[2] min-w-[120px]">邮箱</div>
         <div className="w-16 text-center">来源</div>
         <div className="w-16 text-center">订阅</div>
         <button type="button" onClick={() => handleSort('usage')} className="w-24 text-left hover:text-primary transition-colors">
@@ -451,7 +451,7 @@ function AccountListView({
           过期 / 试用<SortIcon field="trial" />
         </button>
         <div className="w-16">分组</div>
-        <div className="flex-1">标签</div>
+        <div className="flex-[1.5] min-w-[80px]">标签</div>
       </div>
 
       {/* 列表 */}
