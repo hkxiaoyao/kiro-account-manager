@@ -2,8 +2,8 @@
 // 参考 Kiro IDE 源码实现
 
 use crate::commands::common::{
-    calc_expires_at, is_auth_error_message, is_token_expired, is_token_expiring_soon,
-    refresh_token_by_provider, REFRESH_LOOP_INTERVAL_SECONDS,
+    apply_refreshed_account_tokens, is_auth_error_message, is_token_expired,
+    is_token_expiring_soon, refresh_token_by_provider, REFRESH_LOOP_INTERVAL_SECONDS,
 };
 use crate::state::AppState;
 use tauri::{AppHandle, Emitter, Manager};
@@ -100,22 +100,8 @@ impl TokenRefreshService {
                                     .unwrap_or("Unknown")
                                     .to_string();
 
-                                // 更新 token 信息
-                                acc.access_token = Some(refresh_result.access_token);
-                                acc.refresh_token = refresh_result.refresh_token;
-                                acc.expires_at = Some(calc_expires_at(refresh_result.expires_in));
-
-                                // IdC 账号更新额外字段
-                                if let Some(id_token) = refresh_result.id_token {
-                                    acc.id_token = Some(id_token);
-                                }
-                                if let Some(sso_session_id) = refresh_result.sso_session_id {
-                                    acc.sso_session_id = Some(sso_session_id);
-                                }
-                                // Social 账号更新 profile_arn
-                                if let Some(profile_arn) = refresh_result.profile_arn {
-                                    acc.profile_arn = Some(profile_arn);
-                                }
+                                // 应用刷新结果到 Account（统一的字段更新策略）
+                                apply_refreshed_account_tokens(acc, &refresh_result);
 
                                 // 保存到文件
                                 if let Err(e) = store.try_save_to_file() {

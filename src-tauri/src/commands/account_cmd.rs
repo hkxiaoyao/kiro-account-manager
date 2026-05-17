@@ -124,16 +124,10 @@ pub struct VerifyAccountParams {
     pub region: Option<String>,
 }
 
+/// account_cmd 的扩展：在通用 token 应用之上额外做缓存清理 / status 重置
 fn apply_refreshed_account_tokens(account: &mut Account, refresh: &RefreshResult) {
     clear_available_models_cache(account);
-    account.access_token = Some(refresh.access_token.clone());
-    if let Some(refresh_token) = refresh.refresh_token.clone() {
-        account.refresh_token = Some(refresh_token);
-    }
-    account.profile_arn = refresh.profile_arn.clone();
-    account.id_token = refresh.id_token.clone();
-    account.sso_session_id = refresh.sso_session_id.clone();
-    account.expires_at = Some(calc_expires_at(refresh.expires_in));
+    crate::commands::common::apply_refreshed_account_tokens(account, refresh);
     account.status = "active".to_string();
 }
 

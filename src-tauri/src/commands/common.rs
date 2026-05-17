@@ -138,6 +138,30 @@ pub struct RefreshResult {
     pub sso_session_id: Option<String>,
 }
 
+/// 把 token refresh 结果应用到 Account 上
+///
+/// 字段更新策略：
+/// - access_token：总是覆盖（refresh 一定返回新值）
+/// - refresh_token / profile_arn / id_token / sso_session_id：仅当返回了新值才覆盖
+///   （避免 social refresh 没返回某字段时把已有的清掉）
+/// - expires_at：根据 expires_in 重算
+pub fn apply_refreshed_account_tokens(account: &mut Account, refresh: &RefreshResult) {
+    account.access_token = Some(refresh.access_token.clone());
+    if let Some(refresh_token) = refresh.refresh_token.clone() {
+        account.refresh_token = Some(refresh_token);
+    }
+    if let Some(profile_arn) = refresh.profile_arn.clone() {
+        account.profile_arn = Some(profile_arn);
+    }
+    if let Some(id_token) = refresh.id_token.clone() {
+        account.id_token = Some(id_token);
+    }
+    if let Some(sso_session_id) = refresh.sso_session_id.clone() {
+        account.sso_session_id = Some(sso_session_id);
+    }
+    account.expires_at = Some(calc_expires_at(refresh.expires_in));
+}
+
 /// Usage 获取结果
 pub struct UsageResult {
     pub usage_data: serde_json::Value,

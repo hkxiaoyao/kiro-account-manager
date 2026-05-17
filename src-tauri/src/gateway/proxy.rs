@@ -23,7 +23,7 @@ use url::Url;
 use crate::{
     core::account::{Account, AccountStore},
     commands::common::{
-        calc_expires_at, calc_status, get_usage_by_provider, is_token_expiring_soon,
+        calc_status, get_usage_by_provider, is_token_expiring_soon,
         refresh_token_by_provider, resolve_default_profile_arn, RefreshResult,
     },
     commands::machine_guid::get_machine_id,
@@ -3358,14 +3358,8 @@ fn persist_account_refresh(
         .iter_mut()
         .find(|candidate| candidate.id == account.id)
     {
-        target.access_token = Some(refresh.access_token.clone());
-        target.refresh_token = refresh.refresh_token.clone();
-        target.expires_at = Some(calc_expires_at(refresh.expires_in));
-        if let Some(profile_arn) = refresh.profile_arn.clone() {
-            target.profile_arn = Some(profile_arn);
-        }
-        target.id_token = refresh.id_token.clone();
-        target.sso_session_id = refresh.sso_session_id.clone();
+        // 应用 token 字段更新（Option 字段仅在新值存在时覆盖，避免清空已有值）
+        crate::commands::common::apply_refreshed_account_tokens(target, &refresh);
         if let Some(data) = usage_data {
             target.usage_data = Some(data);
         }
