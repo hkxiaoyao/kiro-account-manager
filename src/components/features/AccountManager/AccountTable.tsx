@@ -41,7 +41,7 @@ const VirtualRow = memo(function VirtualRow({
   t,
   onContextMenuOpen}: any) {
   return (
-    <div className="gap-6 pb-6" style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
+    <div className="gap-3 pb-4" style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
       {row.map((item: any) => {
         if (item._isAddButton) {
           return <AddButton key="add" onClick={onAdd} t={t} />
@@ -183,40 +183,40 @@ function AccountTable({
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 320,
+    estimateSize: () => 240,
     overscan: 1})
 
   // 将 selectedIds 转为 Set 提高查找性能
   const selectedIdsSet = useMemo(() => new Set(selectedIds), [selectedIds])
 
   return (
-    <div ref={containerRef} className="flex-1 flex flex-col overflow-hidden p-6">
+    <div ref={containerRef} className="flex-1 flex flex-col overflow-hidden p-3">
       {accounts.length > 0 && (
-        <div className="flex items-center justify-between mb-4 px-1 shrink-0">
+        <div className="flex items-center justify-between mb-2 px-1 shrink-0">
           <label className="flex items-center gap-2 cursor-pointer">
             <Checkbox
               checked={selectedIds.length === accounts.length && accounts.length > 0}
               onCheckedChange={onSelectAll}
             />
-            <span className={`text-sm text-muted-foreground`}>
+            <span className="text-xs text-muted-foreground">
               {selectedIds.length > 0 ? `${t('common.selected')} ${selectedIds.length}` : t('common.selectAll')}
             </span>
           </label>
-          <span className={`text-sm text-muted-foreground`}>
+          <span className="text-xs text-muted-foreground">
             {accounts.length === totalCount ? `共 ${totalCount} 个账号` : `${accounts.length} / ${totalCount} 个账号`}
           </span>
         </div>
       )}
 
       {accounts.length === 0 ? (
-        <div className={`flex flex-col items-center justify-center py-20 text-muted-foreground`}>
-          <div className={`w-20 h-20 rounded-full bg-muted/30 flex items-center justify-center animate-float mb-4`}>
-            <Users size={40} strokeWidth={1} className="opacity-50" />
+        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+          <div className="w-16 h-16 rounded-full bg-muted/30 flex items-center justify-center mb-3">
+            <Users size={32} strokeWidth={1.5} className="opacity-50" />
           </div>
-          <p className="font-medium mb-1">{t('common.noAccounts')}</p>
-          <p className="text-sm opacity-75">{t('common.addAccountHint')}</p>
-          <button onClick={onAdd} className={`mt-4 px-4 py-2 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer`}>
-            <Plus size={16} className="inline mr-1" />
+          <p className="text-sm font-medium mb-1">{t('common.noAccounts')}</p>
+          <p className="text-xs opacity-75">{t('common.addAccountHint')}</p>
+          <button onClick={onAdd} className="mt-3 px-3 h-8 rounded-md bg-muted/40 hover:bg-muted/60 transition-colors cursor-pointer text-xs inline-flex items-center gap-1.5">
+            <Plus size={13} />
             {t('common.addAccount')}
           </button>
         </div>

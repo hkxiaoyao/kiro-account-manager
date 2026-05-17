@@ -297,14 +297,14 @@ function AccountListView({
 
   if (accounts.length === 0) {
     return (
-      <div className="flex-1 flex flex-col overflow-hidden p-6">
-        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-          <div className="w-20 h-20 rounded-full bg-muted/30 flex items-center justify-center mb-4">
-            <Users size={40} strokeWidth={1} className="opacity-50" />
+      <div className="flex-1 flex flex-col overflow-hidden p-3">
+        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+          <div className="w-16 h-16 rounded-full bg-muted/30 flex items-center justify-center mb-3">
+            <Users size={32} strokeWidth={1.5} className="opacity-50" />
           </div>
-          <p className="font-medium mb-1">{t('common.noAccounts')}</p>
-          <button onClick={onAdd} className="mt-4 px-4 py-2 rounded-xl bg-primary text-primary-foreground font-bold hover:opacity-90">
-            <Plus size={16} className="inline mr-1" />{t('common.addAccount')}
+          <p className="text-sm font-medium mb-1">{t('common.noAccounts')}</p>
+          <button onClick={onAdd} className="mt-3 px-3 h-8 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 inline-flex items-center gap-1.5">
+            <Plus size={13} />{t('common.addAccount')}
           </button>
         </div>
       </div>
@@ -312,19 +312,19 @@ function AccountListView({
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden p-6">
+    <div className="flex-1 flex flex-col overflow-hidden p-3">
       <div className="flex items-center justify-between mb-2 px-1 shrink-0">
         <label className="flex items-center gap-2 cursor-pointer">
           <Checkbox
             checked={selectedIds.length === accounts.length && accounts.length > 0}
             onCheckedChange={(checked) => onSelectAll(checked)}
           />
-          <span className="text-sm text-muted-foreground font-medium">{selectedIds.length > 0 ? `${t('common.selected')} ${selectedIds.length}` : t('common.selectAll')}</span>
+          <span className="text-xs text-muted-foreground">{selectedIds.length > 0 ? `${t('common.selected')} ${selectedIds.length}` : t('common.selectAll')}</span>
         </label>
-        <span className="text-sm text-muted-foreground font-medium">{accounts.length === totalCount ? `共 ${totalCount} 个账号` : `${accounts.length} / ${totalCount} 个账号`}</span>
+        <span className="text-xs text-muted-foreground">{accounts.length === totalCount ? `共 ${totalCount} 个账号` : `${accounts.length} / ${totalCount} 个账号`}</span>
       </div>
 
-      <div className="flex items-center gap-3 px-4 py-3 bg-muted/50 border border-border rounded-t-xl text-muted-foreground text-[10px] font-bold uppercase tracking-widest">
+      <div className="flex items-center gap-3 px-4 py-2.5 bg-muted/50 border border-border rounded-t-md text-muted-foreground text-[10px] font-bold uppercase tracking-widest">
         <div className="w-4" />
         <div className="w-48">邮箱</div>
         <div className="w-20 text-center">账号类型</div>

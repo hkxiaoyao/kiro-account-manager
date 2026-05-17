@@ -105,11 +105,11 @@ const AccountCard = memo(function AccountCard({
   return (
     <div
       onContextMenu={handleContextMenu}
-      className={`relative rounded-2xl border flex flex-col min-h-[240px] animate-stagger transition-all duration-300 ${cardStatusClass} ${account.enabled === false ? 'opacity-50 grayscale' : ''}`}
+      className={`relative rounded-xl border flex flex-col min-h-[220px] animate-stagger transition-all duration-300 ${cardStatusClass} ${account.enabled === false ? 'opacity-50 grayscale' : ''}`}
       style={{ animationDelay: `${Math.min(index, 20) * 30}ms` }}
     >
       {isCurrentAccount && (
-        <div className="absolute -top-px -left-px -right-px h-1 bg-gradient-to-r from-green-500/80 to-emerald-500/80 rounded-t-2xl z-20" />
+        <div className="absolute -top-px -left-px -right-px h-1 bg-gradient-to-r from-green-500/80 to-emerald-500/80 rounded-t-xl z-20" />
       )}
 
       <div className="absolute top-3 left-3 z-10">
