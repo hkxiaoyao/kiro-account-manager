@@ -978,11 +978,13 @@ pub async fn build_kiro_payload(
             (None, all_sanitized.into_iter().last())
         } else {
             let mut history_part: Vec<HistoryItem> = all_sanitized[..all_sanitized.len() - 1].to_vec();
-            // 如果当前请求未启用 thinking，剥掉 history 中的 reasoningContent
-            // Kiro API 不允许 history 包含 reasoningContent 但请求未启用 thinking mode
-            if request.thinking.is_none() {
-                for item in &mut history_part {
-                    if let HistoryItem::Assistant { assistant_response_message } = item {
+            // 剥掉 history 中签名为空/缺失的 reasoningContent
+            // Kiro API 后端会校验 reasoningContent 的 SHA-256 签名：
+            //   - opus-4.7 原生 thinking 会产生有效签名 → 保留可让模型记得上一轮思考
+            //   - 其他模型靠 <thinking_mode> 提示词强制思考时签名为空 → 必须剥掉，否则 400 THINKING_SIGNATURE_INVALID
+            for item in &mut history_part {
+                if let HistoryItem::Assistant { assistant_response_message } = item {
+                    if has_empty_thinking_signature(&assistant_response_message.reasoning_content) {
                         assistant_response_message.reasoning_content = None;
                     }
                 }
@@ -1872,6 +1874,28 @@ fn assistant_metadata_value(message: &NormalizedMessage, key: &str) -> Option<Va
                 .as_ref()
                 .and_then(|value| value.get(key).cloned())
         })
+}
+
+/// 判断 reasoning_content 的签名是否为空或缺失
+///
+/// Kiro API 后端会校验 `reasoningContent.reasoningText.signature`（SHA-256）：
+/// - opus-4.7 原生 thinking 会产生有效签名 → 此函数返回 false（保留 reasoningContent）
+/// - 其他模型靠 `<thinking_mode>` 提示词强制思考时签名为空字符串
+///   → 此函数返回 true（必须从 history 剥掉，否则 400 THINKING_SIGNATURE_INVALID）
+fn has_empty_thinking_signature(reasoning_content: &Option<Value>) -> bool {
+    let Some(rc) = reasoning_content else {
+        return false; // 没有就不需要剥
+    };
+    // 结构: { reasoningText: { text, signature } } 或 { redactedContent: bytes }
+    let signature = rc
+        .get("reasoningText")
+        .and_then(|rt| rt.get("signature"))
+        .and_then(|s| s.as_str());
+    match signature {
+        None => true,           // 缺 signature 字段
+        Some("") => true,       // 空字符串
+        Some(_) => false,       // 有值，保留
+    }
 }
 
 fn extract_reasoning_content(content: Option<&Value>) -> Option<Value> {
