@@ -6,33 +6,46 @@ import { Switch } from '../../ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
 import { Label } from '../../ui/label'
 import { AI_MODELS } from './settingsConstants'
-import React from 'react'
 
 interface SettingsKiroProps {
-  aiModel: string;
-  lockModel: boolean;
-  agentAutonomy: string;
-  trustedCommandsMode: string;
-  customTrustedCommands: string;
-  trustedTools: string;
-  setTrustedTools: (value: string) => void;
-  configureMcp: string;
-  httpProxy: string;
-  setHttpProxy: (value: string) => void;
-  originalProxy: string;
-  savingProxy: boolean;
-  detectingProxy: boolean;
-  savingModel: boolean;
-  handleApplyModel: (model: string) => Promise<void>;
-  handleLockModelChange: (checked: boolean) => Promise<void>;
-  handleAgentAutonomyChange: (mode: string) => Promise<void>;
-  handleTrustedCommandsModeChange: (mode: string) => Promise<void>;
-  handleCustomTrustedCommandsChange: (commands: string) => Promise<void>;
-  handleTrustedToolsSave: (value: string) => Promise<void>;
-  handleConfigureMcpChange: (mode: string) => Promise<void>;
-  handleApplyProxy: () => Promise<void>;
-  handleDetectProxy: () => Promise<void>;
-  t: (key: string) => string;
+  // 模型/工具
+  aiModel: string
+  lockModel: boolean
+  agentAutonomy: string
+  trustedCommandsMode: string
+  customTrustedCommands: string
+  trustedTools: string
+  setTrustedTools: (value: string) => void
+  configureMcp: string
+  // 代理
+  httpProxy: string
+  setHttpProxy: (value: string) => void
+  originalProxy: string
+  savingProxy: boolean
+  detectingProxy: boolean
+  savingModel: boolean
+  // Agent 行为开关（从原 SettingsAgent 合并过来）
+  enableCodebaseIndexing: boolean
+  enableTabAutocomplete: boolean
+  usageSummary: boolean
+  enableDebugLogs: boolean
+  referenceTracker: boolean
+  // handlers
+  handleApplyModel: (model: string) => Promise<void>
+  handleLockModelChange: (checked: boolean) => Promise<void>
+  handleAgentAutonomyChange: (mode: string) => Promise<void>
+  handleTrustedCommandsModeChange: (mode: string) => Promise<void>
+  handleCustomTrustedCommandsChange: (commands: string) => Promise<void>
+  handleTrustedToolsSave: (value: string) => Promise<void>
+  handleConfigureMcpChange: (mode: string) => Promise<void>
+  handleApplyProxy: () => Promise<void>
+  handleDetectProxy: () => Promise<void>
+  handleCodebaseIndexingChange: (checked: boolean) => Promise<void>
+  handleTabAutocompleteChange: (checked: boolean) => Promise<void>
+  handleUsageSummaryChange: (checked: boolean) => Promise<void>
+  handleDebugLogsChange: (checked: boolean) => Promise<void>
+  handleReferenceTrackerChange: (checked: boolean) => Promise<void>
+  t: (key: string) => string
 }
 
 function SettingsKiro({
@@ -50,6 +63,11 @@ function SettingsKiro({
   savingProxy,
   detectingProxy,
   savingModel,
+  enableCodebaseIndexing,
+  enableTabAutocomplete,
+  usageSummary,
+  enableDebugLogs,
+  referenceTracker,
   handleApplyModel,
   handleLockModelChange,
   handleAgentAutonomyChange,
@@ -59,151 +77,208 @@ function SettingsKiro({
   handleConfigureMcpChange,
   handleApplyProxy,
   handleDetectProxy,
-  t
+  handleCodebaseIndexingChange,
+  handleTabAutocompleteChange,
+  handleUsageSummaryChange,
+  handleDebugLogsChange,
+  handleReferenceTrackerChange,
+  t,
 }: SettingsKiroProps) {
   const proxyChanged = httpProxy !== originalProxy
 
   return (
-    <Card className="card-glow animate-slide-in-left delay-150 mb-6">
-      <CardContent className="p-6">
-        <h2 className="text-lg font-semibold text-foreground mb-1">{t('settings.kiroSettings')}</h2>
-        <p className="text-sm text-muted-foreground mb-4">{t('settings.kiroSettingsDesc')}</p>
+    <div className="space-y-3">
+      {/* === Kiro IDE 配置 === */}
+      <Card className="card-glow animate-slide-in-left delay-150">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-4 bg-primary rounded-full" />
+            <h2 className="text-sm font-semibold text-foreground">{t('settings.kiroSettings')}</h2>
+          </div>
 
-        <div className="grid grid-cols-2 gap-6">
-          {/* 左列：下拉选项 + 代理 */}
-          <div className="space-y-4">
-            {/* AI 模型 */}
+          {/* AI 模型 */}
+          <div>
+            <Label className="block text-xs text-muted-foreground mb-1">
+              {t('settings.aiModel')}
+              {savingModel && <span className="text-[10px] ml-2 text-primary">{t('settings.saving')}</span>}
+            </Label>
+            <Select value={aiModel} onValueChange={handleApplyModel} disabled={savingModel}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {AI_MODELS.map(m => (
+                  <SelectItem key={m.value} value={m.value}>
+                    {m.recommended ? `${m.label} (⭐ ${t('common.recommended')})` : m.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* 锁定模型（紧凑开关行）*/}
+          <label className="flex items-center gap-2 cursor-pointer rounded-lg px-3 py-2 border border-border bg-card hover:bg-muted/40">
+            <Switch checked={lockModel} onCheckedChange={handleLockModelChange} />
+            <Lock size={13} className="text-muted-foreground" />
+            <span className="text-sm text-foreground">{t('settings.lockModel')}</span>
+            <span className="text-xs text-muted-foreground ml-1">{t('settings.lockModelDesc')}</span>
+          </label>
+
+          {/* Agent 自主模式 + 信任命令（双列）*/}
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label className="block text-sm text-muted-foreground mb-1.5">
-                {t('settings.aiModel')} {savingModel && <span className="text-xs ml-2 text-primary">{t('settings.saving')}</span>}
-              </Label>
-              <Select value={aiModel} onValueChange={handleApplyModel} disabled={savingModel}>
-                <SelectTrigger className="text-foreground bg-background border-border">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-border">
-                  {AI_MODELS.map(model => (
-                    <SelectItem key={model.value} value={model.value} className="text-foreground">
-                      {model.recommended ? `${model.label} (⭐ ${t('common.recommended')})` : model.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* 锁定模型 */}
-            <div className="flex items-center gap-3 cursor-pointer rounded-lg p-3 border border-border bg-muted/30 hover:bg-muted/50">
-              <Switch checked={lockModel} onCheckedChange={handleLockModelChange} />
-              <Lock size={14} className="text-muted-foreground" />
-              <div>
-                <span className="text-sm text-foreground">{t('settings.lockModel')}</span>
-                <p className="text-xs text-muted-foreground">{t('settings.lockModelDesc')}</p>
-              </div>
-            </div>
-
-            {/* Agent 自主模式 */}
-            <div>
-              <Label className="block text-sm text-muted-foreground mb-1.5">{t('settings.agentAutonomy')}</Label>
+              <Label className="block text-xs text-muted-foreground mb-1">{t('settings.agentAutonomy')}</Label>
               <Select value={agentAutonomy} onValueChange={handleAgentAutonomyChange}>
-                <SelectTrigger className="text-foreground bg-background border-border focus:ring-primary/20">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-border">
-                  <SelectItem value="Supervised" className="text-foreground">{t('settings.agentSupervised')}</SelectItem>
-                  <SelectItem value="Autopilot" className="text-foreground">{t('settings.agentAutopilot')}</SelectItem>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Supervised">{t('settings.agentSupervised')}</SelectItem>
+                  <SelectItem value="Autopilot">{t('settings.agentAutopilot')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {/* 信任命令 */}
             <div>
-              <Label className="block text-sm text-muted-foreground mb-1.5">{t('settings.trustedCommands')}</Label>
+              <Label className="block text-xs text-muted-foreground mb-1">{t('settings.trustedCommands')}</Label>
               <Select value={trustedCommandsMode} onValueChange={handleTrustedCommandsModeChange}>
-                <SelectTrigger className="text-foreground bg-background border-border focus:ring-primary/20">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-border">
-                  <SelectItem value="none" className="text-foreground">{t('settings.trustedCommandsNone')}</SelectItem>
-                  <SelectItem value="common" className="text-foreground">{t('settings.trustedCommandsCommon')}</SelectItem>
-                  <SelectItem value="all" className="text-foreground">{t('settings.trustedCommandsAll')}</SelectItem>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{t('settings.trustedCommandsNone')}</SelectItem>
+                  <SelectItem value="common">{t('settings.trustedCommandsCommon')}</SelectItem>
+                  <SelectItem value="all">{t('settings.trustedCommandsAll')}</SelectItem>
                 </SelectContent>
               </Select>
-              {trustedCommandsMode === 'common' && (
-                <Textarea
-                  value={customTrustedCommands}
-                  onChange={(e) => handleCustomTrustedCommandsChange(e.target.value)}
-                  placeholder="npm *&#10;git *&#10;cargo *"
-                  className="text-foreground bg-background border-border focus:ring-primary/20 font-mono text-sm mt-2"
-                  rows={3}
-                />
-              )}
-              <p className="text-xs text-muted-foreground mt-1">{t('settings.trustedCommandsDesc')}</p>
             </div>
+          </div>
 
-            {/* 信任工具 */}
+          {trustedCommandsMode === 'common' && (
             <div>
-              <label className="block text-sm text-muted-foreground mb-1.5">{t('settings.trustedTools')}</label>
-              <Input
-                value={trustedTools}
-                onChange={(e) => setTrustedTools(e.target.value)}
-                onBlur={(e) => handleTrustedToolsSave(e.target.value)}
-                placeholder={t('settings.trustedToolsPlaceholder')}
-                className="text-foreground bg-background border-border"
+              <Textarea
+                value={customTrustedCommands}
+                onChange={e => handleCustomTrustedCommandsChange(e.target.value)}
+                placeholder="npm *&#10;git *&#10;cargo *"
+                className="font-mono text-xs"
+                rows={3}
               />
-              <p className="text-xs text-muted-foreground mt-1">{t('settings.trustedToolsDesc')}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">{t('settings.trustedCommandsDesc')}</p>
             </div>
+          )}
 
-            {/* MCP 配置 */}
+          {/* 信任工具 */}
+          <div>
+            <Label className="block text-xs text-muted-foreground mb-1">{t('settings.trustedTools')}</Label>
+            <Input
+              value={trustedTools}
+              onChange={e => setTrustedTools(e.target.value)}
+              onBlur={e => handleTrustedToolsSave(e.target.value)}
+              placeholder={t('settings.trustedToolsPlaceholder')}
+              className="h-8 text-xs"
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">{t('settings.trustedToolsDesc')}</p>
+          </div>
+
+          {/* MCP + HTTP 代理（双列）*/}
+          <div className="grid grid-cols-[160px_1fr] gap-3 items-end">
             <div>
-              <label className="block text-sm text-muted-foreground mb-1.5">{t('settings.configureMCP')}</label>
+              <Label className="block text-xs text-muted-foreground mb-1">{t('settings.configureMCP')}</Label>
               <Select value={configureMcp} onValueChange={handleConfigureMcpChange}>
-                <SelectTrigger className="text-foreground bg-background border-border">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-border">
-                  <SelectItem value="Enabled" className="text-foreground">{t('settings.configureMCPEnabled')}</SelectItem>
-                  <SelectItem value="Disabled" className="text-foreground">{t('settings.configureMCPDisabled')}</SelectItem>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Enabled">{t('settings.configureMCPEnabled')}</SelectItem>
+                  <SelectItem value="Disabled">{t('settings.configureMCPDisabled')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {/* HTTP 代理 */}
             <div>
-              <label className="block text-sm text-muted-foreground mb-1.5">{t('settings.httpProxy')}</label>
-              <div className="flex gap-2">
+              <Label className="block text-xs text-muted-foreground mb-1">{t('settings.httpProxy')}</Label>
+              <div className="flex gap-1.5">
                 <Input
                   value={httpProxy}
-                  onChange={(e) => setHttpProxy(e.target.value)}
+                  onChange={e => setHttpProxy(e.target.value)}
                   placeholder="http://127.0.0.1:7897"
-                  className="text-foreground bg-background border-border flex-1"
+                  className="h-8 text-xs flex-1"
                 />
                 <button
                   onClick={handleDetectProxy}
                   disabled={detectingProxy}
-                  className="px-3 py-2 border rounded-lg bg-card hover:bg-muted/50 border-border text-foreground flex items-center gap-1 text-xs"
+                  className="px-2 h-8 border rounded-md bg-card hover:bg-muted/50 border-border text-foreground transition-colors disabled:opacity-50"
                   title={t('settings.detectProxyTitle')}
                 >
-                  {detectingProxy ? <RefreshCw size={14} className="animate-spin" /> : <Search size={14} />}
-                  {t('settings.detect')}
+                  {detectingProxy ? <RefreshCw size={12} className="animate-spin" /> : <Search size={12} />}
                 </button>
                 <button
                   onClick={handleApplyProxy}
                   disabled={savingProxy || !proxyChanged}
-                  className={`px-3 py-2 rounded-lg flex items-center gap-1 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed border ${proxyChanged
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-muted text-muted-foreground border-border"
-                    }`}
+                  className={`px-3 h-8 rounded-md flex items-center gap-1 text-xs font-medium border transition-colors disabled:opacity-50 ${
+                    proxyChanged
+                      ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
+                      : 'bg-muted text-muted-foreground border-border'
+                  }`}
                 >
-                  {savingProxy ? <RefreshCw size={14} className="animate-spin" /> : <Check size={14} />}
+                  {savingProxy ? <RefreshCw size={12} className="animate-spin" /> : <Check size={12} />}
                   {savingProxy ? t('settings.saving') : t('settings.apply')}
                 </button>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">{t('settings.proxyTip')}</p>
             </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+          <p className="text-[11px] text-muted-foreground -mt-1">{t('settings.proxyTip')}</p>
+        </CardContent>
+      </Card>
+
+      {/* === Agent 行为开关（原 Agent tab 合并过来）=== */}
+      <Card className="card-glow animate-slide-in-left delay-200">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-4 bg-primary rounded-full" />
+            <h2 className="text-sm font-semibold text-foreground">{t('settings.agentSettings')}</h2>
+            <span className="text-xs text-muted-foreground">{t('settings.agentSettingsDesc')}</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <ToggleRow
+              checked={enableCodebaseIndexing}
+              onChange={handleCodebaseIndexingChange}
+              label={t('settings.enableCodebaseIndexing')}
+            />
+            <ToggleRow
+              checked={enableTabAutocomplete}
+              onChange={handleTabAutocompleteChange}
+              label={t('settings.enableTabAutocomplete')}
+            />
+            <ToggleRow
+              checked={usageSummary}
+              onChange={handleUsageSummaryChange}
+              label={t('settings.usageSummary')}
+            />
+            <ToggleRow
+              checked={referenceTracker}
+              onChange={handleReferenceTrackerChange}
+              label={t('settings.referenceTracker')}
+            />
+            <ToggleRow
+              checked={enableDebugLogs}
+              onChange={handleDebugLogsChange}
+              label={t('settings.enableDebugLogs')}
+            />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+function ToggleRow({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean
+  onChange: (v: boolean) => Promise<void> | void
+  label: string
+}) {
+  return (
+    <label className="flex items-center gap-2 cursor-pointer px-2.5 py-1.5 rounded-md border border-border bg-card hover:bg-muted/40 transition-colors">
+      <Switch checked={checked} onCheckedChange={onChange} />
+      <span className="text-xs text-foreground">{label}</span>
+    </label>
   )
 }
 

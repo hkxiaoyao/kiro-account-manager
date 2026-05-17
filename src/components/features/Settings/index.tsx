@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { emit } from '@tauri-apps/api/event'
-import { Palette, Settings as SettingsIcon, Network, LayoutDashboard, Cpu, Bot, Bell } from 'lucide-react'
+import { Palette, Settings as SettingsIcon, Network, LayoutDashboard, Cpu, Bell } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs'
 import { useApp } from '../../../hooks/useApp'
 import { useDialog } from '../../../contexts/DialogContext'
@@ -13,7 +13,6 @@ import { isValidBrowserPath, isValidProxy } from './settingsValidators'
 import SettingsAppearance from './SettingsAppearance'
 import SettingsGeneral from './SettingsGeneral'
 import SettingsKiro from './SettingsKiro'
-import SettingsAgent from './SettingsAgent'
 import SettingsNotifications from './SettingsNotifications'
 import React from 'react'
 
@@ -477,10 +476,6 @@ function Settings() {
                             <Cpu size={16} />
                             {t('settings.kiro')}
                         </TabsTrigger>
-                        <TabsTrigger value="agent" className="gap-2 px-5 shrink-0 text-sm font-medium">
-                            <Bot size={16} />
-                            {t('settings.agent')}
-                        </TabsTrigger>
                         <TabsTrigger value="notifications" className="gap-2 px-5 shrink-0 text-sm font-medium">
                             <Bell size={16} />
                             {t('settings.notifications')}
@@ -552,6 +547,11 @@ function Settings() {
                             savingProxy={savingProxy}
                             detectingProxy={detectingProxy}
                             savingModel={savingModel}
+                            enableCodebaseIndexing={enableCodebaseIndexing}
+                            enableTabAutocomplete={enableTabAutocomplete}
+                            usageSummary={usageSummary}
+                            enableDebugLogs={enableDebugLogs}
+                            referenceTracker={referenceTracker}
                             handleApplyModel={handleApplyModel}
                             handleLockModelChange={handleLockModelChange}
                             handleAgentAutonomyChange={handleAgentAutonomyChange}
@@ -561,17 +561,6 @@ function Settings() {
                             handleConfigureMcpChange={handleConfigureMcpChange}
                             handleApplyProxy={handleApplyProxy}
                             handleDetectProxy={handleDetectProxy}
-                            t={t}
-                        />
-                    </TabsContent>
-
-                    <TabsContent value="agent">
-                        <SettingsAgent
-                            enableCodebaseIndexing={enableCodebaseIndexing}
-                            enableTabAutocomplete={enableTabAutocomplete}
-                            usageSummary={usageSummary}
-                            enableDebugLogs={enableDebugLogs}
-                            referenceTracker={referenceTracker}
                             handleCodebaseIndexingChange={handleCodebaseIndexingChange}
                             handleTabAutocompleteChange={handleTabAutocompleteChange}
                             handleUsageSummaryChange={handleUsageSummaryChange}
