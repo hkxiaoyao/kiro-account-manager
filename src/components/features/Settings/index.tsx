@@ -384,8 +384,8 @@ function Settings() {
     }
 
     return (
-        <div className="h-full glass-main p-5 overflow-auto flex justify-center">
-            <div className="max-w-5xl w-full relative">
+        <div className="h-full glass-main p-5 overflow-auto">
+            <div className="w-full relative">
                 {/* Header（紧凑 + 装饰 ring）*/}
                 <div className="mb-4 flex items-center gap-3 animate-slide-in-left">
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/80 to-primary flex items-center justify-center shadow-md ring-1 ring-primary/20">
