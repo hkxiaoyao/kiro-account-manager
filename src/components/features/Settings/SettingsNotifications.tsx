@@ -1,61 +1,107 @@
+import { useEffect, useState } from 'react'
+import { invoke } from '@tauri-apps/api/core'
 import { Card, CardContent } from '../../ui/card'
+import { useApp } from '../../../hooks/useApp'
+import { useDialog } from '../../../contexts/DialogContext'
+import { useAppSettings } from '../../../contexts/AppSettingsContext'
+import { NOTIFICATION_SETTINGS_FIELD_MAP } from './settingsConstants'
 import ToggleRow from './ToggleRow'
 
-interface SettingsNotificationsProps {
+interface NotificationState {
   notifyActionRequired: boolean
-  setNotifyActionRequired: (v: boolean) => void
   notifyFailure: boolean
-  setNotifyFailure: (v: boolean) => void
   notifySuccess: boolean
-  setNotifySuccess: (v: boolean) => void
   notifyBilling: boolean
-  setNotifyBilling: (v: boolean) => void
-  telemetryContentCollection: boolean
-  setTelemetryContentCollection: (v: boolean) => void
-  telemetryUsageAnalytics: boolean
-  setTelemetryUsageAnalytics: (v: boolean) => void
-  telemetryEditStats: boolean
-  setTelemetryEditStats: (v: boolean) => void
-  telemetryFeedback: boolean
-  setTelemetryFeedback: (v: boolean) => void
-  handleNotificationChange: (key: string, checked: boolean, setter: (v: boolean) => void) => Promise<void>
-  handleTelemetryChange: (ideKey: string, checked: boolean, setter: (v: boolean) => void, appField: string) => Promise<void>
-  t: (key: string) => string
 }
 
-function SettingsNotifications({
-  notifyActionRequired,
-  setNotifyActionRequired,
-  notifyFailure,
-  setNotifyFailure,
-  notifySuccess,
-  setNotifySuccess,
-  notifyBilling,
-  setNotifyBilling,
-  telemetryContentCollection,
-  setTelemetryContentCollection,
-  telemetryUsageAnalytics,
-  setTelemetryUsageAnalytics,
-  telemetryEditStats,
-  setTelemetryEditStats,
-  telemetryFeedback,
-  setTelemetryFeedback,
-  handleNotificationChange,
-  handleTelemetryChange,
-  t,
-}: SettingsNotificationsProps) {
-  const notificationRows = [
-    { key: 'kiroAgent.notifications.agent.actionRequired', label: 'settings.notifyActionRequired', value: notifyActionRequired, setter: setNotifyActionRequired },
-    { key: 'kiroAgent.notifications.agent.failure', label: 'settings.notifyFailure', value: notifyFailure, setter: setNotifyFailure },
-    { key: 'kiroAgent.notifications.agent.success', label: 'settings.notifySuccess', value: notifySuccess, setter: setNotifySuccess },
-    { key: 'kiroAgent.notifications.billing', label: 'settings.notifyBilling', value: notifyBilling, setter: setNotifyBilling },
+interface TelemetryState {
+  telemetryContentCollection: boolean
+  telemetryUsageAnalytics: boolean
+  telemetryEditStats: boolean
+  telemetryFeedback: boolean
+}
+
+const DEFAULT_NOTIFICATIONS: NotificationState = {
+  notifyActionRequired: true,
+  notifyFailure: true,
+  notifySuccess: true,
+  notifyBilling: true,
+}
+
+const DEFAULT_TELEMETRY: TelemetryState = {
+  telemetryContentCollection: false,
+  telemetryUsageAnalytics: false,
+  telemetryEditStats: false,
+  telemetryFeedback: false,
+}
+
+function SettingsNotifications() {
+  const { t } = useApp()
+  const { showError } = useDialog()
+  const { updateSettings: updateAppSettings } = useAppSettings()
+
+  const [notifications, setNotifications] = useState<NotificationState>(DEFAULT_NOTIFICATIONS)
+  const [telemetry, setTelemetry] = useState<TelemetryState>(DEFAULT_TELEMETRY)
+
+  useEffect(() => {
+    let cancelled = false
+    invoke<any>('get_kiro_settings').then(s => {
+      if (cancelled || !s) return
+      setNotifications({
+        notifyActionRequired: s.notifyActionRequired ?? true,
+        notifyFailure: s.notifyFailure ?? true,
+        notifySuccess: s.notifySuccess ?? true,
+        notifyBilling: s.notifyBilling ?? true,
+      })
+      setTelemetry({
+        telemetryContentCollection: s.telemetryContentCollection ?? false,
+        telemetryUsageAnalytics: s.telemetryUsageAnalytics ?? false,
+        telemetryEditStats: s.telemetryEditStats ?? false,
+        telemetryFeedback: s.telemetryFeedback ?? false,
+      })
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
+  const showSaveError = async (err: unknown) => {
+    await showError(t('settings.saveFailed'), `${t('settings.saveFailed')}: ${err}`)
+  }
+
+  const handleNotificationChange = async (key: string, checked: boolean, field: keyof NotificationState) => {
+    setNotifications(prev => ({ ...prev, [field]: checked }))
+    try {
+      await invoke('set_kiro_notification', { key, enabled: checked })
+      const appField = (NOTIFICATION_SETTINGS_FIELD_MAP as any)[key]
+      if (appField) {
+        await updateAppSettings({ [appField]: checked })
+      }
+    } catch (err) {
+      await showSaveError(err)
+    }
+  }
+
+  const handleTelemetryChange = async (ideKey: string, checked: boolean, field: keyof TelemetryState) => {
+    setTelemetry(prev => ({ ...prev, [field]: checked }))
+    try {
+      await invoke('set_kiro_telemetry', { key: ideKey, enabled: checked })
+      await updateAppSettings({ [field]: checked })
+    } catch (err) {
+      await showSaveError(err)
+    }
+  }
+
+  const notificationRows: { key: string; label: string; field: keyof NotificationState }[] = [
+    { key: 'kiroAgent.notifications.agent.actionRequired', label: 'settings.notifyActionRequired', field: 'notifyActionRequired' },
+    { key: 'kiroAgent.notifications.agent.failure', label: 'settings.notifyFailure', field: 'notifyFailure' },
+    { key: 'kiroAgent.notifications.agent.success', label: 'settings.notifySuccess', field: 'notifySuccess' },
+    { key: 'kiroAgent.notifications.billing', label: 'settings.notifyBilling', field: 'notifyBilling' },
   ]
 
-  const telemetryRows = [
-    { ideKey: 'telemetry.dataSharingAndPromptLogging.contentCollectionForServiceImprovement', appField: 'telemetryContentCollection', label: 'settings.telemetryContentCollection', value: telemetryContentCollection, setter: setTelemetryContentCollection },
-    { ideKey: 'telemetry.dataSharingAndPromptLogging.usageAnalyticsAndPerformanceMetrics', appField: 'telemetryUsageAnalytics', label: 'settings.telemetryUsageAnalytics', value: telemetryUsageAnalytics, setter: setTelemetryUsageAnalytics },
-    { ideKey: 'telemetry.editStats.enabled', appField: 'telemetryEditStats', label: 'settings.telemetryEditStats', value: telemetryEditStats, setter: setTelemetryEditStats },
-    { ideKey: 'telemetry.feedback.enabled', appField: 'telemetryFeedback', label: 'settings.telemetryFeedback', value: telemetryFeedback, setter: setTelemetryFeedback },
+  const telemetryRows: { ideKey: string; label: string; field: keyof TelemetryState }[] = [
+    { ideKey: 'telemetry.dataSharingAndPromptLogging.contentCollectionForServiceImprovement', label: 'settings.telemetryContentCollection', field: 'telemetryContentCollection' },
+    { ideKey: 'telemetry.dataSharingAndPromptLogging.usageAnalyticsAndPerformanceMetrics', label: 'settings.telemetryUsageAnalytics', field: 'telemetryUsageAnalytics' },
+    { ideKey: 'telemetry.editStats.enabled', label: 'settings.telemetryEditStats', field: 'telemetryEditStats' },
+    { ideKey: 'telemetry.feedback.enabled', label: 'settings.telemetryFeedback', field: 'telemetryFeedback' },
   ]
 
   return (
@@ -73,8 +119,8 @@ function SettingsNotifications({
             {notificationRows.map(row => (
               <ToggleRow
                 key={row.key}
-                checked={row.value}
-                onChange={checked => handleNotificationChange(row.key, checked, row.setter)}
+                checked={notifications[row.field]}
+                onChange={checked => handleNotificationChange(row.key, checked, row.field)}
                 label={t(row.label)}
               />
             ))}
@@ -95,8 +141,8 @@ function SettingsNotifications({
             {telemetryRows.map(row => (
               <ToggleRow
                 key={row.ideKey}
-                checked={row.value}
-                onChange={checked => handleTelemetryChange(row.ideKey, checked, row.setter, row.appField)}
+                checked={telemetry[row.field]}
+                onChange={checked => handleTelemetryChange(row.ideKey, checked, row.field)}
                 label={t(row.label)}
               />
             ))}

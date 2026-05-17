@@ -8,7 +8,6 @@ import { useDialog } from '../../../contexts/DialogContext'
 import { useAppSettings } from '../../../contexts/AppSettingsContext'
 import { usePrivacy } from '../../../contexts/PrivacyContext'
 import { persistAppSettings, runKiroCommandWithAppSettings, makeAppBoolToggle, makeKiroBoolToggle } from './settingsActions'
-import { NOTIFICATION_SETTINGS_FIELD_MAP } from './settingsConstants'
 import { isValidBrowserPath, isValidProxy } from './settingsValidators'
 import SettingsAppearance from './SettingsAppearance'
 import SettingsGeneral from './SettingsGeneral'
@@ -49,20 +48,10 @@ function Settings() {
     const [usageSummary, setUsageSummary] = useState(true)
     const [enableDebugLogs, setEnableDebugLogs] = useState(false)
 
-    // 通知设置
-    const [notifyActionRequired, setNotifyActionRequired] = useState(true)
-    const [notifyFailure, setNotifyFailure] = useState(true)
-    const [notifySuccess, setNotifySuccess] = useState(true)
-    const [notifyBilling, setNotifyBilling] = useState(true)
-
     // 新增 Kiro IDE 设置
     const [trustedTools, setTrustedTools] = useState('')
     const [referenceTracker, setReferenceTracker] = useState(false)
     const [configureMcp, setConfigureMcp] = useState('Enabled')
-    const [telemetryContentCollection, setTelemetryContentCollection] = useState(false)
-    const [telemetryUsageAnalytics, setTelemetryUsageAnalytics] = useState(false)
-    const [telemetryEditStats, setTelemetryEditStats] = useState(false)
-    const [telemetryFeedback, setTelemetryFeedback] = useState(false)
 
     // 自动换号设置
     const [autoSwitchEnabled, setAutoSwitchEnabled] = useState(false)
@@ -114,19 +103,10 @@ function Settings() {
                 setEnableTabAutocomplete(kiroSettings.enableTabAutocomplete ?? true)
                 setUsageSummary(kiroSettings.usageSummary ?? true)
                 setEnableDebugLogs(kiroSettings.enableDebugLogs ?? false)
-                // 通知设置
-                setNotifyActionRequired(kiroSettings.notifyActionRequired ?? true)
-                setNotifyFailure(kiroSettings.notifyFailure ?? true)
-                setNotifySuccess(kiroSettings.notifySuccess ?? true)
-                setNotifyBilling(kiroSettings.notifyBilling ?? true)
                 // 新增设置
                 setTrustedTools((kiroSettings.trustedTools || []).join(', '))
                 setReferenceTracker(kiroSettings.referenceTracker ?? false)
                 setConfigureMcp(kiroSettings.configureMcp || 'Enabled')
-                setTelemetryContentCollection(kiroSettings.telemetryContentCollection ?? false)
-                setTelemetryUsageAnalytics(kiroSettings.telemetryUsageAnalytics ?? false)
-                setTelemetryEditStats(kiroSettings.telemetryEditStats ?? false)
-                setTelemetryFeedback(kiroSettings.telemetryFeedback ?? false)
             }
             // 从应用设置读取
             if (appSettings) {
@@ -318,12 +298,6 @@ function Settings() {
 
     const handleDebugLogsChange = makeKiroBoolToggle(setEnableDebugLogs, runKiroCommand, 'set_kiro_debug_logs', 'enableDebugLogs')
 
-    const handleNotificationChange = async (key: string, checked: boolean, setter: (v: boolean) => void) => {
-        setter(checked)
-        const field = (NOTIFICATION_SETTINGS_FIELD_MAP as any)[key]
-        await runKiroCommand('set_kiro_notification', { key, enabled: checked }, field ? { [field]: checked } : null)
-    }
-
     const handleTrustedToolsSave = async (value: string) => {
         setTrustedTools(value)
         const tools = value.split(',').map(s => s.trim()).filter(Boolean)
@@ -335,11 +309,6 @@ function Settings() {
     const handleConfigureMcpChange = async (mode: string) => {
         setConfigureMcp(mode)
         await runKiroCommand('set_kiro_configure_mcp', { mode }, { configureMcp: mode })
-    }
-
-    const handleTelemetryChange = async (ideKey: string, checked: boolean, setter: (v: boolean) => void, appField: string) => {
-        setter(checked)
-        await runKiroCommand('set_kiro_telemetry', { key: ideKey, enabled: checked }, { [appField]: checked })
     }
 
     const handleApplyBrowser = async () => {
@@ -543,27 +512,7 @@ function Settings() {
                     </TabsContent>
 
                     <TabsContent value="notifications">
-                        <SettingsNotifications
-                            notifyActionRequired={notifyActionRequired}
-                            setNotifyActionRequired={setNotifyActionRequired}
-                            notifyFailure={notifyFailure}
-                            setNotifyFailure={setNotifyFailure}
-                            notifySuccess={notifySuccess}
-                            setNotifySuccess={setNotifySuccess}
-                            notifyBilling={notifyBilling}
-                            setNotifyBilling={setNotifyBilling}
-                            telemetryContentCollection={telemetryContentCollection}
-                            setTelemetryContentCollection={setTelemetryContentCollection}
-                            telemetryUsageAnalytics={telemetryUsageAnalytics}
-                            setTelemetryUsageAnalytics={setTelemetryUsageAnalytics}
-                            telemetryEditStats={telemetryEditStats}
-                            setTelemetryEditStats={setTelemetryEditStats}
-                            telemetryFeedback={telemetryFeedback}
-                            setTelemetryFeedback={setTelemetryFeedback}
-                            handleNotificationChange={handleNotificationChange}
-                            handleTelemetryChange={handleTelemetryChange}
-                            t={t}
-                        />
+                        <SettingsNotifications />
                     </TabsContent>
                 </Tabs>
             </div>
