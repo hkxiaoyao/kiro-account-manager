@@ -104,7 +104,7 @@ const AccountCard = memo(function AccountCard({
   return (
     <div
       onContextMenu={handleContextMenu}
-      className={`relative rounded-xl border flex flex-col min-h-[240px] animate-stagger transition-all duration-300 ${cardStatusClass} ${account.enabled === false ? 'opacity-50 grayscale' : ''}`}
+      className={`relative rounded-xl border flex flex-col min-h-[200px] animate-stagger transition-all duration-300 ${cardStatusClass} ${account.enabled === false ? 'opacity-50 grayscale' : ''}`}
       style={{ animationDelay: `${Math.min(index, 20) * 30}ms` }}
     >
       {isCurrentAccount && (
@@ -136,34 +136,35 @@ const AccountCard = memo(function AccountCard({
           }`}>{statusMeta.label}</span>
       </div>
 
-      <div className="p-4 pt-9 flex-1 flex flex-col gap-3">
-        <div className="flex items-start gap-3">
-          <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold shadow-sm border border-border/50 ${account.provider === 'Google' ? "bg-red-500/10 text-red-500" :
+      <div className="p-3 pt-8 flex-1 flex flex-col gap-2">
+        <div className="flex items-start gap-2.5">
+          <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold border border-border/50 flex-shrink-0 ${account.provider === 'Google' ? "bg-red-500/10 text-red-500" :
             isGitHubProvider(account.provider) ? "bg-slate-500/10 text-slate-500" :
               "bg-primary/10 text-primary"
             }`}>
             {getAccountDisplayName(account)[0].toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <span className="font-bold text-foreground text-sm truncate">
+            <div className="flex items-center gap-1 mb-0.5">
+              <span className="font-semibold text-foreground text-xs truncate">
                 {account.email ? maskEmail(account.email) : getAccountDisplayName(account)}
               </span>
               <button
                 onClick={() => onCopy(getAccountDisplayName(account), account.id)}
-                className="p-1 rounded-md hover:bg-muted/80 text-muted-foreground hover:text-primary transition-colors"
+                className="p-0.5 rounded hover:bg-muted/80 text-muted-foreground hover:text-primary transition-colors"
               >
-                {copiedId === account.id ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
+                {copiedId === account.id ? <Check size={10} className="text-green-500" /> : <Copy size={10} />}
               </button>
             </div>
-            <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+            <div className="text-[10px] text-muted-foreground truncate">
               {account.label || getProviderDisplayName(account.provider) || t('common.noLabel')}
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold ${(subPlan.toUpperCase().includes('ENTERPRISE'))
+        {/* Plan + Provider + 分组 + 标签（一行 wrap） */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${(subPlan.toUpperCase().includes('ENTERPRISE'))
             ? 'bg-orange-500 text-white'
             : (subPlan.includes('PRO'))
               ? 'bg-primary text-primary-foreground'
@@ -171,63 +172,74 @@ const AccountCard = memo(function AccountCard({
             }`}>
             {subPlan || 'Free'}
           </span>
-          <span className="px-2 py-0.5 rounded-lg bg-muted/50 text-muted-foreground text-[10px] font-medium border border-border/30">
+          <span className="px-1.5 py-0.5 rounded bg-muted/50 text-muted-foreground text-[10px] font-medium border border-border/30">
             {getProviderDisplayName(account.provider) || t('common.unknown')}
           </span>
-        </div>
-
-        <div className="flex items-center gap-1.5 flex-wrap">
           {account.groupId && (() => {
             const group = groupDefinitions.find(g => g.id === account.groupId)
             if (!group) return null
             return (
-              <span className="text-[10px] px-2 py-0.5 rounded-md font-bold bg-muted/40 border border-border/50" style={{ color: group.color }}>
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-muted/40 border border-border/50" style={{ color: group.color }}>
                 {group.name}
               </span>
             )
           })()}
-          {account.tagLinks?.map(tagLink => {
+          {account.tagLinks?.slice(0, 2).map(tagLink => {
             const tag = tagDefinitions.find(t => t.id === tagLink.tagId)
             return (
-              <span key={tagLink.tagId} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 font-medium">
+              <span key={tagLink.tagId} className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 font-medium truncate max-w-[80px]">
                 {tag?.name || tagLink.tagName}
               </span>
             )
           })}
+          {(account.tagLinks?.length || 0) > 2 && (
+            <span className="text-[10px] text-muted-foreground">+{account.tagLinks!.length - 2}</span>
+          )}
         </div>
 
-        <div className="mt-1 bg-muted/20 rounded-xl p-3 border border-border/30">
-          <div className="flex items-center justify-between text-[11px] mb-2">
+        <div className="mt-1 pt-2 border-t border-border/30">
+          <div className="flex items-center justify-between text-[11px] mb-1">
             <span className="text-muted-foreground font-medium">{t('common.usage')}</span>
-            <span className={`font-bold ${percent > 100 ? 'text-purple-500' : percent > 80 ? 'text-red-500' : percent > 50 ? 'text-orange-500' : 'text-green-500'}`}>
-              {percent > 100 ? '超额' : `${Math.round(percent)}%`}
+            <span className={`font-bold ${
+              (breakdown?.currentOverages ?? 0) > 0 ? 'text-purple-500'
+              : percent > 80 ? 'text-red-500'
+              : percent > 50 ? 'text-orange-500'
+              : 'text-green-500'
+            }`}>
+              {(breakdown?.currentOverages ?? 0) > 0 ? '超额' : `${Math.round(percent)}%`}
             </span>
           </div>
-          <div className="h-1.5 bg-muted rounded-full overflow-hidden mb-2">
+          <div className="h-1 bg-muted rounded-full overflow-hidden mb-1.5">
             <div
-              className={`h-full rounded-full transition-all duration-700 ${percent > 100 ? 'bg-purple-500' : percent > 80 ? 'bg-red-500' : percent > 50 ? 'bg-orange-500' : 'bg-green-500'
-                }`}
+              className={`h-full rounded-full transition-all duration-700 ${
+                (breakdown?.currentOverages ?? 0) > 0 ? 'bg-purple-500'
+                : percent > 80 ? 'bg-red-500'
+                : percent > 50 ? 'bg-orange-500'
+                : 'bg-green-500'
+              }`}
               style={{ width: `${Math.min(percent, 100)}%` }}
             />
           </div>
           <div className="flex items-center justify-between text-[10px] font-medium">
             <span className="text-foreground">{formatUsage(used)} / {formatUsage(quota)}</span>
-            {used > quota ? (
-              <span className="text-purple-500 font-bold">超额 {formatUsage(used - quota)}</span>
+            {(breakdown?.currentOverages ?? 0) > 0 ? (
+              <span className="text-purple-500 font-bold">超额 {formatUsage(breakdown!.currentOverages)}</span>
             ) : (
-              <span className="text-muted-foreground">剩余 {formatUsage(quota - used)}</span>
+              <span className="text-muted-foreground">剩余 {formatUsage(Math.max(0, quota - used))}</span>
             )}
           </div>
           {breakdown?.currentOverages != null && breakdown.currentOverages > 0 && (
-            <div className="flex items-center justify-between text-[10px] pt-2 mt-2 border-t border-border/30">
-              <span className="text-orange-500 font-medium">⚡ 超额: {formatUsage(breakdown.currentOverages)} credits</span>
+            <div className="flex items-center justify-between text-[10px] pt-1.5 mt-1.5 border-t border-border/30">
+              <span className="text-purple-500 font-medium">
+                ⚡ {formatUsage(breakdown.currentOverages)}{breakdown.overageCap ? ` / ${formatUsage(breakdown.overageCap)}` : ''} credits
+              </span>
               {breakdown.overageCharges != null && (
-                <span className="text-orange-500 font-bold">${breakdown.overageCharges.toFixed(2)}</span>
+                <span className="text-purple-500 font-bold">${breakdown.overageCharges.toFixed(2)}</span>
               )}
             </div>
           )}
-          {breakdown?.currentOverages === 0 && account.usageData?.overageConfiguration?.overageStatus === 'ENABLED' && account.usageData?.subscriptionInfo?.overageCapability === 'OVERAGE_CAPABLE' && (
-            <div className="flex items-center justify-between text-[10px] pt-2 mt-2 border-t border-border/30">
+          {(breakdown?.currentOverages === 0 || breakdown?.currentOverages == null) && account.usageData?.overageConfiguration?.overageStatus === 'ENABLED' && account.usageData?.subscriptionInfo?.overageCapability === 'OVERAGE_CAPABLE' && (
+            <div className="flex items-center justify-between text-[10px] pt-1.5 mt-1.5 border-t border-border/30">
               <span className="text-green-500 font-medium">⚡ 超额已开启</span>
               {breakdown?.overageRate != null && (
                 <span className="text-muted-foreground">${breakdown.overageRate}/credit</span>
