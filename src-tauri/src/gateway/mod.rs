@@ -108,7 +108,15 @@ pub struct GatewayConfig {
     /// 是否记录请求日志
     #[serde(default = "default_true_val")]
     pub log_requests: bool,
+    /// 响应缓存：是否启用
+    #[serde(default = "default_true_val")]
+    pub response_cache_enabled: bool,
+    /// 响应缓存：TTL（秒）
+    #[serde(default = "default_cache_ttl")]
+    pub response_cache_ttl: u64,
 }
+
+fn default_cache_ttl() -> u64 { 180 }
 
 /// 自定义提示过滤规则
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -387,6 +395,8 @@ impl Default for GatewayConfig {
             filter_env_noise: false,
             prompt_filter_rules: Vec::new(),
             log_requests: true,
+            response_cache_enabled: true,
+            response_cache_ttl: default_cache_ttl(),
         }
     }
 }
@@ -1000,7 +1010,11 @@ async fn spawn_runtime(config: GatewayConfig) -> Result<GatewayRuntime, String> 
     }
 
     // 初始化响应缓存
-    let cache_config = response_cache::CacheConfig::default();
+    let cache_config = response_cache::CacheConfig {
+        summary_cache_enabled: config.response_cache_enabled,
+        summary_cache_max_age_seconds: config.response_cache_ttl,
+        ..response_cache::CacheConfig::default()
+    };
     let cache_dir = dirs::data_dir()
         .map(|p| p.join(".kiro-account-manager").join("cache"));
     let response_cache = Arc::new(AsyncMutex::new(response_cache::ResponseCache::new(

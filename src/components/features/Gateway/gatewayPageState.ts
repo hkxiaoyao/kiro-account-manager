@@ -21,6 +21,8 @@ export interface GatewayConfig {
   filterStripBoundaries: boolean;
   filterEnvNoise: boolean;
   logRequests: boolean;
+  responseCacheEnabled: boolean;
+  responseCacheTtl: number;
 }
 
 export interface ModelMappingRule {
@@ -61,7 +63,9 @@ export const DEFAULT_GATEWAY_CONFIG: GatewayConfig = {
   filterClaudeCode: false,
   filterStripBoundaries: false,
   filterEnvNoise: false,
-  logRequests: true
+  logRequests: true,
+  responseCacheEnabled: true,
+  responseCacheTtl: 180
 }
 
 export const DEFAULT_GATEWAY_STATUS: GatewayStatus = {
@@ -144,7 +148,9 @@ export const hydrateGatewayConfig = (gatewayConfig: any): GatewayConfig => ({
   filterClaudeCode: gatewayConfig?.filterClaudeCode ?? false,
   filterStripBoundaries: gatewayConfig?.filterStripBoundaries ?? false,
   filterEnvNoise: gatewayConfig?.filterEnvNoise ?? false,
-  logRequests: gatewayConfig?.logRequests ?? true
+  logRequests: gatewayConfig?.logRequests ?? true,
+  responseCacheEnabled: gatewayConfig?.responseCacheEnabled ?? true,
+  responseCacheTtl: gatewayConfig?.responseCacheTtl ?? 180
 })
 
 export const buildGatewayStatusState = (gatewayStatus: any, gatewayConfig: any, fallbackConfig: GatewayConfig = DEFAULT_GATEWAY_CONFIG): GatewayStatus => ({

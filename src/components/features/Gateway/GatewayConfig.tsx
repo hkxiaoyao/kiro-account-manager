@@ -255,6 +255,22 @@ function GatewayConfig({
                   <Label className="text-sm">自动启动</Label>
                   <Switch checked={!!config.enabled} onCheckedChange={handleAutoStartToggle} />
                 </div>
+                <div className="flex items-center justify-between p-2.5 rounded-lg border border-border bg-muted/30">
+                  <Label className="text-sm">响应缓存</Label>
+                  <Switch checked={!!config.responseCacheEnabled} onCheckedChange={(checked: boolean) => setField('responseCacheEnabled', checked)} />
+                </div>
+                <div className="flex flex-col gap-0.5 p-2.5 rounded-lg border border-border bg-muted/30">
+                  <Label className="text-xs text-muted-foreground">缓存TTL(秒)</Label>
+                  <Input
+                    type="number"
+                    value={config.responseCacheTtl}
+                    min={30}
+                    max={3600}
+                    className="h-6 text-sm px-1.5"
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setField('responseCacheTtl', Number(e.target.value) || 180)}
+                    disabled={!config.responseCacheEnabled}
+                  />
+                </div>
                 <div className="flex flex-col gap-0.5 p-2.5 rounded-lg border border-border bg-muted/30">
                   <Label className="text-xs text-muted-foreground">阈值%</Label>
                   <Input
