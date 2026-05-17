@@ -87,6 +87,8 @@ const ListRow = memo(function ListRow({
   const currentOverages = breakdown?.currentOverages ?? 0
   const isOverage = currentOverages > 0
   const usagePercent = limit > 0 ? Math.min((used / limit) * 100, 100) : 0
+  const overageCapability = account.usageData?.subscriptionInfo?.overageCapability
+  const overageStatus = account.usageData?.overageConfiguration?.overageStatus
   const isBanned = isBannedStatus(account)
   const isUnavailable = isUnavailableStatus(account)
   const statusMeta = getAccountStatusMeta(account, t)
@@ -189,6 +191,11 @@ const ListRow = memo(function ListRow({
               <span className="text-[9px] text-purple-500">${breakdown.overageCharges.toFixed(2)}</span>
             )}
           </div>
+        )}
+        {!isOverage && overageCapability === 'OVERAGE_CAPABLE' && (
+          <span className={`text-[9px] mt-0.5 block ${overageStatus === 'ENABLED' ? 'text-green-500' : 'text-muted-foreground'}`}>
+            {overageStatus === 'ENABLED' ? '⚡超额已开' : '⚡可开超额'}
+          </span>
         )}
       </div>
 
