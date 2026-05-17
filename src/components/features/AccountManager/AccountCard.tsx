@@ -229,18 +229,28 @@ const AccountCard = memo(function AccountCard({
             )}
           </div>
           {breakdown?.currentOverages != null && breakdown.currentOverages > 0 && (
-            <div className="flex items-center justify-between text-[10px] pt-1.5 mt-1.5 border-t border-border/30">
-              <span className="text-purple-500 font-medium">
-                ⚡ {formatUsage(breakdown.currentOverages)}{breakdown.overageCap ? ` / ${formatUsage(breakdown.overageCap)}` : ''} credits
-              </span>
-              {breakdown.overageCharges != null && (
-                <span className="text-purple-500 font-bold">${breakdown.overageCharges.toFixed(2)}</span>
+            <div className="pt-1.5 mt-1.5 border-t border-border/30">
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-purple-500 font-medium">
+                  ⚡ {formatUsage(breakdown.currentOverages)}{breakdown.overageCap ? ` / ${formatUsage(breakdown.overageCap)}` : ''} credits
+                </span>
+                {breakdown.overageCharges != null && (
+                  <span className="text-purple-500 font-bold">${breakdown.overageCharges.toFixed(2)}</span>
+                )}
+              </div>
+              {breakdown.overageCap > 0 && (
+                <div className="h-1 rounded-full bg-purple-500/10 mt-1 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-purple-500 transition-all duration-500"
+                    style={{ width: `${Math.min((breakdown.currentOverages / breakdown.overageCap) * 100, 100)}%` }}
+                  />
+                </div>
               )}
             </div>
           )}
           {(breakdown?.currentOverages === 0 || breakdown?.currentOverages == null) && account.usageData?.overageConfiguration?.overageStatus === 'ENABLED' && account.usageData?.subscriptionInfo?.overageCapability === 'OVERAGE_CAPABLE' && (
             <div className="flex items-center justify-between text-[10px] pt-1.5 mt-1.5 border-t border-border/30">
-              <span className="text-green-500 font-medium">⚡ 超额已开启</span>
+              <span className="text-green-500 font-medium">⚡ 超额已开启{breakdown?.overageCap ? ` (上限 ${formatUsage(breakdown.overageCap)})` : ''}</span>
               {breakdown?.overageRate != null && (
                 <span className="text-muted-foreground">${breakdown.overageRate}/credit</span>
               )}
