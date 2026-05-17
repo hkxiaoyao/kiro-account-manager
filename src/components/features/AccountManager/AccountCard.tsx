@@ -1,6 +1,5 @@
 import { memo, useCallback, useMemo } from 'react'
 import { Eye, Copy, Check, Edit2, RefreshCcw, Key, LogIn, LogOut, Trash2 } from 'lucide-react'
-import { invoke } from '@tauri-apps/api/core'
 import { useApp } from '../../../hooks/useApp'
 import { usePrivacy } from '../../../contexts/PrivacyContext'
 import { Switch } from '../../ui/switch'
@@ -105,7 +104,7 @@ const AccountCard = memo(function AccountCard({
   return (
     <div
       onContextMenu={handleContextMenu}
-      className={`relative rounded-xl border flex flex-col min-h-[260px] animate-stagger transition-all duration-300 ${cardStatusClass} ${account.enabled === false ? 'opacity-50 grayscale' : ''}`}
+      className={`relative rounded-xl border flex flex-col min-h-[240px] animate-stagger transition-all duration-300 ${cardStatusClass} ${account.enabled === false ? 'opacity-50 grayscale' : ''}`}
       style={{ animationDelay: `${Math.min(index, 20) * 30}ms` }}
     >
       {isCurrentAccount && (
@@ -256,48 +255,69 @@ const AccountCard = memo(function AccountCard({
           )}
         </div>
 
-        <div className="mt-auto pt-3 border-t border-border/50 flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-1 flex-wrap">
-            {account.machineId && (
-              <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted/50 border border-border/30 text-[10px] text-muted-foreground">
-                <span className="font-mono">
-                  {account.machineId.length > 12
-                    ? `${account.machineId.slice(0, 8)}...${account.machineId.slice(-4)}`
-                    : account.machineId
-                  }
-                </span>
-                <button onClick={() => onCopy(account.machineId!)} className="hover:text-primary transition-colors">
-                  <Copy size={10} />
-                </button>
-              </div>
-            )}
-            <div className="flex items-center gap-0.5 flex-wrap">
-              <button onClick={(e) => { e.stopPropagation(); onEdit(account) }} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title={t('accountCard.viewDetails')}>
-                <Eye size={16} />
-              </button>
-              <button onClick={(e) => { e.stopPropagation(); onRefreshToken?.(account.id) }} disabled={isRefreshingToken} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors disabled:opacity-50" title={t('accountCard.refreshToken')}>
-                <Key size={16} className={isRefreshingToken ? 'animate-spin' : ''} />
-              </button>
-              <button onClick={(e) => { e.stopPropagation(); onRefresh(account.id) }} disabled={isRefreshing} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors disabled:opacity-50" title={t('accountCard.refreshQuota')}>
-                <RefreshCcw size={16} className={isRefreshing ? 'animate-spin' : ''} />
-              </button>
-              <div className="w-px h-4 bg-border/50 mx-0.5" />
-              {isCurrentAccount ? (
-                <button onClick={(e) => { e.stopPropagation(); onSwitch(account) }} disabled={isSwitching} className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors disabled:opacity-50" title={t('accountCard.LogOut')}>
-                  <LogOut size={16} className={isSwitching ? 'animate-spin' : ''} />
-                </button>
-              ) : (
-                <button onClick={(e) => { e.stopPropagation(); onSwitch(account) }} disabled={isSwitching || isUnavailable} className="p-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50" title={t('accountCard.LogIn')}>
-                  <LogIn size={16} className={isSwitching ? 'animate-spin' : ''} />
-                </button>
-              )}
-              <button onClick={(e) => { e.stopPropagation(); onEditLabel ? onEditLabel(account) : onEdit(account) }} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title={t('accountCard.editRemark')}>
-                <Edit2 size={16} />
-              </button>
-              <button onClick={(e) => { e.stopPropagation(); onDelete(account.id) }} className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title={t('accountCard.delete')}>
-                <Trash2 size={16} />
-              </button>
-            </div>
+        <div className="mt-auto pt-2.5 border-t border-border/50 flex items-center gap-1">
+          {/* 主操作：登录/登出（带文字） */}
+          {isCurrentAccount ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); onSwitch(account) }}
+              disabled={isSwitching}
+              className="flex-1 h-8 px-2 rounded-md inline-flex items-center justify-center gap-1.5 text-xs font-medium bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors disabled:opacity-50"
+              title={t('accountCard.LogOut')}
+            >
+              <LogOut size={13} className={isSwitching ? 'animate-spin' : ''} />
+              {t('accountCard.LogOut')}
+            </button>
+          ) : (
+            <button
+              onClick={(e) => { e.stopPropagation(); onSwitch(account) }}
+              disabled={isSwitching || isUnavailable}
+              className="flex-1 h-8 px-2 rounded-md inline-flex items-center justify-center gap-1.5 text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+              title={t('accountCard.LogIn')}
+            >
+              <LogIn size={13} className={isSwitching ? 'animate-spin' : ''} />
+              {t('accountCard.LogIn')}
+            </button>
+          )}
+
+          {/* 次操作：图标按钮组 */}
+          <div className="flex items-center gap-0.5 border-l border-border/50 pl-1 ml-0.5">
+            <button
+              onClick={(e) => { e.stopPropagation(); onEdit(account) }}
+              className="h-8 w-8 rounded-md inline-flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              title={t('accountCard.viewDetails')}
+            >
+              <Eye size={14} />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onRefresh(account.id) }}
+              disabled={isRefreshing}
+              className="h-8 w-8 rounded-md inline-flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+              title={t('accountCard.refreshQuota')}
+            >
+              <RefreshCcw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onRefreshToken?.(account.id) }}
+              disabled={isRefreshingToken}
+              className="h-8 w-8 rounded-md inline-flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+              title={t('accountCard.refreshToken')}
+            >
+              <Key size={14} className={isRefreshingToken ? 'animate-spin' : ''} />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onEditLabel ? onEditLabel(account) : onEdit(account) }}
+              className="h-8 w-8 rounded-md inline-flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              title={t('accountCard.editRemark')}
+            >
+              <Edit2 size={14} />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(account.id) }}
+              className="h-8 w-8 rounded-md inline-flex items-center justify-center hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+              title={t('accountCard.delete')}
+            >
+              <Trash2 size={14} />
+            </button>
           </div>
         </div>
       </div>
