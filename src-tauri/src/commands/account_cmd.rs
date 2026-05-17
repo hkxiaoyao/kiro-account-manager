@@ -1717,6 +1717,7 @@ pub async fn set_overage_status(
     use crate::clients::http_client::resolve_kiro_upstream_region;
     use crate::clients::kiro_q_client::KiroQClient;
     use crate::commands::machine_guid::get_machine_id;
+    use crate::core::usage::OverageCapability;
 
     // 1. 从 state 获取账号
     let account = {
@@ -1725,17 +1726,15 @@ pub async fn set_overage_status(
     }
     .ok_or("Account not found")?;
 
-    // 检查是否为 Pro 账号（OVERAGE_CAPABLE）
-    let is_overage_capable = account
-        .usage_data
-        .as_ref()
-        .and_then(|d| d.get("subscriptionInfo"))
-        .and_then(|s| s.get("overageCapability"))
-        .and_then(|v| v.as_str())
-        == Some("OVERAGE_CAPABLE");
-
-    if !is_overage_capable {
-        return Err("此账号不支持超额功能".to_string());
+    // 资格预检：必须是 OVERAGE_CAPABLE 才能开关超额
+    match OverageCapability::from_usage_data(account.usage_data.as_ref()) {
+        OverageCapability::Capable => {}
+        OverageCapability::Incapable => {
+            return Err("此账号订阅级别不支持超额（仅 Pro / Pro+ 可开启）".to_string());
+        }
+        OverageCapability::Unknown => {
+            return Err("无法判断账号超额资格，请先点击「检测」刷新账号信息".to_string());
+        }
     }
 
     let access_token = account.access_token.as_ref().ok_or("No access token")?.clone();

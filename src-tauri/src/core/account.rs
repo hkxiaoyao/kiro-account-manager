@@ -435,44 +435,8 @@ fn is_unavailable_status(status: &str) -> bool {
     )
 }
 
-fn usage_number(source: &serde_json::Value, integer_key: &str, precise_key: &str) -> Option<f64> {
-    source
-        .get(precise_key)
-        .and_then(serde_json::Value::as_f64)
-        .or_else(|| source.get(integer_key).and_then(serde_json::Value::as_f64))
-}
-
 fn is_usage_capped(usage_data: Option<&serde_json::Value>) -> bool {
-    let Some(usage_data) = usage_data else {
-        return false;
-    };
-
-    let Some(breakdown) = usage_data
-        .get("usageBreakdownList")
-        .and_then(serde_json::Value::as_array)
-        .and_then(|items| items.first())
-    else {
-        return false;
-    };
-
-    if usage_data
-        .get("overageConfiguration")
-        .and_then(|config| config.get("overageStatus"))
-        .and_then(serde_json::Value::as_str)
-        != Some("DISABLED")
-    {
-        return false;
-    }
-
-    let Some(current_usage) = usage_number(breakdown, "currentUsage", "currentUsageWithPrecision")
-    else {
-        return false;
-    };
-    let Some(usage_limit) = usage_number(breakdown, "usageLimit", "usageLimitWithPrecision") else {
-        return false;
-    };
-
-    usage_limit > 0.0 && current_usage >= usage_limit
+    crate::core::usage::is_usage_capped(usage_data)
 }
 
 pub struct AccountStore {

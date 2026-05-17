@@ -3416,54 +3416,7 @@ fn persist_account_refresh(
 }
 
 fn usage_exceeds_threshold(usage_data: &Value, threshold: i32) -> bool {
-    let Some((current, limit)) = extract_usage_totals(usage_data) else {
-        return false;
-    };
-    if limit <= 0 {
-        return false;
-    }
-
-    // 如果超额已开启，使用 (usageLimit + overageCap) 作为总限额
-    let overage_enabled = usage_data
-        .get("overageConfiguration")
-        .and_then(|cfg| cfg.get("overageStatus"))
-        .and_then(Value::as_str)
-        == Some("ENABLED");
-
-    let effective_limit = if overage_enabled {
-        let overage_cap = usage_data
-            .get("usageBreakdownList")
-            .and_then(Value::as_array)
-            .and_then(|arr| arr.first())
-            .and_then(|b| b.get("overageCap"))
-            .and_then(Value::as_i64)
-            .unwrap_or(0);
-        limit + overage_cap
-    } else {
-        limit
-    };
-
-    if effective_limit <= 0 {
-        return false;
-    }
-
-    (current as f64 / effective_limit as f64) * 100.0 >= f64::from(threshold)
-}
-
-fn extract_usage_totals(usage_data: &Value) -> Option<(i64, i64)> {
-    let breakdown = usage_data
-        .get("usageBreakdownList")
-        .and_then(Value::as_array)?
-        .first()?;
-    let current = breakdown
-        .get("currentUsage")
-        .and_then(Value::as_i64)
-        .unwrap_or(0);
-    let limit = breakdown
-        .get("usageLimit")
-        .and_then(Value::as_i64)
-        .unwrap_or(0);
-    Some((current, limit))
+    crate::core::usage::usage_exceeds_threshold(Some(usage_data), f64::from(threshold))
 }
 
 
