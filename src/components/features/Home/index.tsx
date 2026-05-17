@@ -8,7 +8,7 @@ import { usePrivacy } from '../../../contexts/PrivacyContext'
 import { getThemeAccent } from '../KiroConfig/themeAccent'
 import { getQuota, getUsed, getSubPlan } from '../../../utils/accountStats'
 import { getProviderDisplayName, isGitHubProvider } from '../../../utils/accountProvider'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -16,7 +16,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 // 子组件
 import LoadingSkeleton from './LoadingSkeleton'
 import StatCard from './StatCard'
-import React from 'react'
 
 interface HomeProps {
   onNavigate: (path: string) => void;
@@ -25,22 +24,19 @@ interface HomeProps {
 function Home({ onNavigate }: HomeProps) {
   const { t, theme } = useApp()
   const accent = useMemo(() => getThemeAccent(theme), [theme])
-  const colors = useMemo(() => ({
-    inputFocus: 'focus:ring-primary/20 focus:border-primary',
-  }), [])
 
   const { showError } = useDialog()
   const { maskEmail } = usePrivacy()
-  const { 
-    accounts: tokens, 
-    localToken, 
-    loading, 
+  const {
+    accounts: tokens,
+    localToken,
+    loading,
     refreshing,
-    stats, 
+    stats,
     currentAccount,
     currentQuotaInfo,
     refresh,
-    refreshAccount 
+    refreshAccount,
   } = useAccount()
   
   const [refreshingAccount, setRefreshingAccount] = useState(false)
@@ -126,70 +122,64 @@ function Home({ onNavigate }: HomeProps) {
   ], [accent, stats, mcpToolCount, t, onNavigate])
 
   if (loading) {
-    return <LoadingSkeleton colors={colors} />
+    return <LoadingSkeleton />
   }
 
   return (
-    <div className="h-full overflow-auto flex flex-col items-center">
-      {/* 背景装饰光晕 */}
-      <div className="bg-glow bg-glow-1" />
-      <div className="bg-glow bg-glow-2" />
-      
-      <div className="w-full p-8 relative">
-        {/* Header */}
-        <div className="mb-6 animate-bounce-in">
-          <div className="flex items-center gap-3 mb-2">
-            <div className={`w-12 h-12 bg-gradient-to-br ${accent.gradientFrom} ${accent.gradientTo} rounded-2xl flex items-center justify-center shadow-lg ${accent.shadow} animate-float`}>
-              <Sparkles size={24} className="text-white" />
-            </div>
-            <h1 className="text-2xl font-bold text-foreground">{t('home.title')}</h1>
+    <div className="h-full overflow-auto glass-main p-5">
+      <div className="w-full max-w-6xl mx-auto">
+        {/* Header（紧凑）*/}
+        <div className="mb-4 flex items-center gap-2.5 animate-slide-in-left">
+          <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${accent.gradientFrom} ${accent.gradientTo} flex items-center justify-center shadow-md ring-1 ring-primary/20`}>
+            <Sparkles size={18} className="text-white" />
           </div>
-          <p className="text-muted-foreground">{t('home.subtitle')}</p>
+          <div className="flex flex-col">
+            <h1 className="text-base font-semibold text-foreground leading-tight">{t('home.title')}</h1>
+            <p className="text-xs text-muted-foreground leading-tight">{t('home.subtitle')}</p>
+          </div>
         </div>
 
         {/* 统计卡片 */}
-        <div className="grid grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-3">
           {statCards.map((card, index) => (
             <StatCard key={index} {...card} />
           ))}
         </div>
 
-        {/* 主卡片：当前账号 | 推荐账号 */}
-        <Card className="card-glow animate-scale-in delay-300 mb-6">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 border-b border-border">
+        {/* 主卡片：当前账号 | CLI 账号 */}
+        <Card className="card-glow animate-scale-in delay-300">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
             <div className="flex items-center gap-2">
-              <Sparkles size={16} className={accent.text} />
-              <span className="font-semibold text-foreground">Kiro 账号</span>
+              <Sparkles size={14} className={accent.text} />
+              <span className="text-sm font-semibold text-foreground">Kiro 账号</span>
             </div>
-            <div className="flex items-center gap-2">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleRefreshCurrentAccount}
-                      disabled={refreshingAccount || refreshing}
-                      className={refreshingAccount ? 'spinning' : ''}
-                    >
-                      <RefreshCw size={14} className="text-muted-foreground" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>{t('common.refresh')}</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-          </CardHeader>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleRefreshCurrentAccount}
+                    disabled={refreshingAccount || refreshing}
+                    className={`h-7 w-7 ${refreshingAccount ? 'spinning' : ''}`}
+                  >
+                    <RefreshCw size={13} className="text-muted-foreground" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{t('common.refresh')}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
 
           <CardContent className="p-0">
-            <div className="flex">
-              {/* 左侧：当前账号完整解析 */}
-              <div className="flex-[3] p-5 flex flex-col gap-4">
-                <span className="text-[11px] font-bold uppercase text-muted-foreground tracking-wider">
+            <div className="grid grid-cols-1 md:grid-cols-[3fr_2fr]">
+              {/* 左：当前 IDE 账号 */}
+              <div className="p-4 flex flex-col gap-3">
+                <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">
                   当前 IDE 账号
                 </span>
                 {currentAccount ? (
-                  <CurrentAccountDetail 
+                  <CurrentAccountDetail
                     account={currentAccount}
                     accent={accent}
                     maskEmail={maskEmail}
@@ -202,13 +192,10 @@ function Home({ onNavigate }: HomeProps) {
                 )}
               </div>
 
-              {/* 分隔线 */}
-              <div className="w-px bg-border self-stretch" />
-
-              {/* 右侧：CLI 账号详情 */}
-              <div className="flex-[2] p-5 flex flex-col gap-4 bg-muted/20">
-                <span className="text-[11px] font-bold uppercase text-muted-foreground tracking-wider flex items-center gap-1.5">
-                  <Terminal size={12} />
+              {/* 右：CLI 账号 */}
+              <div className="p-4 flex flex-col gap-3 bg-muted/20 border-t md:border-t-0 md:border-l border-border">
+                <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider flex items-center gap-1.5">
+                  <Terminal size={11} />
                   当前 CLI 账号
                 </span>
                 {cliLoading ? (
@@ -218,32 +205,31 @@ function Home({ onNavigate }: HomeProps) {
                 ) : cliSnapshot ? (
                   <CliAccountDetail snapshot={cliSnapshot} cliPath={cliPath} />
                 ) : cliInstalled ? (
-                  <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm flex-col gap-2">
-                    <Terminal size={24} className="text-muted-foreground/50" />
+                  <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm flex-col gap-1.5 py-8">
+                    <Terminal size={20} className="text-muted-foreground/50" />
                     <span>CLI 已安装，未登录</span>
-                    <span className="text-xs text-muted-foreground/70">请运行 kiro-cli login 登录</span>
+                    <span className="text-[11px] text-muted-foreground/70">请运行 kiro-cli login 登录</span>
                   </div>
                 ) : (
-                  <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm flex-col gap-2">
-                    <Terminal size={24} className="text-muted-foreground/50" />
+                  <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm flex-col gap-1.5 py-8">
+                    <Terminal size={20} className="text-muted-foreground/50" />
                     <span>CLI 未安装</span>
-                    <span className="text-xs text-muted-foreground/70">请安装 Kiro CLI 后重启</span>
+                    <span className="text-[11px] text-muted-foreground/70">请安装 Kiro CLI 后重启</span>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* 底部操作 */}
-            <div 
-              className="mx-3 mb-3 py-2 flex items-center justify-center gap-2 rounded-lg bg-primary/5 border border-primary/10 text-primary text-sm font-semibold cursor-pointer hover:bg-primary/10 transition-all"
+            {/* 底部跳转 */}
+            <button
               onClick={() => onNavigate?.('accounts')}
+              className="w-full py-2.5 flex items-center justify-center gap-2 border-t border-border bg-primary/5 hover:bg-primary/10 text-primary text-sm font-medium transition-colors"
             >
-              <ArrowRightLeft size={14} />
+              <ArrowRightLeft size={13} />
               查看全部账号
-            </div>
+            </button>
           </CardContent>
         </Card>
-
       </div>
     </div>
   )
