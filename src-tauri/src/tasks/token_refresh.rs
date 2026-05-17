@@ -6,7 +6,7 @@ use crate::commands::common::{
     refresh_token_by_provider, REFRESH_LOOP_INTERVAL_SECONDS,
 };
 use crate::state::AppState;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use tokio::time::{interval, Duration};
 
 /// Token 刷新服务
@@ -47,6 +47,9 @@ impl TokenRefreshService {
             store.reload();
             store.accounts.clone()
         };
+
+        // 本轮是否有账号被刷新或失效，用于决定是否通知前端
+        let mut any_changed = false;
 
         for account in accounts {
             // 跳过已禁用或无效的账号
@@ -118,6 +121,7 @@ impl TokenRefreshService {
                                 if let Err(e) = store.try_save_to_file() {
                                     log::error!("Failed to save account after refresh: {}", e);
                                 } else {
+                                    any_changed = true;
                                     log::info!(
                                         "Token refresh loop: refresh completed successfully for {}",
                                         email_display
@@ -153,6 +157,7 @@ impl TokenRefreshService {
                                     acc.status = "invalid".to_string();
                                     acc.enabled = false;
                                     let _ = store.try_save_to_file();
+                                    any_changed = true;
                                     log::warn!(
                                         "Token refresh loop: marked account {} as invalid",
                                         email_display
@@ -163,6 +168,11 @@ impl TokenRefreshService {
                     }
                 }
             }
+        }
+
+        // 本轮有任何账号被刷新/失效，通知前端重新加载列表
+        if any_changed {
+            let _ = self.app_handle.emit("accounts-updated", ());
         }
 
         Ok(())
