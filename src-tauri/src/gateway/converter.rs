@@ -854,12 +854,23 @@ pub async fn build_kiro_payload(
 
     for message in &request.messages {
         if message.role == "system" {
-            let text = extract_text_content(message.content.as_ref());
+            let mut text = extract_text_content(message.content.as_ref());
             if !text.is_empty() {
-                if !system_prompt.is_empty() {
-                    system_prompt.push_str("\n\n");
+                // 清洗 system prompt：移除边界标记和已有的 thinking_mode 标签
+                text = text
+                    .replace("--- SYSTEM PROMPT ---", "")
+                    .replace("--- END SYSTEM PROMPT ---", "")
+                    .replace("<thinking_mode>enabled</thinking_mode>", "")
+                    .replace("<max_thinking_length>200000</max_thinking_length>", "")
+                    .trim()
+                    .to_string();
+
+                if !text.is_empty() {
+                    if !system_prompt.is_empty() {
+                        system_prompt.push_str("\n\n");
+                    }
+                    system_prompt.push_str(&text);
                 }
-                system_prompt.push_str(&text);
             }
         } else {
             other_messages.push(message);
