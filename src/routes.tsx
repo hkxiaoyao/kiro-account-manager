@@ -17,7 +17,6 @@ export const routes: RouteConfig[] = [
   { id: 'kiroConfig', icon: Settings2, nameKey: 'nav.kiroConfig', component: lazy(() => import('./components/features/KiroConfig/KiroConfig')) },
   { id: 'sessions', icon: MessageSquare, nameKey: 'nav.sessions', component: lazy(() => import('./components/features/SessionManager/index')) },
   { id: 'gateway', icon: Network, nameKey: 'nav.gateway', component: lazy(() => import('./components/features/Gateway/index')) },
-  { id: 'mitmProxy', icon: Shield, nameKey: 'nav.mitmProxy', component: lazy(() => import('./components/features/MitmProxy/index')) },
   { id: 'settings', icon: Settings, nameKey: 'nav.settings', component: lazy(() => import('./components/features/Settings/index')) },
   { id: 'about', icon: Info, nameKey: 'nav.about', component: lazy(() => import('./components/features/About/index')) },
 ]
