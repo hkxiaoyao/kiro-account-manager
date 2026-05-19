@@ -391,6 +391,51 @@ fn convert_openai_chat_tools(tools: Option<&Value>) -> Option<Vec<Tool>> {
     convert_responses_tools(tools)
 }
 
+/// 规范化工具名称为 Kiro API 接受的格式
+///
+/// Kiro API 要求工具名称必须是纯 camelCase 格式（不能包含下划线或横杠）
+/// 将分隔符（_、-、多下划线命名空间前缀）转换为 camelCase 边界
+fn sanitize_tool_name(name: &str) -> String {
+    // 按下划线和横杠分割
+    let parts: Vec<&str> = name
+        .split(|c| c == '_' || c == '-')
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    if parts.is_empty() {
+        return "tool".to_string();
+    }
+
+    // 构建 camelCase：第一部分小写开头，其余部分首字母大写
+    let mut result = String::new();
+    for (i, part) in parts.iter().enumerate() {
+        if part.is_empty() {
+            continue;
+        }
+        if i == 0 {
+            // 第一部分：首字母小写
+            let mut chars = part.chars();
+            if let Some(first) = chars.next() {
+                result.push_str(&first.to_lowercase().to_string());
+                result.push_str(chars.as_str());
+            }
+        } else {
+            // 其余部分：首字母大写
+            let mut chars = part.chars();
+            if let Some(first) = chars.next() {
+                result.push_str(&first.to_uppercase().to_string());
+                result.push_str(chars.as_str());
+            }
+        }
+    }
+
+    if result.is_empty() {
+        "tool".to_string()
+    } else {
+        result
+    }
+}
+
 /// 缩短工具名称以符合 Kiro API 的 64 字符限制
 ///
 /// 对于 MCP 工具（格式：mcp__server__tool），尝试缩短为 mcp__tool
@@ -417,10 +462,11 @@ fn shorten_tool_name(name: &str) -> String {
 }
 
 fn convert_anthropic_tool(tool: &crate::gateway::models::AnthropicTool) -> Tool {
+    let sanitized = shorten_tool_name(&sanitize_tool_name(&tool.name));
     Tool {
         tool_type: "function".to_string(),
         function: ToolFunction {
-            name: shorten_tool_name(&tool.name),
+            name: sanitized,
             description: tool.description.clone(),
             parameters: Some(normalize_json_schema(tool.input_schema.clone())),
         },
@@ -1397,7 +1443,7 @@ fn convert_responses_tool(item: &Value) -> Option<Tool> {
 
     if item.get("function").is_some() {
         let mut tool: Tool = serde_json::from_value(item.clone()).ok()?;
-        tool.function.name = shorten_tool_name(&tool.function.name);
+        tool.function.name = shorten_tool_name(&sanitize_tool_name(&tool.function.name));
         return Some(tool);
     }
 
@@ -1421,7 +1467,7 @@ fn convert_responses_tool(item: &Value) -> Option<Tool> {
         return Some(Tool {
             tool_type: "function".to_string(),
             function: ToolFunction {
-                name: shorten_tool_name(&name),
+                name: shorten_tool_name(&sanitize_tool_name(&name)),
                 description,
                 parameters,
             },
