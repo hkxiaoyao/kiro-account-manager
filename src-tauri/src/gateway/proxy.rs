@@ -1812,6 +1812,7 @@ pub async fn proxy_handler(
             request.tools.clone(),
             request.tool_choice.clone(),
             request.previous_response_id.clone(),
+            request.tool_name_map.clone(),
             static_log_context,
         );
     }
@@ -1988,6 +1989,13 @@ pub async fn proxy_handler(
                 cache_usage.cache_read_input_tokens,
                 cache_usage.cache_creation_input_tokens
             );
+        }
+    }
+
+    // 还原工具名称（sanitized -> original）
+    for (_, name, _) in &mut aggregated.tool_calls {
+        if let Some(original) = request.tool_name_map.get(name.as_str()) {
+            *name = original.clone();
         }
     }
 
@@ -3141,10 +3149,15 @@ fn stream_proxy_response(
     request_tools: Option<Vec<Tool>>,
     request_tool_choice: Option<Value>,
     previous_response_id: Option<String>,
+    tool_name_map: std::collections::HashMap<String, String>,
     log_context: RequestLogContext<'static>,
 ) -> Response {
     let (tx, rx) = mpsc::channel::<Result<Bytes, Infallible>>(2048);
     tokio::spawn(async move {
+        // 辅助函数：还原工具名称（sanitized -> original）
+        let restore_tool_name = |sanitized: &str| -> String {
+            tool_name_map.get(sanitized).cloned().unwrap_or_else(|| sanitized.to_string())
+        };
         let mut upstream_stream = upstream_resp.bytes_stream();
         let mut raw_buffer = Vec::new();
         let mut parser = ThinkingParser::new();
@@ -3393,9 +3406,11 @@ fn stream_proxy_response(
                                         }
                                         KiroEvent::ToolUseStart { id, name } => {
                                             saw_tool_calls = true;
+                                            // 还原工具名称
+                                            let original_name = restore_tool_name(&name);
                                             tool_accumulators
                                                 .entry(id.clone())
-                                                .or_insert((name.clone(), String::new()));
+                                                .or_insert((original_name.clone(), String::new()));
                                             match format {
                                                 ResponseFormat::Anthropic => {
                                                     ensure_anthropic_message_start(

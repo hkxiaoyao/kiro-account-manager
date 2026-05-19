@@ -285,6 +285,7 @@ async fn generate_summary(
             tool_choice: None,
             previous_response_id: None,
             thinking: None,
+            tool_name_map: std::collections::HashMap::new(),
         },
         None,
         None,

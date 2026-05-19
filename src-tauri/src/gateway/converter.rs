@@ -65,10 +65,19 @@ pub fn normalize_anthropic_request(request: &AnthropicMessagesRequest) -> Normal
         });
     }
 
-    let tools = request
-        .tools
-        .as_ref()
-        .map(|tools| tools.iter().map(convert_anthropic_tool).collect());
+    let mut tool_name_map = std::collections::HashMap::new();
+    let tools = request.tools.as_ref().map(|tools| {
+        tools
+            .iter()
+            .map(|tool| {
+                let (converted_tool, mapping) = convert_anthropic_tool(tool);
+                if let Some((sanitized, original)) = mapping {
+                    tool_name_map.insert(sanitized, original);
+                }
+                converted_tool
+            })
+            .collect()
+    });
 
     let mut normalized = NormalizedRequest {
         model: request.model.clone(),
@@ -82,6 +91,7 @@ pub fn normalize_anthropic_request(request: &AnthropicMessagesRequest) -> Normal
         tool_choice: request.tool_choice.clone(),
         previous_response_id: None,
         thinking: request.thinking.clone(),
+        tool_name_map,
     };
 
     // 检测模型名是否包含 "thinking" 后缀，若包含则自动启用 thinking
@@ -124,11 +134,13 @@ pub fn normalize_responses_request(payload: &Value) -> Result<NormalizedRequest,
         return Err("Responses 请求缺少可转换的 input".to_string());
     }
 
+    let (tools, tool_name_map) = convert_responses_tools(payload.get("tools"));
     Ok(build_normalized_request_from_payload(
         payload,
         model,
         messages,
-        convert_responses_tools(payload.get("tools")),
+        tools,
+        tool_name_map,
     ))
 }
 
@@ -144,11 +156,13 @@ fn normalize_openai_chat_payload(payload: &Value) -> Result<NormalizedRequest, S
         return Err("chat.completions 请求缺少可转换的 messages".to_string());
     }
 
+    let (tools, tool_name_map) = convert_openai_chat_tools(payload.get("tools"));
     Ok(build_normalized_request_from_payload(
         payload,
         model,
         messages,
-        convert_openai_chat_tools(payload.get("tools")),
+        tools,
+        tool_name_map,
     ))
 }
 
@@ -214,13 +228,27 @@ pub fn normalize_openai_chat_request(request: &OpenAIChatRequest) -> NormalizedR
         messages.push(create_tool_results_message(&pending_tool_results));
     }
 
+    let mut tool_name_map = std::collections::HashMap::new();
     let tools = request.tools.as_ref().map(|tools| {
         tools
             .iter()
-            .map(|t| Tool {
-                tool_type: t.tool_type.clone(),
-                function: t.function.clone(),
-                cache_control: None,
+            .map(|t| {
+                let original_name = t.function.name.clone();
+                let sanitized_name = shorten_tool_name(&sanitize_tool_name(&original_name));
+
+                if sanitized_name != original_name {
+                    tool_name_map.insert(sanitized_name.clone(), original_name);
+                }
+
+                Tool {
+                    tool_type: t.tool_type.clone(),
+                    function: ToolFunction {
+                        name: sanitized_name,
+                        description: t.function.description.clone(),
+                        parameters: t.function.parameters.clone(),
+                    },
+                    cache_control: None,
+                }
             })
             .collect()
     });
@@ -237,6 +265,7 @@ pub fn normalize_openai_chat_request(request: &OpenAIChatRequest) -> NormalizedR
         tool_choice: request.tool_choice.clone(),
         previous_response_id: None,
         thinking: None,
+        tool_name_map,
     }
 }
 
@@ -264,6 +293,7 @@ fn build_normalized_request_from_payload(
     model: String,
     messages: Vec<NormalizedMessage>,
     tools: Option<Vec<Tool>>,
+    tool_name_map: std::collections::HashMap<String, String>,
 ) -> NormalizedRequest {
     NormalizedRequest {
         model,
@@ -305,6 +335,7 @@ fn build_normalized_request_from_payload(
             .filter(|value| !value.is_empty())
             .map(str::to_string),
         thinking: None,
+        tool_name_map,
     }
 }
 
@@ -387,7 +418,7 @@ fn convert_openai_chat_content(content: &Value) -> Value {
     }
 }
 
-fn convert_openai_chat_tools(tools: Option<&Value>) -> Option<Vec<Tool>> {
+fn convert_openai_chat_tools(tools: Option<&Value>) -> (Option<Vec<Tool>>, std::collections::HashMap<String, String>) {
     convert_responses_tools(tools)
 }
 
@@ -461,17 +492,37 @@ fn shorten_tool_name(name: &str) -> String {
     name.chars().take(64).collect()
 }
 
-fn convert_anthropic_tool(tool: &crate::gateway::models::AnthropicTool) -> Tool {
+/// 转换 Anthropic 工具定义，返回 (Tool, Option<(sanitized_name, original_name)>)
+fn convert_anthropic_tool(tool: &crate::gateway::models::AnthropicTool) -> (Tool, Option<(String, String)>) {
     let sanitized = shorten_tool_name(&sanitize_tool_name(&tool.name));
-    Tool {
+
+    // 截断超长描述（和 Kiro-Go 保持一致）
+    let description = tool.description.as_ref().map(|desc| {
+        if desc.len() > TOOL_DESCRIPTION_MAX_LENGTH {
+            format!("{}...", &desc[..TOOL_DESCRIPTION_MAX_LENGTH])
+        } else {
+            desc.clone()
+        }
+    });
+
+    let converted_tool = Tool {
         tool_type: "function".to_string(),
         function: ToolFunction {
-            name: sanitized,
-            description: tool.description.clone(),
+            name: sanitized.clone(),
+            description,
             parameters: Some(normalize_json_schema(tool.input_schema.clone())),
         },
         cache_control: tool.cache_control.clone(),
-    }
+    };
+
+    // 如果工具名被修改，记录映射关系
+    let mapping = if sanitized != tool.name {
+        Some((sanitized, tool.name.clone()))
+    } else {
+        None
+    };
+
+    (converted_tool, mapping)
 }
 
 pub fn get_internal_model_id(external_model: &str) -> Result<String, String> {
@@ -1427,31 +1478,55 @@ fn extract_anthropic_message_metadata(
     }
 }
 
-fn convert_responses_tools(tools: Option<&Value>) -> Option<Vec<Tool>> {
-    let items = tools?.as_array()?;
-    let converted: Vec<Tool> = items.iter().filter_map(convert_responses_tool).collect();
+fn convert_responses_tools(tools: Option<&Value>) -> (Option<Vec<Tool>>, std::collections::HashMap<String, String>) {
+    let mut tool_name_map = std::collections::HashMap::new();
+
+    let Some(items) = tools.and_then(Value::as_array) else {
+        return (None, tool_name_map);
+    };
+
+    let converted: Vec<Tool> = items
+        .iter()
+        .filter_map(|item| {
+            let (tool, mapping) = convert_responses_tool(item)?;
+            if let Some((sanitized, original)) = mapping {
+                tool_name_map.insert(sanitized, original);
+            }
+            Some(tool)
+        })
+        .collect();
 
     if converted.is_empty() {
-        None
+        (None, tool_name_map)
     } else {
-        Some(converted)
+        (Some(converted), tool_name_map)
     }
 }
 
-fn convert_responses_tool(item: &Value) -> Option<Tool> {
+fn convert_responses_tool(item: &Value) -> Option<(Tool, Option<(String, String)>)> {
     let item_type = item.get("type").and_then(Value::as_str).unwrap_or_default();
 
     if item.get("function").is_some() {
         let mut tool: Tool = serde_json::from_value(item.clone()).ok()?;
-        tool.function.name = shorten_tool_name(&sanitize_tool_name(&tool.function.name));
-        return Some(tool);
+        let original_name = tool.function.name.clone();
+        let sanitized_name = shorten_tool_name(&sanitize_tool_name(&original_name));
+        tool.function.name = sanitized_name.clone();
+
+        let mapping = if sanitized_name != original_name {
+            Some((sanitized_name, original_name))
+        } else {
+            None
+        };
+
+        return Some((tool, mapping));
     }
 
     // 修复：MCP 工具缺少 type 字段导致之前被跳过
     // MCP 格式：{ "name": "...", "description": "...", "inputSchema": {...} }
     // 转换为 OpenAI 格式：{ "type": "function", "function": { "name": "...", "parameters": {...} } }
     if item_type.is_empty() && item.get("name").is_some() {
-        let name = item.get("name").and_then(Value::as_str)?.to_string();
+        let original_name = item.get("name").and_then(Value::as_str)?.to_string();
+        let sanitized_name = shorten_tool_name(&sanitize_tool_name(&original_name));
         let description = item
             .get("description")
             .and_then(Value::as_str)
@@ -1464,33 +1539,54 @@ fn convert_responses_tool(item: &Value) -> Option<Tool> {
             .cloned()
             .or_else(|| item.get("parameters").cloned());
 
-        return Some(Tool {
-            tool_type: "function".to_string(),
-            function: ToolFunction {
-                name: shorten_tool_name(&sanitize_tool_name(&name)),
-                description,
-                parameters,
+        let mapping = if sanitized_name != original_name {
+            Some((sanitized_name.clone(), original_name))
+        } else {
+            None
+        };
+
+        return Some((
+            Tool {
+                tool_type: "function".to_string(),
+                function: ToolFunction {
+                    name: sanitized_name,
+                    description,
+                    parameters,
+                },
+                cache_control: None,
             },
-            cache_control: None,
-        });
+            mapping,
+        ));
     }
 
     if item_type != "function" {
         return None;
     }
 
-    Some(Tool {
-        tool_type: "function".to_string(),
-        function: ToolFunction {
-            name: item.get("name").and_then(Value::as_str)?.to_string(),
-            description: item
-                .get("description")
-                .and_then(Value::as_str)
-                .map(str::to_string),
-            parameters: item.get("parameters").cloned(),
+    let original_name = item.get("name").and_then(Value::as_str)?.to_string();
+    let sanitized_name = shorten_tool_name(&sanitize_tool_name(&original_name));
+
+    let mapping = if sanitized_name != original_name {
+        Some((sanitized_name.clone(), original_name))
+    } else {
+        None
+    };
+
+    Some((
+        Tool {
+            tool_type: "function".to_string(),
+            function: ToolFunction {
+                name: sanitized_name,
+                description: item
+                    .get("description")
+                    .and_then(Value::as_str)
+                    .map(str::to_string),
+                parameters: item.get("parameters").cloned(),
+            },
+            cache_control: None,
         },
-        cache_control: None,
-    })
+        mapping,
+    ))
 }
 
 fn extract_anthropic_tool_calls(content: &Value) -> Option<Vec<ToolCall>> {
@@ -2532,17 +2628,61 @@ fn normalize_json_schema(value: Value) -> Value {
         _ => Map::new(),
     };
 
+    // 清理 schema（删除 required: null 和空数组，递归清理嵌套结构）
+    clean_schema(&mut schema);
+
+    // 确保顶层有 type: "object"
     if !schema.contains_key("type") {
         schema.insert("type".to_string(), Value::String("object".to_string()));
     }
-    if !matches!(schema.get("properties"), Some(Value::Object(_))) {
-        schema.insert("properties".to_string(), Value::Object(Map::new()));
-    }
-    if !matches!(schema.get("required"), Some(Value::Array(_))) {
-        schema.insert("required".to_string(), Value::Array(Vec::new()));
-    }
 
     Value::Object(schema)
+}
+
+/// 递归清理 JSON Schema，删除无效的 required 字段
+/// Kiro API 会拒绝 required: null 或空的 required: []
+fn clean_schema(schema: &mut Map<String, Value>) {
+    // 修复 required 字段：必须是非空数组或不存在
+    if let Some(required) = schema.get("required") {
+        let should_remove = match required {
+            Value::Null => true,
+            Value::Array(arr) if arr.is_empty() => true,
+            _ => false,
+        };
+        if should_remove {
+            schema.remove("required");
+        }
+    }
+
+    // 递归清理 properties
+    if let Some(Value::Object(properties)) = schema.get_mut("properties") {
+        for value in properties.values_mut() {
+            if let Value::Object(sub_schema) = value {
+                clean_schema(sub_schema);
+            }
+        }
+    }
+
+    // 递归清理 items
+    if let Some(Value::Object(items)) = schema.get_mut("items") {
+        clean_schema(items);
+    }
+
+    // 递归清理 additionalProperties
+    if let Some(Value::Object(additional)) = schema.get_mut("additionalProperties") {
+        clean_schema(additional);
+    }
+
+    // 递归清理 allOf, oneOf, anyOf
+    for key in &["allOf", "oneOf", "anyOf"] {
+        if let Some(Value::Array(schemas)) = schema.get_mut(*key) {
+            for item in schemas {
+                if let Value::Object(sub_schema) = item {
+                    clean_schema(sub_schema);
+                }
+            }
+        }
+    }
 }
 
 fn process_tools_with_long_descriptions(

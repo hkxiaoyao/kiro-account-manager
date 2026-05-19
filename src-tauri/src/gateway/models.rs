@@ -60,6 +60,10 @@ pub struct NormalizedRequest {
     pub previous_response_id: Option<String>,
     #[serde(default)]
     pub thinking: Option<Thinking>,
+    /// 工具名称反向映射表：sanitized_name -> original_name
+    /// 用于在响应中还原工具名称（camelCase -> snake_case）
+    #[serde(skip)]
+    pub tool_name_map: std::collections::HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
