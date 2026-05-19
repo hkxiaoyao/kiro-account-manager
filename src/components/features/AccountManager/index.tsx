@@ -455,11 +455,11 @@ function AccountManager({ onNavigate }: AccountManagerProps) {
   // 批量删除
   const onBatchDelete = useCallback(async () => {
     if (selectedIds.length === 0) return
-    
+
     // 防呆：检查是否包含当前账号
     const currentAccount = accounts.find(a => localToken?.refreshToken && a.refreshToken === localToken.refreshToken)
     const includesCurrent = currentAccount && selectedIds.includes(currentAccount.id)
-    
+
     if (includesCurrent) {
       const confirmed = await showConfirm(
         '⚠️ 批量删除包含当前账号',
@@ -470,9 +470,10 @@ function AccountManager({ onNavigate }: AccountManagerProps) {
       const confirmed = await showConfirm(t('accounts.batchDelete'), t('accounts.confirmDeleteMultiple', { count: selectedIds.length }))
       if (!confirmed) return
     }
-    
+
     await invoke('delete_accounts', { ids: selectedIds })
     removeAccountsLocally(selectedIds)
+    setSelectedIds([]) // 清除选中状态
   }, [accounts, selectedIds, localToken, removeAccountsLocally, showConfirm, t])
 
   return (
@@ -498,7 +499,8 @@ function AccountManager({ onNavigate }: AccountManagerProps) {
             showError(t('accounts.refreshSelectFirst') || '请先选择要刷新的账号')
             return
           }
-          batchRefreshAccounts(selectedIds, accounts)
+          await batchRefreshAccounts(selectedIds, accounts)
+          setSelectedIds([]) // 清除选中状态
         }}
         autoRefreshing={autoRefreshing}
         refreshProgress={refreshProgress}
