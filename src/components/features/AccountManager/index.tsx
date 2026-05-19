@@ -491,7 +491,8 @@ function AccountManager({ onNavigate }: AccountManagerProps) {
             showError(t('accounts.exportSelectFirst') || '请先选择要导出的账号')
             return
           }
-          handleExport(selectedIds)
+          await handleExport(selectedIds)
+          setSelectedIds([]) // 清除选中状态
         }}
         onRefresh={loadAccounts}
         onRefreshAll={async () => {
